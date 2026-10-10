@@ -1,0 +1,16 @@
+{
+  "name": "pos-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-tenant POS with government-style PDF invoices (NestJS + React + MongoDB)",
+  "scripts": {
+    "install:all": "npm --prefix apps/api install && npm --prefix apps/web install && npm --prefix apps/pdf-worker install",
+    "infra": "docker compose up -d mongo redis",
+    "dev:api": "npm --prefix apps/api run start:dev",
+    "dev:worker": "npm --prefix apps/pdf-worker run dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "test:api": "npm --prefix apps/api test",
+    "build": "npm --prefix apps/api run build && npm --prefix apps/pdf-worker run build && npm --prefix apps/web run build",
+    "seed": "npx tsx scripts/seed.ts"
+  }
+}

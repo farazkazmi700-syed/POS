@@ -1,0 +1,54 @@
+# =====================================================================
+# AI-Based POS - Python services (analytics-service + chatbot-service)
+# Place at: apps/analytics-service/requirements.txt
+# Install:  pip install -r requirements.txt   (inside the venv)
+# Lower bounds are used so pip resolves current compatible versions;
+# run `pip freeze > requirements.lock.txt` after install to pin them.
+# =====================================================================
+
+# ---------- API framework ----------
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+pydantic-settings>=2.4
+python-dotenv>=1.0
+httpx>=0.27
+
+# ---------- Database / cache / queue ----------
+pymongo>=4.9            # includes the async client (AsyncMongoClient)
+redis>=5.0
+
+# ---------- Data processing ----------
+numpy>=1.26
+pandas>=2.2
+scipy>=1.13
+
+# ---------- Sales analytics & ML ----------
+scikit-learn>=1.5       # clustering, regression, anomaly detection (IsolationForest)
+statsmodels>=0.14       # time-series forecasting (ARIMA / SARIMAX)
+xgboost>=2.1            # demand / best-seller prediction
+joblib>=1.4             # save/load trained models
+
+# ---------- Visualization / reports ----------
+matplotlib>=3.9
+
+# ---------- Chatbot: LLM + RAG ----------
+openai>=1.40            # OpenAI-compatible client (also works with Ollama / vLLM endpoints)
+ollama>=0.3             # local LLaMA 3 via Ollama
+sentence-transformers>=3.0   # embeddings for product/sales RAG (installs PyTorch)
+qdrant-client>=1.10     # vector database client
+tiktoken>=0.7           # token counting / chunking
+
+# ---------- Auth between services ----------
+pyjwt>=2.8
+
+# ---------- Testing & code quality ----------
+pytest>=8.2
+pytest-asyncio>=0.23
+ruff>=0.5
+mypy>=1.10
+
+# ---------- Optional (uncomment if needed) ----------
+# tensorflow>=2.16      # deep-learning forecasting (large install)
+# prophet>=1.1          # alternative forecasting library
+# langchain>=0.2        # only if you want a RAG framework instead of hand-rolled

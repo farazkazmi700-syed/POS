@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>INV-2026-000241</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #1a1a1a; margin: 0; }
+  table { width: 100%; border-collapse: collapse; }
+  .right { text-align: right; }
+  .center { text-align: center; }
+  .muted { color: #666; }
+  .head td { vertical-align: top; }
+  .biz { font-size: 20px; font-weight: bold; margin: 0 0 4px; }
+  .title { font-size: 22px; font-weight: bold; letter-spacing: 2px; text-align: right; margin: 0 0 6px; }
+  .meta td { padding: 2px 0; }
+  .rule { border: 0; border-top: 2px solid #1a1a1a; margin: 14px 0; }
+  .items th { background: #f0f0f0; text-align: left; padding: 7px 6px; font-size: 10px; text-transform: uppercase; border-bottom: 1px solid #999; }
+  .items td { padding: 7px 6px; border-bottom: 1px solid #e3e3e3; }
+  .items th.right, .items td.right { text-align: right; }
+  .totals { width: 52%; margin-left: auto; margin-top: 12px; }
+  .totals td { padding: 4px 6px; }
+  .grand td { border-top: 2px solid #1a1a1a; border-bottom: 2px solid #1a1a1a; font-size: 14px; font-weight: bold; padding: 8px 6px; }
+  .section { margin-top: 18px; }
+  .section h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  .tax th { background: #f0f0f0; padding: 5px 6px; font-size: 10px; text-align: right; text-transform: uppercase; }
+  .tax th:first-child, .tax td:first-child { text-align: left; }
+  .tax td { padding: 5px 6px; border-bottom: 1px solid #e3e3e3; text-align: right; }
+  .footer td { vertical-align: bottom; }
+  .qr { width: 96px; height: 96px; }
+  .thanks { text-align: center; margin-top: 24px; color: #666; font-size: 10px; }
+</style>
+</head>
+<body>
+
+<table class="head">
+  <tr>
+    <td style="width:58%">
+      
+      <p class="biz">Faraz Retail Store</p>
+      <div>Main Boulevard, Gulberg, Lahore</div>
+      <div><strong>Tax reg. no (NTN/STRN):</strong> 1234567-8</div>
+    </td>
+    <td>
+      <p class="title">TAX INVOICE</p>
+      <table class="meta">
+        <tr><td class="muted">Invoice no.</td><td class="right"><strong>INV-2026-000241</strong></td></tr>
+        <tr><td class="muted">Date</td><td class="right">10 Oct 2026, 18:17</td></tr>
+        <tr><td class="muted">Cashier</td><td class="right">Ali Raza</td></tr>
+        <tr><td class="muted">Payment</td><td class="right">CASH</td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<hr class="rule" style="margin:10px 0" />
+<div><span class="muted">Billed to:</span> <strong>Walk-in customer</strong> &nbsp;·&nbsp; 0300-1234567</div>
+
+<hr class="rule" />
+
+<table class="items">
+  <thead>
+    <tr>
+      <th style="width:4%">#</th>
+      <th>Description</th>
+      <th class="right">Qty</th>
+      <th class="right">Unit price</th>
+      <th class="right">Disc.</th>
+      <th class="right">Tax</th>
+      <th class="right">Amount (PKR)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>Wireless mouse</td>
+      <td class="right">1</td>
+      <td class="right">1,800.00</td>
+      <td class="right">90.00</td>
+      <td class="right">18%</td>
+      <td class="right">2,017.80</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Notebook A5</td>
+      <td class="right">2</td>
+      <td class="right">220.00</td>
+      <td class="right">22.00</td>
+      <td class="right">18%</td>
+      <td class="right">493.24</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Green tea 250g (reduced rate)</td>
+      <td class="right">1</td>
+      <td class="right">450.00</td>
+      <td class="right">-</td>
+      <td class="right">5%</td>
+      <td class="right">472.50</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="totals">
+  <tr><td class="muted">Subtotal</td><td class="right">2,690.00</td></tr>
+  <tr><td class="muted">Discount</td><td class="right">- 112.00</td></tr>
+  <tr><td class="muted">Taxable amount</td><td class="right">2,578.00</td></tr>
+  <tr><td class="muted">Total tax</td><td class="right">405.54</td></tr>
+  <tr><td class="muted">Service charge (5%)</td><td class="right">128.90</td></tr>
+  <tr><td class="muted">Packaging</td><td class="right">20.00</td></tr>
+  <tr class="grand"><td>TOTAL (PKR)</td><td class="right">3,132.44</td></tr>
+</table>
+
+<div class="section">
+  <h4>Tax breakdown</h4>
+  <table class="tax">
+    <thead><tr><th>Rate</th><th>Taxable amount</th><th>Tax amount</th></tr></thead>
+    <tbody>
+      <tr><td>18%</td><td>2,128.00</td><td>383.04</td></tr>
+      <tr><td>5%</td><td>450.00</td><td>22.50</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<table class="footer section">
+  <tr>
+    <td>
+      <div class="muted">Scan the QR code to verify this invoice.</div>
+      <div class="muted" style="margin-top:4px">This is a computer-generated invoice.</div>
+    </td>
+    <td class="right"><img class="qr" src="data:image/png;base64,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&#x3D;" alt="Invoice QR code" /></td>
+  </tr>
+</table>
+
+<div class="thanks">Thank you for your business!</div>
+
+</body>
+</html>

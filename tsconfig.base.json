@@ -1,0 +1,10 @@
+{
+  "//": "Reference compiler options shared in spirit by every TypeScript app (each app keeps its own tsconfig so Docker builds stay self-contained).",
+  "compilerOptions": {
+    "target": "ES2022",
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true
+  }
+}

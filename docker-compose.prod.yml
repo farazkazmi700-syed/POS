@@ -1,0 +1,23 @@
+# Production overlay:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Differences: databases are not published to the host, secrets are mandatory, containers restart on failure.
+# Put a TLS terminator (Caddy / Traefik / Cloudflare) in front of the "web" container.
+services:
+  mongo:
+    restart: unless-stopped
+    ports: !reset []
+  redis:
+    restart: unless-stopped
+    ports: !reset []
+  api:
+    restart: unless-stopped
+    ports: !reset []
+    environment:
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in .env}
+      CORS_ORIGIN: ${CORS_ORIGIN:?set CORS_ORIGIN in .env}
+  pdf-worker:
+    restart: unless-stopped
+  web:
+    restart: unless-stopped
+    ports: ["80:80"]

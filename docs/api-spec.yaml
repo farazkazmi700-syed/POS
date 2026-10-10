@@ -1,0 +1,629 @@
+openapi: 3.0.0
+paths:
+  /api/auth/register:
+    post:
+      operationId: AuthController_register
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+      responses:
+        '201':
+          description: ''
+      tags:
+        - auth
+  /api/auth/login:
+    post:
+      operationId: AuthController_login
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginDto'
+      responses:
+        '201':
+          description: ''
+      tags:
+        - auth
+  /api/auth/refresh:
+    post:
+      operationId: AuthController_refresh
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshDto'
+      responses:
+        '201':
+          description: ''
+      tags:
+        - auth
+  /api/auth/me:
+    get:
+      operationId: AuthController_me
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - auth
+  /api/auth/staff:
+    post:
+      operationId: AuthController_createStaff
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStaffDto'
+      responses:
+        '201':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - auth
+    get:
+      operationId: AuthController_listStaff
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - auth
+  /api/tenant/me:
+    get:
+      operationId: TenantController_me
+      parameters: []
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - tenant
+    patch:
+      operationId: TenantController_update
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTenantDto'
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - tenant
+  /api/products:
+    get:
+      operationId: ProductController_findAll
+      parameters:
+        - name: q
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: category
+          required: false
+          in: query
+          schema:
+            type: string
+        - name: lowStock
+          required: false
+          in: query
+          schema:
+            type: boolean
+        - name: includeInactive
+          required: false
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          required: false
+          in: query
+          schema:
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            default: 30
+            type: number
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - products
+    post:
+      operationId: ProductController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductDto'
+      responses:
+        '201':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - products
+  /api/products/{id}:
+    get:
+      operationId: ProductController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - products
+    patch:
+      operationId: ProductController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProductDto'
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - products
+    delete:
+      operationId: ProductController_remove
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - products
+  /api/products/bulk:
+    post:
+      operationId: ProductController_bulk
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkCreateProductsDto'
+      responses:
+        '201':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - products
+  /api/orders/preview:
+    post:
+      operationId: OrderController_preview
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewOrderDto'
+      responses:
+        '201':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - orders
+  /api/orders:
+    post:
+      operationId: OrderController_create
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderDto'
+      responses:
+        '201':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - orders
+    get:
+      operationId: OrderController_list
+      parameters:
+        - name: page
+          required: false
+          in: query
+          schema:
+            default: 1
+            type: number
+        - name: limit
+          required: false
+          in: query
+          schema:
+            default: 20
+            type: number
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - orders
+  /api/orders/stats/summary:
+    get:
+      operationId: OrderController_summary
+      parameters:
+        - name: days
+          required: false
+          in: query
+          schema:
+            default: 7
+            type: number
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - orders
+  /api/orders/{id}:
+    get:
+      operationId: OrderController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - orders
+  /api/orders/{id}/void:
+    post:
+      operationId: OrderController_void
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '201':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - orders
+  /api/orders/{id}/invoice:
+    get:
+      operationId: InvoiceController_status
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - invoices
+  /api/orders/{id}/invoice/pdf:
+    get:
+      operationId: InvoiceController_pdf
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - invoices
+  /api/orders/{id}/invoice/regenerate:
+    post:
+      operationId: InvoiceController_regenerate
+      parameters:
+        - name: id
+          required: true
+          in: path
+          schema:
+            type: string
+      responses:
+        '201':
+          description: ''
+      security:
+        - bearer: []
+      tags:
+        - invoices
+info:
+  title: POS API
+  description: ''
+  version: '1.0'
+  contact: {}
+tags: []
+servers: []
+components:
+  securitySchemes:
+    bearer:
+      scheme: bearer
+      bearerFormat: JWT
+      type: http
+  schemas:
+    RegisterDto:
+      type: object
+      properties:
+        businessName:
+          type: string
+        domainType:
+          type: string
+          enum:
+            - retail
+            - restaurant
+            - pharmacy
+            - salon
+            - custom
+        ownerName:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        taxRegNo:
+          type: string
+        address:
+          type: string
+        currency:
+          type: string
+          example: PKR
+      required:
+        - businessName
+        - domainType
+        - ownerName
+        - email
+        - password
+    LoginDto:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+    RefreshDto:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+      required:
+        - refreshToken
+    CreateStaffDto:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum:
+            - admin
+            - cashier
+      required:
+        - name
+        - email
+        - password
+        - role
+    TaxProfileDto:
+      type: object
+      properties: {}
+    UpdateTenantDto:
+      type: object
+      properties:
+        name:
+          type: string
+        domainType:
+          type: string
+          enum:
+            - retail
+            - restaurant
+            - pharmacy
+            - salon
+            - custom
+        address:
+          type: string
+        taxRegNo:
+          type: string
+        currency:
+          type: string
+        invoicePrefix:
+          type: string
+        logoUrl:
+          type: string
+        taxProfile:
+          $ref: '#/components/schemas/TaxProfileDto'
+    CreateProductDto:
+      type: object
+      properties:
+        name:
+          type: string
+        sku:
+          type: string
+        category:
+          type: string
+        unit:
+          type: string
+          example: pcs
+        price:
+          type: number
+        costPrice:
+          type: number
+        stockQty:
+          type: number
+        lowStockThreshold:
+          type: number
+        trackStock:
+          type: boolean
+        taxClass:
+          type: string
+          enum:
+            - standard
+            - reduced
+            - exempt
+        attributes:
+          type: object
+          description: Free-form, domain-specific fields
+        imageUrl:
+          type: string
+      required:
+        - name
+        - price
+    BulkCreateProductsDto:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateProductDto'
+      required:
+        - products
+    UpdateProductDto:
+      type: object
+      properties:
+        name:
+          type: string
+        sku:
+          type: string
+        category:
+          type: string
+        unit:
+          type: string
+          example: pcs
+        price:
+          type: number
+        costPrice:
+          type: number
+        stockQty:
+          type: number
+        lowStockThreshold:
+          type: number
+        trackStock:
+          type: boolean
+        taxClass:
+          type: string
+          enum:
+            - standard
+            - reduced
+            - exempt
+        attributes:
+          type: object
+          description: Free-form, domain-specific fields
+        imageUrl:
+          type: string
+        isActive:
+          type: boolean
+    OrderItemDto:
+      type: object
+      properties:
+        productId:
+          type: string
+        qty:
+          type: number
+          example: 1
+        discountPercent:
+          type: number
+          example: 0
+      required:
+        - productId
+        - qty
+    PreviewOrderDto:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemDto'
+      required:
+        - items
+    CustomerDto:
+      type: object
+      properties: {}
+    CreateOrderDto:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemDto'
+        paymentMode:
+          type: string
+          enum:
+            - cash
+            - card
+            - wallet
+        customer:
+          $ref: '#/components/schemas/CustomerDto'
+        note:
+          type: string
+      required:
+        - items
+        - paymentMode

@@ -1,0 +1,63 @@
+# Development / single-server stack:  docker compose up --build
+# Open the app at http://localhost:8080   (API docs: http://localhost:3000/api/docs)
+services:
+  mongo:
+    image: mongo:7
+    volumes: [mongo_data:/data/db]
+    ports: ["27017:27017"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redis_data:/data]
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    environment:
+      PORT: 3000
+      MONGO_URI: mongodb://mongo:27017/pos
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-me}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      STORAGE_DIR: /data/invoices
+      REPORT_TZ: ${REPORT_TZ:-Asia/Karachi}
+    volumes: [invoice_data:/data/invoices]
+    ports: ["3000:3000"]
+    depends_on:
+      mongo: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  pdf-worker:
+    build: { context: ., dockerfile: apps/pdf-worker/Dockerfile }
+    environment:
+      MONGO_URI: mongodb://mongo:27017/pos
+      REDIS_URL: redis://redis:6379
+      STORAGE_DIR: /data/invoices
+      REPORT_TZ: ${REPORT_TZ:-Asia/Karachi}
+      WORKER_CONCURRENCY: 2
+    volumes: [invoice_data:/data/invoices]
+    depends_on:
+      mongo: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  web:
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    ports: ["8080:80"]
+    depends_on: [api]
+
+volumes:
+  mongo_data:
+  redis_data:
+  invoice_data:

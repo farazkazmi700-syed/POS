@@ -1,0 +1,7 @@
+{
+  "name": "@pos/shared-types",
+  "version": "1.0.0",
+  "private": true,
+  "types": "src/index.ts",
+  "description": "Plain TypeScript interfaces describing the API contract (consumed by the web app)."
+}

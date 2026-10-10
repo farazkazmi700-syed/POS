@@ -1,0 +1,233 @@
+export type Role = 'owner' | 'admin' | 'cashier';
+export type DomainType = 'retail' | 'restaurant' | 'pharmacy' | 'salon' | 'custom';
+export type TaxClass = 'standard' | 'reduced' | 'exempt';
+export type PaymentMode = 'cash' | 'card' | 'wallet' | 'installment';
+export type OrderStatus = 'completed' | 'voided';
+export type InvoiceStatus = 'pending' | 'ready' | 'failed';
+
+export interface ChargeRule {
+  label: string;
+  type: 'flat' | 'percent';
+  value: number;
+}
+
+export interface TaxProfile {
+  gstPercent: number;
+  reducedGstPercent: number;
+  serviceChargePercent: number;
+  otherCharges: ChargeRule[];
+}
+
+export interface Tenant {
+  _id: string;
+  name: string;
+  domainType: DomainType;
+  logoUrl?: string;
+  address?: string;
+  taxRegNo?: string;
+  currency: string;
+  invoicePrefix: string;
+  taxProfile: TaxProfile;
+  installmentMarkupPercent: number;
+}
+
+export interface UserSummary {
+  _id: string;
+  tenantId: string;
+  name: string;
+  email: string;
+  role: Role;
+  isActive?: boolean;
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: UserSummary;
+}
+
+export interface Product {
+  _id: string;
+  name: string;
+  sku?: string;
+  category?: string;
+  unit: string;
+  price: number;
+  costPrice: number;
+  stockQty: number;
+  lowStockThreshold: number;
+  trackStock: boolean;
+  taxClass: TaxClass;
+  attributes: Record<string, string | number | boolean>;
+  imageUrl?: string;
+  isActive: boolean;
+}
+
+export interface Paginated<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface OrderItemInput {
+  productId: string;
+  qty: number;
+  discountPercent?: number;
+  serialNo?: string;
+}
+
+export interface OrderLine {
+  productId: string;
+  name: string;
+  qty: number;
+  unitPrice: number;
+  discountPercent: number;
+  discountAmount: number;
+  taxPercent: number;
+  taxAmount: number;
+  lineTotal: number;
+}
+
+export interface TaxBreakdownRow {
+  ratePercent: number;
+  taxableAmount: number;
+  taxAmount: number;
+}
+
+export interface ChargeAmount {
+  label: string;
+  amount: number;
+}
+
+export interface OrderTotals {
+  lines: OrderLine[];
+  subtotal: number;
+  discountTotal: number;
+  taxableTotal: number;
+  taxTotal: number;
+  charges: ChargeAmount[];
+  chargesTotal: number;
+  grandTotal: number;
+  taxBreakdown: TaxBreakdownRow[];
+}
+
+export interface Order {
+  _id: string;
+  invoiceNo: string;
+  cashierName: string;
+  items: OrderLine[];
+  subtotal: number;
+  discountTotal: number;
+  taxableTotal: number;
+  taxTotal: number;
+  charges: ChargeAmount[];
+  chargesTotal: number;
+  grandTotal: number;
+  taxBreakdown: TaxBreakdownRow[];
+  paymentMode: PaymentMode;
+  customer?: { name?: string; phone?: string };
+  note?: string;
+  status: OrderStatus;
+  invoiceStatus: InvoiceStatus;
+  installmentPlanId?: string;
+  createdAt: string;
+}
+
+export interface SalesSummary {
+  days: number;
+  revenue: number;
+  orders: number;
+  tax: number;
+  discounts: number;
+  daily: { date: string; revenue: number; orders: number }[];
+  topProducts: { productId: string; name: string; qty: number; revenue: number }[];
+}
+
+// ---------- customers & installments ----------
+export interface Guarantor {
+  name?: string;
+  phone?: string;
+  cnic?: string;
+  address?: string;
+}
+
+export interface Customer {
+  _id: string;
+  name: string;
+  phone: string;
+  cnic?: string;
+  address?: string;
+  guarantor?: Guarantor;
+  notes?: string;
+}
+
+export interface InstallmentQuote {
+  cashTotal: number;
+  downPayment: number;
+  markupPercent: number;
+  markupAmount: number;
+  totalPayable: number;
+  financedAmount: number;
+  months: number;
+  monthlyAmount: number;
+  firstDueDate: string;
+  schedule: { no: number; dueDate: string; amount: number }[];
+}
+
+export interface ScheduleEntry {
+  no: number;
+  dueDate: string; // YYYY-MM-DD
+  amount: number;
+  paidAmount: number;
+  status: 'pending' | 'partial' | 'paid';
+}
+
+export interface PlanPayment {
+  receiptNo: string;
+  amount: number;
+  paidAt: string;
+  mode: 'cash' | 'card' | 'wallet';
+  receivedBy: string;
+  note?: string;
+}
+
+export interface InstallmentPlan {
+  _id: string;
+  orderId: string;
+  invoiceNo: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  customerCnic?: string;
+  customerAddress?: string;
+  guarantor?: Guarantor;
+  items: { name: string; qty: number; serialNo?: string }[];
+  cashTotal: number;
+  downPayment: number;
+  markupPercent: number;
+  markupAmount: number;
+  totalPayable: number;
+  financedAmount: number;
+  months: number;
+  monthlyAmount: number;
+  firstDueDate: string;
+  schedule: ScheduleEntry[];
+  payments: PlanPayment[];
+  paidTotal: number;
+  balance: number;
+  status: 'active' | 'completed';
+  createdByName: string;
+  createdAt: string;
+  overdueAmount: number;
+  overdueCount: number;
+  nextDue: { dueDate: string; amount: number } | null;
+}
+
+export interface InstallmentStats {
+  activePlans: number;
+  outstanding: number;
+  overdueAmount: number;
+  overduePlans: number;
+  collectedToday: number;
+}

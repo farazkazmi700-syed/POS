@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>{{invoiceNo}}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #1a1a1a; margin: 0; position: relative; }
+  .page { position: relative; z-index: 1; }
+  .logo-watermark { position: fixed; left: 50%; top: 50%; width: 420px; height: 420px; transform: translate(-50%, -50%) rotate(-20deg); opacity: 0.08; pointer-events: none; z-index: 0; }
+  .logo-watermark img { width: 100%; height: 100%; object-fit: contain; filter: grayscale(100%); }
+  table { width: 100%; border-collapse: collapse; }
+  .right { text-align: right; }
+  .center { text-align: center; }
+  .muted { color: #666; }
+  .head td { vertical-align: top; }
+  .biz { font-size: 20px; font-weight: bold; margin: 0 0 4px; }
+  .title { font-size: 22px; font-weight: bold; letter-spacing: 2px; text-align: right; margin: 0 0 6px; }
+  .meta td { padding: 2px 0; }
+  .rule { border: 0; border-top: 2px solid #1a1a1a; margin: 14px 0; }
+  .items th { background: #f0f0f0; text-align: left; padding: 7px 6px; font-size: 10px; text-transform: uppercase; border-bottom: 1px solid #999; }
+  .items td { padding: 7px 6px; border-bottom: 1px solid #e3e3e3; }
+  .items th.right, .items td.right { text-align: right; }
+  .totals { width: 52%; margin-left: auto; margin-top: 12px; }
+  .totals td { padding: 4px 6px; }
+  .grand td { border-top: 2px solid #1a1a1a; border-bottom: 2px solid #1a1a1a; font-size: 14px; font-weight: bold; padding: 8px 6px; }
+  .section { margin-top: 18px; }
+  .section h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  .tax th { background: #f0f0f0; padding: 5px 6px; font-size: 10px; text-align: right; text-transform: uppercase; }
+  .tax th:first-child, .tax td:first-child { text-align: left; }
+  .tax td { padding: 5px 6px; border-bottom: 1px solid #e3e3e3; text-align: right; }
+  .footer td { vertical-align: bottom; }
+  .qr { width: 96px; height: 96px; }
+  .thanks { text-align: center; margin-top: 24px; color: #666; font-size: 10px; }
+</style>
+</head>
+<body>
+{{#if tenant.logoUrl}}
+<div class="logo-watermark"><img src="{{tenant.logoUrl}}" alt="Business logo watermark" /></div>
+{{/if}}
+
+<div class="page">
+<table class="head">
+  <tr>
+    <td style="width:58%">
+      {{#if tenant.logoUrl}}<img src="{{tenant.logoUrl}}" alt="" style="max-height:48px;margin-bottom:6px" /><br />{{/if}}
+      <p class="biz">{{tenant.name}}</p>
+      {{#if tenant.address}}<div>{{tenant.address}}</div>{{/if}}
+      {{#if tenant.taxRegNo}}<div><strong>Tax reg. no (NTN/STRN):</strong> {{tenant.taxRegNo}}</div>{{/if}}
+    </td>
+    <td>
+      <p class="title">TAX INVOICE</p>
+      <table class="meta">
+        <tr><td class="muted">Invoice no.</td><td class="right"><strong>{{invoiceNo}}</strong></td></tr>
+        <tr><td class="muted">Date</td><td class="right">{{issuedAt}}</td></tr>
+        <tr><td class="muted">Cashier</td><td class="right">{{cashierName}}</td></tr>
+        <tr><td class="muted">Payment</td><td class="right">{{upper paymentMode}}</td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+{{#if customer}}
+<hr class="rule" style="margin:10px 0" />
+<div><span class="muted">Billed to:</span> <strong>{{customer.name}}</strong>{{#if customer.phone}} &nbsp;·&nbsp; {{customer.phone}}{{/if}}</div>
+{{/if}}
+
+<hr class="rule" />
+
+<table class="items">
+  <thead>
+    <tr>
+      <th style="width:4%">#</th>
+      <th>Description</th>
+      <th class="right">Qty</th>
+      <th class="right">Unit price</th>
+      <th class="right">Disc.</th>
+      <th class="right">Tax</th>
+      <th class="right">Amount ({{tenant.currency}})</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each items}}
+    <tr>
+      <td>{{inc @index}}</td>
+      <td>{{name}}</td>
+      <td class="right">{{qty qty}}</td>
+      <td class="right">{{money unitPrice}}</td>
+      <td class="right">{{#if discountAmount}}{{money discountAmount}}{{else}}-{{/if}}</td>
+      <td class="right">{{pct taxPercent}}</td>
+      <td class="right">{{money lineTotal}}</td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>
+
+<table class="totals">
+  <tr><td class="muted">Subtotal</td><td class="right">{{money totals.subtotal}}</td></tr>
+  {{#if totals.discountTotal}}<tr><td class="muted">Discount</td><td class="right">- {{money totals.discountTotal}}</td></tr>{{/if}}
+  <tr><td class="muted">Taxable amount</td><td class="right">{{money totals.taxableTotal}}</td></tr>
+  <tr><td class="muted">Total tax</td><td class="right">{{money totals.taxTotal}}</td></tr>
+  {{#each totals.charges}}
+  <tr><td class="muted">{{label}}</td><td class="right">{{money amount}}</td></tr>
+  {{/each}}
+  <tr class="grand"><td>TOTAL ({{tenant.currency}})</td><td class="right">{{money totals.grandTotal}}</td></tr>
+</table>
+
+<div class="section">
+  <h4>Tax breakdown</h4>
+  <table class="tax">
+    <thead><tr><th>Rate</th><th>Taxable amount</th><th>Tax amount</th></tr></thead>
+    <tbody>
+      {{#each totals.taxBreakdown}}
+      <tr><td>{{pct ratePercent}}</td><td>{{money taxableAmount}}</td><td>{{money taxAmount}}</td></tr>
+      {{/each}}
+    </tbody>
+  </table>
+</div>
+
+<table class="footer section">
+  <tr>
+    <td>
+      <div class="muted">Scan the QR code to verify this invoice.</div>
+      <div class="muted" style="margin-top:4px">This is a computer-generated invoice.</div>
+    </td>
+    <td class="right"><img class="qr" src="{{qrDataUrl}}" alt="Invoice QR code" /></td>
+  </tr>
+</table>
+
+<div class="thanks">Thank you for your business!</div>
+
+</div>
+
+</body>
+</html>

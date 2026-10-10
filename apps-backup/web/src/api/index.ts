@@ -1,0 +1,89 @@
+import type {
+  AuthResponse, Order, OrderItemInput, OrderTotals, Paginated, PaymentMode, Product, SalesSummary,
+  TaxClass, TaxProfile, Tenant, UserSummary,
+} from '@pos/shared-types';
+import { api } from './client';
+
+export interface ProductInput {
+  name: string;
+  sku?: string;
+  category?: string;
+  unit?: string;
+  price: number;
+  costPrice?: number;
+  stockQty?: number;
+  lowStockThreshold?: number;
+  trackStock?: boolean;
+  taxClass?: TaxClass;
+  attributes?: Record<string, string | number | boolean>;
+  imageUrl?: string;
+  isActive?: boolean;
+}
+
+export interface TenantUpdate {
+  name?: string;
+  address?: string;
+  taxRegNo?: string;
+  currency?: string;
+  invoicePrefix?: string;
+  taxProfile?: TaxProfile;
+}
+
+export const authApi = {
+  login: (body: { email: string; password: string }) => api.post<AuthResponse>('/auth/login', body).then((r) => r.data),
+  register: (body: {
+    businessName: string; domainType: string; ownerName: string; email: string; password: string;
+    taxRegNo?: string; address?: string;
+  }) => api.post<AuthResponse>('/auth/register', body).then((r) => r.data),
+  staff: () => api.get<UserSummary[]>('/auth/staff').then((r) => r.data),
+  addStaff: (body: { name: string; email: string; password: string; role: 'admin' | 'cashier' }) =>
+    api.post<UserSummary>('/auth/staff', body).then((r) => r.data),
+};
+
+export const tenantApi = {
+  get: () => api.get<Tenant>('/tenant/me').then((r) => r.data),
+  update: (body: TenantUpdate) => api.patch<Tenant>('/tenant/me', body).then((r) => r.data),
+};
+
+export const productApi = {
+  list: (params: { q?: string; category?: string; lowStock?: boolean; includeInactive?: boolean; page?: number; limit?: number }) =>
+    api.get<Paginated<Product>>('/products', { params }).then((r) => r.data),
+  create: (body: ProductInput) => api.post<Product>('/products', body).then((r) => r.data),
+  update: (id: string, body: Partial<ProductInput>) => api.patch<Product>(`/products/${id}`, body).then((r) => r.data),
+  remove: (id: string) => api.delete(`/products/${id}`).then((r) => r.data),
+};
+
+export const orderApi = {
+  preview: (items: OrderItemInput[]) => api.post<OrderTotals>('/orders/preview', { items }).then((r) => r.data),
+  create: (body: { items: OrderItemInput[]; paymentMode: PaymentMode; customer?: { name?: string; phone?: string } }) =>
+    api.post<Order>('/orders', body).then((r) => r.data),
+  list: (page = 1, limit = 20) => api.get<Paginated<Order>>('/orders', { params: { page, limit } }).then((r) => r.data),
+  void: (id: string) => api.post<Order>(`/orders/${id}/void`).then((r) => r.data),
+  summary: (days: number) => api.get<SalesSummary>('/orders/stats/summary', { params: { days } }).then((r) => r.data),
+};
+
+export const invoiceApi = {
+  status: (orderId: string) =>
+    api.get<{ status: 'pending' | 'ready' | 'failed'; invoiceNo: string }>(`/orders/${orderId}/invoice`).then((r) => r.data),
+  regenerate: (orderId: string) => api.post(`/orders/${orderId}/invoice/regenerate`).then((r) => r.data),
+  /** Opens the PDF in a new tab. The tab is opened synchronously so popup blockers allow it. */
+  async openPdf(orderId: string, fileName: string) {
+    const tab = window.open('', '_blank');
+    try {
+      const res = await api.get<Blob>(`/orders/${orderId}/invoice/pdf`, { responseType: 'blob' });
+      const url = URL.createObjectURL(res.data);
+      if (tab) {
+        tab.location.href = url;
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${fileName}.pdf`;
+        a.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      tab?.close();
+      throw err;
+    }
+  },
+};
