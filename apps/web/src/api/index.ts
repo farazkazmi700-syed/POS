@@ -1,6 +1,7 @@
 import type {
   AuthResponse, Customer, Guarantor, InstallmentPlan, InstallmentQuote, InstallmentStats, Order, OrderItemInput,
-  OrderTotals, Paginated, PaymentMode, PlanPayment, Product, SalesSummary, TaxClass, TaxProfile, Tenant, UserSummary,
+  OrderTotals, Paginated, PaymentMode, PlanPayment, Product, SalesSummary, TaxClass, TaxProfile, Tenant,
+  TenantNavigationKey, UserSummary,
 } from '@pos/shared-types';
 import { api } from './client';
 
@@ -29,6 +30,7 @@ export interface TenantUpdate {
   logoUrl?: string;
   taxProfile?: TaxProfile;
   installmentMarkupPercent?: number;
+  navigationVisibility?: Partial<Record<TenantNavigationKey, boolean>>;
 }
 
 export interface CustomerInput {
@@ -55,6 +57,10 @@ export const authApi = {
     businessName: string; domainType: string; ownerName: string; email: string; password: string;
     taxRegNo?: string; address?: string;
   }) => api.post<AuthResponse>('/auth/register', body).then((r) => r.data),
+  me: () => api.get<UserSummary>('/auth/me').then((r) => r.data),
+  updateProfile: (body: { name?: string; recoveryEmail?: string; phone?: string }) =>
+    api.patch<UserSummary>('/auth/me', body).then((r) => r.data),
+  verifyRecovery: (type: 'email' | 'phone') => api.post<UserSummary>('/auth/me/verify-recovery', { type }).then((r) => r.data),
   staff: () => api.get<UserSummary[]>('/auth/staff').then((r) => r.data),
   addStaff: (body: { name: string; email: string; password: string; role: 'admin' | 'cashier' }) =>
     api.post<UserSummary>('/auth/staff', body).then((r) => r.data),

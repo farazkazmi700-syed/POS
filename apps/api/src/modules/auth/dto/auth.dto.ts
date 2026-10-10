@@ -22,6 +22,16 @@ export class RefreshDto {
   @ApiProperty() @IsString() refreshToken: string;
 }
 
+export class UpdateProfileDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(2, 80) name?: string;
+  @ApiPropertyOptional() @IsOptional() @IsEmail() recoveryEmail?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(7, 32) phone?: string;
+}
+
+export class VerifyRecoveryDto {
+  @ApiProperty({ enum: ['email', 'phone'] }) @IsEnum(['email', 'phone'] as const) type: 'email' | 'phone';
+}
+
 export class CreateStaffDto {
   @ApiProperty() @IsString() @Length(2, 80) name: string;
   @ApiProperty() @IsEmail() email: string;

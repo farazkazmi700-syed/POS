@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsArray, IsEnum, IsNumber, IsOptional, IsString, Length, Max, MaxLength, Min, ValidateNested,
+  IsArray, IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Length, Max, MaxLength, Min, ValidateNested,
 } from 'class-validator';
 import { ChargeType, DomainType } from '../../../common/enums';
 
@@ -18,6 +18,16 @@ export class TaxProfileDto {
   @IsArray() @ValidateNested({ each: true }) @Type(() => ChargeRuleDto) otherCharges: ChargeRuleDto[];
 }
 
+export class NavigationVisibilityDto {
+  @IsOptional() @IsBoolean() dashboard?: boolean;
+  @IsOptional() @IsBoolean() pos?: boolean;
+  @IsOptional() @IsBoolean() products?: boolean;
+  @IsOptional() @IsBoolean() customers?: boolean;
+  @IsOptional() @IsBoolean() installments?: boolean;
+  @IsOptional() @IsBoolean() orders?: boolean;
+  @IsOptional() @IsBoolean() settings?: boolean;
+}
+
 export class UpdateTenantDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(2, 120) name?: string;
   @ApiPropertyOptional({ enum: DomainType }) @IsOptional() @IsEnum(DomainType) domainType?: DomainType;
@@ -28,4 +38,5 @@ export class UpdateTenantDto {
   @ApiPropertyOptional() @IsOptional() @IsString() logoUrl?: string;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) @Max(100) installmentMarkupPercent?: number;
   @ApiPropertyOptional({ type: TaxProfileDto }) @IsOptional() @ValidateNested() @Type(() => TaxProfileDto) taxProfile?: TaxProfileDto;
+  @ApiPropertyOptional({ type: NavigationVisibilityDto }) @IsOptional() @ValidateNested() @Type(() => NavigationVisibilityDto) navigationVisibility?: NavigationVisibilityDto;
 }

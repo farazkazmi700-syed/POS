@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthUser } from '../../common/auth-user';
@@ -7,7 +7,9 @@ import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums';
 import { AuthService } from './auth.service';
-import { CreateStaffDto, LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto';
+import {
+  CreateStaffDto, LoginDto, RefreshDto, RegisterDto, UpdateProfileDto, VerifyRecoveryDto,
+} from './dto/auth.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -38,6 +40,18 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: AuthUser) {
     return this.auth.me(user.userId);
+  }
+
+  @ApiBearerAuth()
+  @Patch('me')
+  updateProfile(@CurrentUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
+    return this.auth.updateProfile(user.userId, dto);
+  }
+
+  @ApiBearerAuth()
+  @Post('me/verify-recovery')
+  verifyRecovery(@CurrentUser() user: AuthUser, @Body() dto: VerifyRecoveryDto) {
+    return this.auth.verifyRecovery(user.userId, dto);
   }
 
   @ApiBearerAuth()

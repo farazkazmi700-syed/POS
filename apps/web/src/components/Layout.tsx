@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTenant } from '../hooks/useTenant';
 import ThemeToggle from './ThemeToggle';
 import { useAuth } from '../store/auth';
+import { TENANT_NAVIGATION_ITEMS } from '@pos/shared-types';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -11,15 +12,9 @@ export default function Layout() {
   const queryClient = useQueryClient();
   const isManager = user?.role === 'owner' || user?.role === 'admin';
 
-  const links = [
-    ...(isManager ? [{ to: '/dashboard', label: 'Dashboard' }] : []),
-    { to: '/pos', label: 'POS' },
-    ...(isManager ? [{ to: '/products', label: 'Products' }] : []),
-    { to: '/customers', label: 'Customers' },
-    { to: '/installments', label: 'Installments' },
-    { to: '/orders', label: 'Orders' },
-    ...(isManager ? [{ to: '/settings', label: 'Settings' }] : []),
-  ];
+  const links = TENANT_NAVIGATION_ITEMS.filter((item) =>
+    (!item.managerOnly || isManager) && tenant?.navigationVisibility?.[item.key] !== false,
+  );
 
   return (
     <div className="app-shell">
@@ -37,9 +32,9 @@ export default function Layout() {
           </div>
 
           <nav className="flex flex-1 flex-wrap items-center gap-1 sm:gap-1.5">
-            {links.map((l) => (
+              {links.map((l) => (
               <NavLink
-                key={l.to}
+                key={l.key}
                 to={l.to}
                 className={({ isActive }) => `nav-pill ${isActive ? 'active' : ''}`}
               >

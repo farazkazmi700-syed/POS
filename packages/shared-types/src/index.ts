@@ -18,6 +18,18 @@ export interface TaxProfile {
   otherCharges: ChargeRule[];
 }
 
+export const TENANT_NAVIGATION_ITEMS = [
+  { key: 'dashboard', to: '/dashboard', label: 'Dashboard', managerOnly: true },
+  { key: 'pos', to: '/pos', label: 'POS', managerOnly: false },
+  { key: 'products', to: '/products', label: 'Products', managerOnly: true },
+  { key: 'customers', to: '/customers', label: 'Customers', managerOnly: false },
+  { key: 'installments', to: '/installments', label: 'Installments', managerOnly: false },
+  { key: 'orders', to: '/orders', label: 'Orders', managerOnly: false },
+  { key: 'settings', to: '/settings', label: 'Settings', managerOnly: true },
+] as const;
+
+export type TenantNavigationKey = (typeof TENANT_NAVIGATION_ITEMS)[number]['key'];
+
 export interface Tenant {
   _id: string;
   name: string;
@@ -29,6 +41,7 @@ export interface Tenant {
   invoicePrefix: string;
   taxProfile: TaxProfile;
   installmentMarkupPercent: number;
+  navigationVisibility?: Partial<Record<TenantNavigationKey, boolean>>;
 }
 
 export interface UserSummary {
@@ -36,6 +49,10 @@ export interface UserSummary {
   tenantId: string;
   name: string;
   email: string;
+  phone?: string;
+  recoveryEmail?: string;
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
   role: Role;
   isActive?: boolean;
 }

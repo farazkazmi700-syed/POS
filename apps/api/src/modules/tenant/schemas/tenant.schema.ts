@@ -24,6 +24,18 @@ export class TaxProfile {
 }
 const TaxProfileSchema = SchemaFactory.createForClass(TaxProfile);
 
+@Schema({ _id: false })
+export class NavigationVisibility {
+  @Prop({ default: true }) dashboard: boolean;
+  @Prop({ default: true }) pos: boolean;
+  @Prop({ default: true }) products: boolean;
+  @Prop({ default: true }) customers: boolean;
+  @Prop({ default: true }) installments: boolean;
+  @Prop({ default: true }) orders: boolean;
+  @Prop({ default: true }) settings: boolean;
+}
+const NavigationVisibilitySchema = SchemaFactory.createForClass(NavigationVisibility);
+
 @Schema({ timestamps: true })
 export class Tenant {
   @Prop({ required: true, trim: true }) name: string;
@@ -36,6 +48,7 @@ export class Tenant {
   @Prop({ type: TaxProfileSchema, default: () => ({}) }) taxProfile: TaxProfile;
   /** Pre-filled markup % on the installment screen (the cashier can change it per sale). */
   @Prop({ default: 0, min: 0, max: 100 }) installmentMarkupPercent: number;
+  @Prop({ type: NavigationVisibilitySchema, default: () => ({}) }) navigationVisibility: NavigationVisibility;
 }
 
 export type TenantDocument = HydratedDocument<Tenant>;

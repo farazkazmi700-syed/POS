@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
@@ -7,7 +7,7 @@ import { Model } from 'mongoose';
 import { Role } from '../../common/enums';
 import { oid } from '../../common/object-id';
 import { TenantService } from '../tenant/tenant.service';
-import { CreateStaffDto, LoginDto, RegisterDto } from './dto/auth.dto';
+import { CreateStaffDto, LoginDto, RegisterDto, UpdateProfileDto, VerifyRecoveryDto } from './dto/auth.dto';
 import { User, UserDocument } from './schemas/user.schema';
 
 @Injectable()
@@ -84,10 +84,56 @@ export class AuthService {
     return this.publicUser(user);
   }
 
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException();
+
+    if (dto.name) user.name = dto.name.trim();
+    if (dto.recoveryEmail !== undefined) {
+      const recoveryEmail = dto.recoveryEmail ? dto.recoveryEmail.trim().toLowerCase() : null;
+      user.recoveryEmail = recoveryEmail;
+      user.emailVerified = recoveryEmail === user.email ? true : user.emailVerified;
+    }
+    if (dto.phone !== undefined) {
+      const phone = dto.phone ? dto.phone.trim() : null;
+      user.phone = phone;
+      user.phoneVerified = false;
+    }
+
+    await user.save();
+    return this.publicUser(user);
+  }
+
+  async verifyRecovery(userId: string, dto: VerifyRecoveryDto) {
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException();
+
+    if (dto.type === 'email') {
+      if (!user.recoveryEmail || user.recoveryEmail.toLowerCase() !== user.email.toLowerCase()) {
+        throw new BadRequestException('Add a valid recovery email before verification.');
+      }
+      user.emailVerified = true;
+    }
+
+    if (dto.type === 'phone') {
+      if (!user.phone || user.phone.trim().length < 7) {
+        throw new BadRequestException('Add a valid phone number before verification.');
+      }
+      user.phoneVerified = true;
+    }
+
+    await user.save();
+    return this.publicUser(user);
+  }
+
   private publicUser(user: UserDocument) {
     return {
       _id: user.id, tenantId: user.tenantId.toString(), name: user.name,
-      email: user.email, role: user.role, isActive: user.isActive,
+      email: user.email, phone: user.phone ?? undefined,
+      recoveryEmail: user.recoveryEmail ?? undefined,
+      emailVerified: user.emailVerified ?? false,
+      phoneVerified: user.phoneVerified ?? false,
+      role: user.role, isActive: user.isActive,
     };
   }
 

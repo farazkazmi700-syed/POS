@@ -1,4 +1,5 @@
-import type { ChargeRule, TaxProfile } from '@pos/shared-types';
+import { TENANT_NAVIGATION_ITEMS } from '@pos/shared-types';
+import type { ChargeRule, TaxProfile, Tenant, TenantNavigationKey } from '@pos/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { authApi, tenantApi } from '../api';
@@ -10,8 +11,11 @@ export default function Settings() {
   const queryClient = useQueryClient();
   const { tenant } = useTenant();
   const role = useAuth((s) => s.user?.role);
+  const authUser = useAuth((s) => s.user);
+  const setSession = useAuth((s) => s.setSession);
 
   const [biz, setBiz] = useState({ name: '', address: '', taxRegNo: '', currency: 'PKR', invoicePrefix: 'INV', logoUrl: '' });
+  const [profile, setProfile] = useState({ name: '', recoveryEmail: '', phone: '' });
   const [markup, setMarkup] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [tax, setTax] = useState<TaxProfile>({ gstPercent: 0, reducedGstPercent: 0, serviceChargePercent: 0, otherCharges: [] });
@@ -25,6 +29,15 @@ export default function Settings() {
     setTax(tenant.taxProfile);
     setMarkup(tenant.installmentMarkupPercent ?? 0);
   }, [tenant]);
+
+  useEffect(() => {
+    if (!authUser) return;
+    setProfile({
+      name: authUser.name ?? '',
+      recoveryEmail: authUser.recoveryEmail ?? '',
+      phone: authUser.phone ?? '',
+    });
+  }, [authUser]);
 
   const save = useMutation({
     mutationFn: () => tenantApi.update({
@@ -56,6 +69,44 @@ export default function Settings() {
 
   const submit = (e: FormEvent) => { e.preventDefault(); save.mutate(); };
 
+  const profileMutation = useMutation({
+    mutationFn: () => authApi.updateProfile({
+      name: profile.name.trim(),
+      recoveryEmail: profile.recoveryEmail.trim() || undefined,
+      phone: profile.phone.trim() || undefined,
+    }),
+    onSuccess: (data) => {
+      setSession({ accessToken: useAuth.getState().accessToken ?? '', refreshToken: useAuth.getState().refreshToken ?? '', user: data });
+    },
+  });
+
+  const verifyRecoveryMutation = useMutation({
+    mutationFn: (type: 'email' | 'phone') => authApi.verifyRecovery(type),
+    onSuccess: (data) => {
+      setSession({ accessToken: useAuth.getState().accessToken ?? '', refreshToken: useAuth.getState().refreshToken ?? '', user: data });
+    },
+  });
+
+  const navigationMutation = useMutation({
+    mutationFn: ({ key, enabled }: { key: TenantNavigationKey; enabled: boolean }) => {
+      const current = queryClient.getQueryData<Tenant>(['tenant']);
+      return tenantApi.update({ navigationVisibility: { ...current?.navigationVisibility, [key]: enabled } });
+    },
+    onMutate: async ({ key, enabled }) => {
+      await queryClient.cancelQueries({ queryKey: ['tenant'] });
+      const previous = queryClient.getQueryData<Tenant>(['tenant']);
+      queryClient.setQueryData<Tenant>(['tenant'], (current) => current ? {
+        ...current,
+        navigationVisibility: { ...current.navigationVisibility, [key]: enabled },
+      } : current);
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) queryClient.setQueryData(['tenant'], context.previous);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['tenant'] }),
+  });
+
   const num = (v: string) => (v === '' ? 0 : Number(v));
   const setCharge = (i: number, patch: Partial<ChargeRule>) =>
     setTax({ ...tax, otherCharges: tax.otherCharges.map((c, idx) => (idx === i ? { ...c, ...patch } : c)) });
@@ -65,6 +116,29 @@ export default function Settings() {
       <h1 className="text-xl font-semibold">Settings</h1>
 
       <form onSubmit={submit} className="space-y-6">
+        <section className="card space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold">Navigation</h2>
+            <p className="text-xs text-slate-500">Choose which sections appear in the app navigation.</p>
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-slate-700">
+            {TENANT_NAVIGATION_ITEMS.map((item) => (
+              <label key={item.key} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span>{item.label}</span>
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-indigo-600"
+                  checked={tenant?.navigationVisibility?.[item.key] !== false}
+                  disabled={navigationMutation.isPending}
+                  onChange={(event) => navigationMutation.mutate({ key: item.key, enabled: event.target.checked })}
+                  aria-label={`Show ${item.label} in navigation`}
+                />
+              </label>
+            ))}
+          </div>
+          {navigationMutation.isError && <p className="text-sm text-red-600">{errorMessage(navigationMutation.error)}</p>}
+        </section>
+
         <section className="card space-y-3">
           <h2 className="text-sm font-semibold">Business details (printed on every invoice)</h2>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -130,6 +204,39 @@ export default function Settings() {
               </div>
             ))}
           </div>
+        </section>
+
+        <section className="card space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold">Admin account &amp; recovery</h2>
+            <p className="text-xs text-slate-500">Update the admin profile and add verified contact details that can be used for password recovery.</p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2"><label className="label">Admin name</label>
+              <input className="input" value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} /></div>
+            <div><label className="label">Recovery email</label>
+              <input className="input" type="email" value={profile.recoveryEmail} onChange={(e) => setProfile({ ...profile, recoveryEmail: e.target.value })} /></div>
+            <div><label className="label">Recovery phone</label>
+              <input className="input" value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} /></div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn-secondary" onClick={() => profileMutation.mutate()} disabled={profileMutation.isPending}>Save profile</button>
+            {profile.recoveryEmail && (
+              <button type="button" className="btn-secondary" onClick={() => verifyRecoveryMutation.mutate('email')} disabled={verifyRecoveryMutation.isPending}>
+                {authUser?.emailVerified ? 'Email verified' : 'Verify email'}
+              </button>
+            )}
+            {profile.phone && (
+              <button type="button" className="btn-secondary" onClick={() => verifyRecoveryMutation.mutate('phone')} disabled={verifyRecoveryMutation.isPending}>
+                {authUser?.phoneVerified ? 'Phone verified' : 'Verify phone'}
+              </button>
+            )}
+          </div>
+
+          {profileMutation.isError && <p className="text-sm text-red-600">{errorMessage(profileMutation.error)}</p>}
+          {verifyRecoveryMutation.isError && <p className="text-sm text-red-600">{errorMessage(verifyRecoveryMutation.error)}</p>}
         </section>
 
         <section className="card space-y-3">
