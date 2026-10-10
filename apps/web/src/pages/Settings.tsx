@@ -7,6 +7,15 @@ import { useTenant } from '../hooks/useTenant';
 import { useAuth } from '../store/auth';
 import { errorMessage } from '../utils/errors';
 
+const SETTINGS_SECTIONS = [
+  { id: 'navigation', label: 'Navigation' },
+  { id: 'business', label: 'Business details' },
+  { id: 'taxes', label: 'Taxes & charges' },
+  { id: 'installments', label: 'Installments' },
+  { id: 'account', label: 'Admin account' },
+  { id: 'staff', label: 'Staff' },
+];
+
 export default function Settings() {
   const queryClient = useQueryClient();
   const { tenant } = useTenant();
@@ -19,6 +28,7 @@ export default function Settings() {
   const [markup, setMarkup] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [tax, setTax] = useState<TaxProfile>({ gstPercent: 0, reducedGstPercent: 0, serviceChargePercent: 0, otherCharges: [] });
+  const isLogoUploaded = biz.logoUrl.startsWith('data:');
 
   useEffect(() => {
     if (!tenant) return;
@@ -112,11 +122,25 @@ export default function Settings() {
     setTax({ ...tax, otherCharges: tax.otherCharges.map((c, idx) => (idx === i ? { ...c, ...patch } : c)) });
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <h1 className="text-xl font-semibold">Settings</h1>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <header className="border-b border-slate-200 pb-5 dark:border-slate-700">
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-300">Workspace</p>
+        <h1 className="text-2xl font-semibold">Settings</h1>
+        <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Manage the business profile, operations, and access for {tenant?.name ?? 'your business'}.</p>
+      </header>
 
-      <form onSubmit={submit} className="space-y-6">
-        <section className="card space-y-3">
+      <div className="grid items-start gap-5 lg:grid-cols-[190px_minmax(0,1fr)] lg:gap-9">
+        <nav aria-label="Settings sections" className="flex gap-1 overflow-x-auto border-b border-slate-200 pb-2 dark:border-slate-700 lg:sticky lg:top-24 lg:block lg:overflow-visible lg:border-b-0 lg:border-l lg:pb-0">
+          {SETTINGS_SECTIONS.map((section) => (
+            <a key={section.id} href={`#${section.id}`} className="block shrink-0 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-indigo-600 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white lg:rounded-l-none lg:border-l-2 lg:border-transparent lg:-ml-px">
+              {section.label}
+            </a>
+          ))}
+        </nav>
+
+        <div className="min-w-0 space-y-6">
+          <form onSubmit={submit} className="space-y-6">
+        <section id="navigation" className="card scroll-mt-28 space-y-3">
           <div>
             <h2 className="text-sm font-semibold">Navigation</h2>
             <p className="text-xs text-slate-500">Choose which sections appear in the app navigation.</p>
@@ -139,7 +163,7 @@ export default function Settings() {
           {navigationMutation.isError && <p className="text-sm text-red-600">{errorMessage(navigationMutation.error)}</p>}
         </section>
 
-        <section className="card space-y-3">
+        <section id="business" className="card scroll-mt-28 space-y-3">
           <h2 className="text-sm font-semibold">Business details (printed on every invoice)</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2"><label className="label">Business name</label>
@@ -149,11 +173,17 @@ export default function Settings() {
             <div className="sm:col-span-2">
               <label className="label">Business logo URL</label>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <input className="input flex-1" placeholder="https://example.com/logo.png" value={biz.logoUrl} onChange={(e) => setBiz({ ...biz, logoUrl: e.target.value })} />
+                <input className="input min-w-0 flex-1" placeholder={isLogoUploaded ? 'Uploaded image selected' : 'https://example.com/logo.png'} value={isLogoUploaded ? '' : biz.logoUrl} onChange={(e) => setBiz({ ...biz, logoUrl: e.target.value })} />
                 <button type="button" className="btn-secondary !w-auto" onClick={() => fileInputRef.current?.click()}>
                   Upload logo
                 </button>
+                {biz.logoUrl && (
+                  <button type="button" className="btn-secondary !w-auto" onClick={() => setBiz({ ...biz, logoUrl: '' })}>
+                    Remove
+                  </button>
+                )}
               </div>
+              {isLogoUploaded && <p className="mt-1 text-xs text-slate-500">An uploaded image is selected. Enter a URL to replace it.</p>}
               <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" className="hidden" onChange={handleLogoUpload} />
             </div>
             <div><label className="label">Tax registration no. (NTN/STRN)</label>
@@ -173,7 +203,7 @@ export default function Settings() {
           </div>
         </section>
 
-        <section className="card space-y-3">
+        <section id="taxes" className="card scroll-mt-28 space-y-3">
           <div>
             <h2 className="text-sm font-semibold">Taxes &amp; charges</h2>
             <p className="text-xs text-slate-500">Enter the rates that apply to your business under local law. Products pick a rate through their tax class.</p>
@@ -194,19 +224,19 @@ export default function Settings() {
                 onClick={() => setTax({ ...tax, otherCharges: [...tax.otherCharges, { label: '', type: 'flat', value: 0 }] })}>+ Add charge</button>
             </div>
             {tax.otherCharges.map((c, i) => (
-              <div key={i} className="mb-1.5 flex gap-2">
-                <input className="input" placeholder="Label (e.g. Packaging)" required value={c.label} onChange={(e) => setCharge(i, { label: e.target.value })} />
-                <select className="input !w-28" value={c.type} onChange={(e) => setCharge(i, { type: e.target.value as ChargeRule['type'] })}>
+              <div key={i} className="mb-2 grid grid-cols-[minmax(0,1fr)_minmax(5rem,0.7fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_auto]">
+                <input className="input col-span-3 min-w-0 sm:col-span-1" placeholder="Label (e.g. Packaging)" required value={c.label} onChange={(e) => setCharge(i, { label: e.target.value })} />
+                <select className="input !w-auto min-w-0" value={c.type} onChange={(e) => setCharge(i, { type: e.target.value as ChargeRule['type'] })}>
                   <option value="flat">Flat</option><option value="percent">Percent</option>
                 </select>
-                <input className="input !w-28" type="number" min={0} step="0.01" value={c.value} onChange={(e) => setCharge(i, { value: num(e.target.value) })} />
-                <button type="button" className="px-2 text-slate-400 hover:text-red-600" onClick={() => setTax({ ...tax, otherCharges: tax.otherCharges.filter((_, idx) => idx !== i) })}>×</button>
+                <input className="input !w-auto min-w-0" type="number" min={0} step="0.01" value={c.value} onChange={(e) => setCharge(i, { value: num(e.target.value) })} />
+                <button type="button" className="rounded-lg px-2 text-slate-500 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/40 dark:hover:text-red-300" aria-label={`Remove ${c.label || 'charge'}`} onClick={() => setTax({ ...tax, otherCharges: tax.otherCharges.filter((_, idx) => idx !== i) })}>×</button>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="card space-y-4">
+        <section id="account" className="card scroll-mt-28 space-y-4">
           <div>
             <h2 className="text-sm font-semibold">Admin account &amp; recovery</h2>
             <p className="text-xs text-slate-500">Update the admin profile and add verified contact details that can be used for password recovery.</p>
@@ -239,7 +269,7 @@ export default function Settings() {
           {verifyRecoveryMutation.isError && <p className="text-sm text-red-600">{errorMessage(verifyRecoveryMutation.error)}</p>}
         </section>
 
-        <section className="card space-y-3">
+        <section id="installments" className="card scroll-mt-28 space-y-3">
           <div>
             <h2 className="text-sm font-semibold">Installment sales</h2>
             <p className="text-xs text-slate-500">Installment price = cash price + this markup. The cashier can change it for each sale.</p>
@@ -248,12 +278,17 @@ export default function Settings() {
             <input className="input" type="number" min={0} max={100} step="0.01" value={markup} onChange={(e) => setMarkup(num(e.target.value))} /></div>
         </section>
 
-        {save.isError && <p className="text-sm text-red-600">{errorMessage(save.error)}</p>}
-        {save.isSuccess && <p className="text-sm text-emerald-700">Saved.</p>}
-        <button className="btn-primary" disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save settings'}</button>
-      </form>
+        <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
+          <p aria-live="polite" className={`text-sm ${save.isError ? 'text-red-600' : 'text-slate-500 dark:text-slate-400'}`}>
+            {save.isError ? errorMessage(save.error) : save.isSuccess ? 'Business settings saved.' : 'Remember to save your business and tax changes.'}
+          </p>
+          <button className="btn-primary w-full sm:w-auto" disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save settings'}</button>
+        </div>
+          </form>
 
-      {role === 'owner' || role === 'admin' ? <StaffSection /> : null}
+          {role === 'owner' || role === 'admin' ? <div id="staff" className="scroll-mt-28"><StaffSection /></div> : null}
+        </div>
+      </div>
     </div>
   );
 }
