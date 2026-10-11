@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsIn, IsInt, IsMongoId, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min, ValidateNested,
+  IsIn, IsInt, IsMongoId, IsNumber, IsOptional, IsString, Length, Matches, Max, MaxLength, Min, ValidateNested,
 } from 'class-validator';
 import { GuarantorDto } from '../../customer/dto/customer.dto';
 
@@ -30,6 +30,8 @@ export class RecordPaymentDto {
   @ApiProperty() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0.01) amount: number;
   @ApiProperty({ enum: ['cash', 'card', 'wallet'] }) @IsIn(['cash', 'card', 'wallet']) mode: 'cash' | 'card' | 'wallet';
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) note?: string;
+  @ApiPropertyOptional({ description: 'Stable retry key; repeating a payment request with the same key will not collect twice.' })
+  @IsOptional() @IsString() @Length(16, 128) idempotencyKey?: string;
 }
 
 export class QueryInstallmentsDto {

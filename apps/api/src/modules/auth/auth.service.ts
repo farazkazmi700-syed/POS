@@ -8,6 +8,7 @@ import { Role } from '../../common/enums';
 import { oid } from '../../common/object-id';
 import { TenantService } from '../tenant/tenant.service';
 import { CreateStaffDto, LoginDto, RegisterDto, UpdateProfileDto, VerifyRecoveryDto } from './dto/auth.dto';
+import { isDeveloperRegistrationAllowed } from './registration-access';
 import { User, UserDocument } from './schemas/user.schema';
 
 @Injectable()
@@ -22,6 +23,14 @@ export class AuthService {
   /** Creates a new business (tenant) together with its owner account. */
   async register(dto: RegisterDto) {
     const email = dto.email.toLowerCase();
+    if (!(await isDeveloperRegistrationAllowed(
+      dto.developerEmail,
+      dto.developerPassword,
+      this.config.get<string>('DEV_ACCOUNT_EMAIL'),
+      this.config.get<string>('DEV_ACCOUNT_PASSWORD_HASH'),
+    ))) {
+      throw new UnauthorizedException('Business registration is restricted to authorized developers');
+    }
     if (await this.users.exists({ email })) throw new ConflictException('Email already registered');
 
     const tenant = await this.tenants.create({

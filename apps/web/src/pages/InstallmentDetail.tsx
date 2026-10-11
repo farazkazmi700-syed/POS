@@ -1,6 +1,6 @@
 import type { InstallmentPlan, PlanPayment } from '@pos/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { installmentApi } from '../api';
 import { useTenant } from '../hooks/useTenant';
@@ -19,13 +19,24 @@ export default function InstallmentDetail() {
   const [mode, setMode] = useState<'cash' | 'card' | 'wallet'>('cash');
   const [note, setNote] = useState('');
   const [job, setJob] = useState<PrintJob | null>(null);
+  const paymentRequest = useRef<{ details: string; id: string } | null>(null);
 
   const plan = useQuery({ queryKey: ['installments', 'one', id], queryFn: () => installmentApi.get(id) });
   const p = plan.data;
 
   const pay = useMutation({
-    mutationFn: () => installmentApi.pay(id, { amount: Number(amount), mode, note: note.trim() || undefined }),
+    mutationFn: () => {
+      const details = JSON.stringify({ amount: Number(amount), mode, note: note.trim() || undefined });
+      if (!paymentRequest.current || paymentRequest.current.details !== details) {
+        paymentRequest.current = { details, id: createPaymentRequestId() };
+      }
+      return installmentApi.pay(id, {
+        amount: Number(amount), mode, note: note.trim() || undefined,
+        idempotencyKey: paymentRequest.current.id,
+      });
+    },
     onSuccess: (res) => {
+      paymentRequest.current = null;
       setAmount(''); setNote('');
       queryClient.setQueryData(['installments', 'one', id], res.plan);
       queryClient.invalidateQueries({ queryKey: ['installments', 'list'] });
@@ -41,6 +52,7 @@ export default function InstallmentDetail() {
     window.addEventListener('afterprint', clear);
     return () => window.removeEventListener('afterprint', clear);
   }, []);
+  useEffect(() => { paymentRequest.current = null; }, [id]);
 
   if (plan.isLoading) return <p className="text-sm text-slate-500">Loading…</p>;
   if (plan.isError || !p) return <p className="text-sm text-red-600">{errorMessage(plan.error)}</p>;
@@ -148,6 +160,11 @@ export default function InstallmentDetail() {
       </div>
     </>
   );
+}
+
+function createPaymentRequestId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 }
 
 function Box({ label, value, strong }: { label: string; value: string; strong?: boolean }) {

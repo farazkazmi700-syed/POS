@@ -3,6 +3,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bullmq';
+import { existsSync } from 'fs';
 import * as path from 'path';
 import { Model } from 'mongoose';
 import { InvoiceStatus } from '../../common/enums';
@@ -84,9 +85,14 @@ export class InvoiceService {
     if (order.invoiceStatus !== InvoiceStatus.Ready || !order.invoicePdfPath) {
       throw new NotFoundException('Invoice PDF is not ready yet');
     }
-    const root = path.resolve(this.config.get<string>('STORAGE_DIR', './storage/invoices'));
+    const root = path.resolve(this.config.get<string>('STORAGE_DIR', './storage/record of business'));
     const file = path.resolve(root, order.invoicePdfPath);
     if (!file.startsWith(root + path.sep)) throw new NotFoundException('Invoice PDF not found');
-    return file;
+    if (existsSync(file)) return file;
+
+    const legacyRoot = path.resolve(root, '..', 'invoices');
+    const legacyFile = path.resolve(legacyRoot, order.invoicePdfPath);
+    if (!legacyFile.startsWith(legacyRoot + path.sep)) throw new NotFoundException('Invoice PDF not found');
+    return legacyFile;
   }
 }

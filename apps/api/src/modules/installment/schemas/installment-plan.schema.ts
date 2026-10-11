@@ -25,6 +25,7 @@ const ScheduleEntrySchema = SchemaFactory.createForClass(ScheduleEntry);
 @Schema({ _id: false })
 export class PlanPayment {
   @Prop({ required: true }) receiptNo: string;
+  @Prop() idempotencyKey?: string;
   @Prop({ required: true }) amount: number;
   @Prop({ required: true }) paidAt: Date;
   @Prop({ required: true, enum: [PaymentMode.Cash, PaymentMode.Card, PaymentMode.Wallet] }) mode: PaymentMode;

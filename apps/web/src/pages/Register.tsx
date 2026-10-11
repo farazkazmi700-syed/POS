@@ -12,7 +12,8 @@ export default function Register() {
   const navigate = useNavigate();
   const setSession = useAuth((s) => s.setSession);
   const [form, setForm] = useState({
-    businessName: '', domainType: 'retail', ownerName: '', email: '', password: '', taxRegNo: '', address: '',
+    businessName: '', domainType: 'retail', ownerName: '', email: '', password: '',
+    developerEmail: '', developerPassword: '', taxRegNo: '', address: '',
   });
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
 
@@ -41,7 +42,7 @@ export default function Register() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-500">Get started</p>
             <h1 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">Create your business</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">You will be the owner. Add staff and set tax rates afterwards.</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Developer-authorized registration. The first business account will be Owner and can add staff afterwards.</p>
           </div>
           <div className="inline-flex rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
             Secure onboarding
@@ -74,6 +75,14 @@ export default function Register() {
           <div>
             <label className="label">Email</label>
             <input className="input" type="email" required value={form.email} onChange={set('email')} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">Authorized developer email</label>
+            <input className="input" type="email" required autoComplete="username" value={form.developerEmail} onChange={set('developerEmail')} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">Developer password</label>
+            <input className="input" type="password" required minLength={8} autoComplete="current-password" value={form.developerPassword} onChange={set('developerPassword')} />
           </div>
           <div className="sm:col-span-2">
             <label className="label">Password (min 8 characters)</label>

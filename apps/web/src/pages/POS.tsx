@@ -1,6 +1,6 @@
 import type { Order, PaymentMode, Product } from '@pos/shared-types';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { installmentApi, orderApi, productApi } from '../api';
 import InstallmentPanel, { emptyInstallmentForm, type InstallmentForm } from '../components/InstallmentPanel';
@@ -12,7 +12,7 @@ import { useCart } from '../store/cart';
 import { errorMessage } from '../utils/errors';
 import { formatMoney } from '../utils/money';
 
-const PAYMENTS: PaymentMode[] = ['cash', 'card', 'wallet', 'installment'];
+const PAYMENTS: PaymentMode[] = ['cash', 'card', 'wallet'];
 type Done = Order & { installmentPlanId?: string };
 
 export default function POS() {
@@ -27,7 +27,15 @@ export default function POS() {
   const [customerName, setCustomerName] = useState('');
   const [done, setDone] = useState<Done | null>(null);
   const money = (n: number) => formatMoney(n, currency);
-  const isInstallment = payment === 'installment';
+  const installmentEnabled = tenant?.navigationVisibility?.installments !== false
+    && tenant?.navigationVisibility?.customers !== false;
+  const paymentModes = installmentEnabled ? [...PAYMENTS, 'installment' as const] : PAYMENTS;
+  const effectivePayment: PaymentMode = payment === 'installment' && !installmentEnabled ? 'cash' : payment;
+  const isInstallment = effectivePayment === 'installment';
+
+  useEffect(() => {
+    if (!installmentEnabled && payment === 'installment') setPayment('cash');
+  }, [installmentEnabled, payment]);
 
   const products = useQuery({
     queryKey: ['products', 'pos', q],
@@ -67,7 +75,7 @@ export default function POS() {
   const checkout = useMutation({
     mutationFn: () => orderApi.create({
       items: orderItems,
-      paymentMode: payment,
+      paymentMode: effectivePayment,
       customer: !isInstallment && customerName.trim() ? { name: customerName.trim() } : undefined,
       installment: isInstallment && inst.customer ? {
         customerId: inst.customer._id,
@@ -195,7 +203,7 @@ export default function POS() {
         {cart.items.length > 0 && (
           <>
             <div className="grid grid-cols-2 gap-2">
-              {PAYMENTS.map((m) => (
+              {paymentModes.map((m) => (
                 <button
                   key={m} onClick={() => setPayment(m)}
                   className={`rounded-lg border px-2 py-2 text-sm font-medium capitalize ${payment === m ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-300 hover:bg-slate-50'}`}

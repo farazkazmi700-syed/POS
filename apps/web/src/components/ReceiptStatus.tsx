@@ -13,6 +13,7 @@ export default function ReceiptStatus({ orderId, invoiceNo, canRetry }: { orderI
     refetchInterval: (q) => (q.state.data?.status === 'pending' || !q.state.data ? 1500 : false),
   });
   const open = useMutation({ mutationFn: () => invoiceApi.openPdf(orderId, invoiceNo) });
+  const download = useMutation({ mutationFn: () => invoiceApi.downloadPdf(orderId, invoiceNo) });
   const retry = useMutation({ mutationFn: () => invoiceApi.regenerate(orderId), onSuccess: () => status.refetch() });
 
   const s = status.data?.status ?? 'pending';
@@ -20,9 +21,14 @@ export default function ReceiptStatus({ orderId, invoiceNo, canRetry }: { orderI
     <div className="flex flex-wrap items-center gap-2">
       {s === 'pending' && <span className="text-sm text-amber-600">Generating receipt…</span>}
       {s === 'ready' && (
-        <button className="btn-primary" disabled={open.isPending} onClick={() => open.mutate()}>
-          {open.isPending ? 'Opening…' : 'Open receipt (PDF)'}
-        </button>
+        <>
+          <button className="btn-primary" disabled={open.isPending} onClick={() => open.mutate()}>
+            {open.isPending ? 'Opening…' : 'Open receipt (PDF)'}
+          </button>
+          <button className="btn-secondary" disabled={download.isPending} onClick={() => download.mutate()}>
+            {download.isPending ? 'Downloading…' : 'Download PDF'}
+          </button>
+        </>
       )}
       {s === 'failed' && (
         <>
@@ -33,6 +39,7 @@ export default function ReceiptStatus({ orderId, invoiceNo, canRetry }: { orderI
         </>
       )}
       {open.isError && <span className="text-sm text-red-600">{errorMessage(open.error)}</span>}
+      {download.isError && <span className="text-sm text-red-600">{errorMessage(download.error)}</span>}
     </div>
   );
 }

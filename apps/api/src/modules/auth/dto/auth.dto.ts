@@ -3,6 +3,8 @@ import { IsEmail, IsEnum, IsOptional, IsString, Length, MaxLength, MinLength } f
 import { DomainType, Role } from '../../../common/enums';
 
 export class RegisterDto {
+  @ApiProperty() @IsEmail() developerEmail: string;
+  @ApiProperty() @IsString() @MinLength(8) @MaxLength(72) developerPassword: string;
   @ApiProperty() @IsString() @Length(2, 120) businessName: string;
   @ApiProperty({ enum: DomainType }) @IsEnum(DomainType) domainType: DomainType;
   @ApiProperty() @IsString() @Length(2, 80) ownerName: string;

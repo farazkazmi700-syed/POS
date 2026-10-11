@@ -20,6 +20,7 @@ export default function Orders() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['orders'] }); queryClient.invalidateQueries({ queryKey: ['products'] }); },
   });
   const openPdf = useMutation({ mutationFn: (v: { id: string; no: string }) => invoiceApi.openPdf(v.id, v.no) });
+  const downloadPdf = useMutation({ mutationFn: (v: { id: string; no: string }) => invoiceApi.downloadPdf(v.id, v.no) });
 
   const pages = Math.max(1, Math.ceil((list.data?.total ?? 0) / limit));
 
@@ -28,6 +29,7 @@ export default function Orders() {
       <h1 className="text-xl font-semibold">Orders</h1>
       {voidOrder.isError && <p className="text-sm text-red-600">{errorMessage(voidOrder.error)}</p>}
       {openPdf.isError && <p className="text-sm text-red-600">{errorMessage(openPdf.error)}</p>}
+      {downloadPdf.isError && <p className="text-sm text-red-600">{errorMessage(downloadPdf.error)}</p>}
 
       <div className="card overflow-x-auto !p-0">
         <table className="w-full">
@@ -48,7 +50,10 @@ export default function Orders() {
                 </td>
                 <td className="td space-x-2 text-right">
                   {o.invoiceStatus === 'ready' && (
-                    <button className="btn-secondary !px-2.5 !py-1" onClick={() => openPdf.mutate({ id: o._id, no: o.invoiceNo })}>Receipt</button>
+                    <>
+                      <button className="btn-secondary !px-2.5 !py-1" onClick={() => openPdf.mutate({ id: o._id, no: o.invoiceNo })}>Receipt</button>
+                      <button className="btn-secondary !px-2.5 !py-1" disabled={downloadPdf.isPending} onClick={() => downloadPdf.mutate({ id: o._id, no: o.invoiceNo })}>Download</button>
+                    </>
                   )}
                   {o.invoiceStatus === 'pending' && <span className="text-xs text-amber-600">PDF generating…</span>}
                   {o.invoiceStatus === 'failed' && <span className="text-xs text-red-600">PDF failed</span>}

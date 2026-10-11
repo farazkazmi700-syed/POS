@@ -202,6 +202,7 @@ export interface ScheduleEntry {
 
 export interface PlanPayment {
   receiptNo: string;
+  idempotencyKey?: string;
   amount: number;
   paidAt: string;
   mode: 'cash' | 'card' | 'wallet';

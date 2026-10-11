@@ -2,12 +2,15 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthUser } from '../../common/auth-user';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
 import { QueryInstallmentsDto, QuoteDto, RecordPaymentDto } from './dto/installment.dto';
+import { INSTALLMENT_ALLOWED_ROLES } from './installment.roles';
 import { InstallmentService } from './installment.service';
 
 @ApiTags('installments')
 @ApiBearerAuth()
+@Roles(...INSTALLMENT_ALLOWED_ROLES)
 @Controller('installments')
 export class InstallmentController {
   constructor(private readonly installments: InstallmentService) {}

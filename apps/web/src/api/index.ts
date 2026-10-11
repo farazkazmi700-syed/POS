@@ -55,6 +55,7 @@ export const authApi = {
   login: (body: { email: string; password: string }) => api.post<AuthResponse>('/auth/login', body).then((r) => r.data),
   register: (body: {
     businessName: string; domainType: string; ownerName: string; email: string; password: string;
+    developerEmail: string; developerPassword: string;
     taxRegNo?: string; address?: string;
   }) => api.post<AuthResponse>('/auth/register', body).then((r) => r.data),
   me: () => api.get<UserSummary>('/auth/me').then((r) => r.data),
@@ -115,6 +116,15 @@ export const invoiceApi = {
       throw err;
     }
   },
+  async downloadPdf(orderId: string, fileName: string) {
+    const res = await api.get<Blob>(`/orders/${orderId}/invoice/pdf`, { responseType: 'blob' });
+    const url = URL.createObjectURL(res.data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${fileName}.pdf`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  },
 };
 
 export const customerApi = {
@@ -131,6 +141,6 @@ export const installmentApi = {
     api.get<Paginated<InstallmentPlan>>('/installments', { params }).then((r) => r.data),
   stats: () => api.get<InstallmentStats>('/installments/stats').then((r) => r.data),
   get: (id: string) => api.get<InstallmentPlan>(`/installments/${id}`).then((r) => r.data),
-  pay: (id: string, body: { amount: number; mode: 'cash' | 'card' | 'wallet'; note?: string }) =>
+  pay: (id: string, body: { amount: number; mode: 'cash' | 'card' | 'wallet'; note?: string; idempotencyKey?: string }) =>
     api.post<{ payment: PlanPayment; plan: InstallmentPlan }>(`/installments/${id}/payments`, body).then((r) => r.data),
 };

@@ -31,9 +31,11 @@ services:
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-change-me}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-me}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
-      STORAGE_DIR: /data/invoices
+      DEV_ACCOUNT_EMAIL: ${DEV_ACCOUNT_EMAIL:-}
+      DEV_ACCOUNT_PASSWORD_HASH: ${DEV_ACCOUNT_PASSWORD_HASH:-}
+      STORAGE_DIR: /data/record of business
       REPORT_TZ: ${REPORT_TZ:-Asia/Karachi}
-    volumes: [invoice_data:/data/invoices]
+    volumes: [invoice_data:/data/record of business]
     ports: ["3000:3000"]
     depends_on:
       mongo: { condition: service_healthy }
@@ -44,10 +46,10 @@ services:
     environment:
       MONGO_URI: mongodb://mongo:27017/pos
       REDIS_URL: redis://redis:6379
-      STORAGE_DIR: /data/invoices
+      STORAGE_DIR: /data/record of business
       REPORT_TZ: ${REPORT_TZ:-Asia/Karachi}
       WORKER_CONCURRENCY: 2
-    volumes: [invoice_data:/data/invoices]
+    volumes: [invoice_data:/data/record of business]
     depends_on:
       mongo: { condition: service_healthy }
       redis: { condition: service_healthy }

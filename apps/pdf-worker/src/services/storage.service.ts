@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-const ROOT = path.resolve(process.env.STORAGE_DIR || './storage/invoices');
+const ROOT = path.resolve(process.env.STORAGE_DIR || './storage/record of business');
 
 /**
  * Writes a PDF under STORAGE_DIR/<tenantId>/<invoiceNo>.pdf and returns the RELATIVE path

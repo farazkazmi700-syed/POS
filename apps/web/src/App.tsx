@@ -30,8 +30,10 @@ export default function App() {
           <Route path="pos" element={<POS />} />
           <Route path="orders" element={<Orders />} />
           <Route path="customers" element={<Customers />} />
-          <Route path="installments" element={<Installments />} />
-          <Route path="installments/:id" element={<InstallmentDetail />} />
+          <Route element={<ProtectedRoute roles={['owner', 'admin', 'cashier']} />}>
+            <Route path="installments" element={<Installments />} />
+            <Route path="installments/:id" element={<InstallmentDetail />} />
+          </Route>
           <Route element={<ProtectedRoute roles={['owner', 'admin']} />}>
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="products" element={<Products />} />

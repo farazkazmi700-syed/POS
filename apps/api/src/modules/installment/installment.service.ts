@@ -11,6 +11,7 @@ import { OrderDocument } from '../order/schemas/order.schema';
 import {
   addMonths, allocatePayment, calculatePlan, nextDueOf, overdueOf, PlanInputError, PlanResult, ScheduleItem, todayIn,
 } from './calc/calculate-plan';
+import { matchPaymentRetry } from './calc/payment-idempotency';
 import { InstallmentTermsDto, QueryInstallmentsDto, QuoteDto, RecordPaymentDto } from './dto/installment.dto';
 import { InstallmentPlan, InstallmentPlanDocument } from './schemas/installment-plan.schema';
 
@@ -100,6 +101,11 @@ export class InstallmentService {
 
   async recordPayment(user: AuthUser, id: string, dto: RecordPaymentDto) {
     const plan = await this.findPlan(user.tenantId, id);
+    const previousPayment = matchPaymentRetry(plan.payments, dto);
+    if (previousPayment && 'conflict' in previousPayment) {
+        throw new ConflictException('This payment request key was already used with different details');
+    }
+    if (previousPayment) return { payment: previousPayment.payment, plan: this.view(plan, todayIn(this.tz)) };
     if (plan.status === PlanStatus.Completed) throw new BadRequestException('This plan is already fully paid');
 
     let schedule: ScheduleItem[];
@@ -113,17 +119,32 @@ export class InstallmentService {
     const balance = major(minor(plan.totalPayable) - minor(paidTotal));
     const payment = {
       receiptNo: `${plan.invoiceNo}-R${String(plan.payments.length + 1).padStart(2, '0')}`,
+      idempotencyKey: dto.idempotencyKey,
       amount: dto.amount, paidAt: new Date(), mode: dto.mode as PaymentMode, receivedBy: user.name, note: dto.note,
     };
     // Conditional on the old paidTotal: two cashiers collecting at the same moment cannot both win.
+    const filter: Record<string, unknown> = {
+      _id: plan._id, tenantId: oid(user.tenantId), paidTotal: plan.paidTotal,
+    };
+    if (dto.idempotencyKey) filter['payments.idempotencyKey'] = { $ne: dto.idempotencyKey };
     const res = await this.model.updateOne(
-      { _id: plan._id, tenantId: oid(user.tenantId), paidTotal: plan.paidTotal },
+      filter,
       {
         $set: { schedule, paidTotal, balance, status: balance <= 0 ? PlanStatus.Completed : PlanStatus.Active },
         $push: { payments: payment },
       },
     );
-    if (res.modifiedCount !== 1) throw new ConflictException('This plan was just updated by someone else. Reload and try again.');
+    if (res.modifiedCount !== 1) {
+      if (dto.idempotencyKey) {
+        const latest = await this.findPlan(user.tenantId, id);
+        const repeatedPayment = matchPaymentRetry(latest.payments, dto);
+        if (repeatedPayment && 'conflict' in repeatedPayment) {
+            throw new ConflictException('This payment request key was already used with different details');
+        }
+        if (repeatedPayment) return { payment: repeatedPayment.payment, plan: this.view(latest, todayIn(this.tz)) };
+      }
+      throw new ConflictException('This plan was just updated by someone else. Reload and try again.');
+    }
     return { payment, plan: await this.findOne(user.tenantId, id) };
   }
 
