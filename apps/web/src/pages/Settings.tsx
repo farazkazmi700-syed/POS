@@ -25,6 +25,10 @@ export default function Settings() {
 
   const [biz, setBiz] = useState({ name: '', address: '', taxRegNo: '', currency: 'PKR', invoicePrefix: 'INV', logoUrl: '' });
   const [profile, setProfile] = useState({ name: '', recoveryEmail: '', phone: '' });
+  const recoveryEmailSaved = profile.recoveryEmail.trim().toLowerCase() === (authUser?.recoveryEmail ?? '').toLowerCase();
+  const [emailVerificationCode, setEmailVerificationCode] = useState('');
+  const [emailVerificationSent, setEmailVerificationSent] = useState(false);
+  const [emailVerificationNotice, setEmailVerificationNotice] = useState('');
   const [markup, setMarkup] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [tax, setTax] = useState<TaxProfile>({ gstPercent: 0, reducedGstPercent: 0, serviceChargePercent: 0, otherCharges: [] });
@@ -87,13 +91,30 @@ export default function Settings() {
     }),
     onSuccess: (data) => {
       setSession({ accessToken: useAuth.getState().accessToken ?? '', refreshToken: useAuth.getState().refreshToken ?? '', user: data });
+      setEmailVerificationSent(false);
+      setEmailVerificationCode('');
+      setEmailVerificationNotice('');
     },
   });
 
   const verifyRecoveryMutation = useMutation({
     mutationFn: (type: 'email' | 'phone') => authApi.verifyRecovery(type),
     onSuccess: (data) => {
+      if ('role' in data) {
+        setSession({ accessToken: useAuth.getState().accessToken ?? '', refreshToken: useAuth.getState().refreshToken ?? '', user: data });
+      } else {
+        setEmailVerificationSent(true);
+        setEmailVerificationNotice(data.message);
+      }
+    },
+  });
+  const confirmEmailMutation = useMutation({
+    mutationFn: () => authApi.confirmRecoveryEmail(emailVerificationCode),
+    onSuccess: (data) => {
       setSession({ accessToken: useAuth.getState().accessToken ?? '', refreshToken: useAuth.getState().refreshToken ?? '', user: data });
+      setEmailVerificationSent(false);
+      setEmailVerificationCode('');
+      setEmailVerificationNotice('Recovery email verified.');
     },
   });
 
@@ -254,7 +275,7 @@ export default function Settings() {
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn-secondary" onClick={() => profileMutation.mutate()} disabled={profileMutation.isPending}>Save profile</button>
             {profile.recoveryEmail && (
-              <button type="button" className="btn-secondary" onClick={() => verifyRecoveryMutation.mutate('email')} disabled={verifyRecoveryMutation.isPending}>
+              <button type="button" className="btn-secondary" onClick={() => verifyRecoveryMutation.mutate('email')} disabled={verifyRecoveryMutation.isPending || authUser?.emailVerified || !recoveryEmailSaved}>
                 {authUser?.emailVerified ? 'Email verified' : 'Verify email'}
               </button>
             )}
@@ -267,6 +288,15 @@ export default function Settings() {
 
           {profileMutation.isError && <p className="text-sm text-red-600">{errorMessage(profileMutation.error)}</p>}
           {verifyRecoveryMutation.isError && <p className="text-sm text-red-600">{errorMessage(verifyRecoveryMutation.error)}</p>}
+          {emailVerificationSent && <div className="flex flex-wrap items-end gap-2">
+            <div><label className="label">Email verification code</label>
+              <input className="input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" value={emailVerificationCode} onChange={(e) => setEmailVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))} /></div>
+            <button type="button" className="btn-secondary" onClick={() => confirmEmailMutation.mutate()} disabled={emailVerificationCode.length !== 6 || confirmEmailMutation.isPending}>
+              {confirmEmailMutation.isPending ? 'Verifying…' : 'Confirm email'}
+            </button>
+          </div>}
+          {confirmEmailMutation.isError && <p className="text-sm text-red-600">{errorMessage(confirmEmailMutation.error)}</p>}
+          {emailVerificationNotice && <p className="text-sm text-emerald-700">{emailVerificationNotice}</p>}
         </section>
 
         <section id="installments" className="card scroll-mt-28 space-y-3">

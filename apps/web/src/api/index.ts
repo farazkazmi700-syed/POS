@@ -1,5 +1,5 @@
 import type {
-  AuthResponse, Customer, Guarantor, InstallmentPlan, InstallmentQuote, InstallmentStats, Order, OrderItemInput,
+  AuthResponse, Customer, Guarantor, InstallmentPlan, InstallmentQuote, InstallmentStats, LoginResponse, Order, OrderItemInput,
   OrderTotals, Paginated, PaymentMode, PlanPayment, Product, SalesSummary, TaxClass, TaxProfile, Tenant,
   TenantNavigationKey, UserSummary,
 } from '@pos/shared-types';
@@ -52,16 +52,23 @@ export interface InstallmentTerms {
 }
 
 export const authApi = {
-  login: (body: { email: string; password: string }) => api.post<AuthResponse>('/auth/login', body).then((r) => r.data),
+  login: (body: { email: string; password: string }) => api.post<LoginResponse>('/auth/login', body).then((r) => r.data),
   register: (body: {
     businessName: string; domainType: string; ownerName: string; email: string; password: string;
     developerEmail: string; developerPassword: string;
     taxRegNo?: string; address?: string;
-  }) => api.post<AuthResponse>('/auth/register', body).then((r) => r.data),
+  }) => api.post<{ registered: true }>('/auth/register', body).then((r) => r.data),
+  completePinLogin: (body: { challengeToken: string; pin: string; newPin?: string }) =>
+    api.post<AuthResponse>('/auth/login/pin', body).then((r) => r.data),
+  requestPinReset: (email: string) => api.post<{ message: string }>('/auth/pin/reset/request', { email }).then((r) => r.data),
+  resetPin: (body: { email: string; code: string; newPin: string }) =>
+    api.post<{ message: string }>('/auth/pin/reset', body).then((r) => r.data),
   me: () => api.get<UserSummary>('/auth/me').then((r) => r.data),
   updateProfile: (body: { name?: string; recoveryEmail?: string; phone?: string }) =>
     api.patch<UserSummary>('/auth/me', body).then((r) => r.data),
-  verifyRecovery: (type: 'email' | 'phone') => api.post<UserSummary>('/auth/me/verify-recovery', { type }).then((r) => r.data),
+  verifyRecovery: (type: 'email' | 'phone') => api.post<UserSummary | { message: string }>('/auth/me/verify-recovery', { type }).then((r) => r.data),
+  confirmRecoveryEmail: (code: string) =>
+    api.post<UserSummary>('/auth/me/verify-recovery/confirm', { code }).then((r) => r.data),
   staff: () => api.get<UserSummary[]>('/auth/staff').then((r) => r.data),
   addStaff: (body: { name: string; email: string; password: string; role: 'admin' | 'cashier' }) =>
     api.post<UserSummary>('/auth/staff', body).then((r) => r.data),

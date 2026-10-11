@@ -1,4 +1,4 @@
-import type { AuthResponse } from '@pos/shared-types';
+import type { LoginResponse } from '@pos/shared-types';
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { useAuth } from '../store/auth';
 
@@ -14,9 +14,10 @@ let refreshing: Promise<string | null> | null = null;
 
 async function refreshAccessToken(): Promise<string | null> {
   try {
-    const { data } = await axios.post<AuthResponse>('/api/auth/refresh', {
+    const { data } = await axios.post<LoginResponse>('/api/auth/refresh', {
       refreshToken: useAuth.getState().refreshToken,
     });
+    if ('requiresPin' in data) return null;
     useAuth.getState().setSession(data);
     return data.accessToken;
   } catch {

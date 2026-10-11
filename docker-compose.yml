@@ -33,6 +33,12 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
       DEV_ACCOUNT_EMAIL: ${DEV_ACCOUNT_EMAIL:-}
       DEV_ACCOUNT_PASSWORD_HASH: ${DEV_ACCOUNT_PASSWORD_HASH:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
       STORAGE_DIR: /data/record of business
       REPORT_TZ: ${REPORT_TZ:-Asia/Karachi}
     volumes: [invoice_data:/data/record of business]

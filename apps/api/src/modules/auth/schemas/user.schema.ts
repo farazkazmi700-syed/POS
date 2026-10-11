@@ -10,8 +10,21 @@ export class User {
   @Prop({ type: String, default: null, trim: true, index: true }) phone: string | null;
   @Prop({ type: String, default: null, lowercase: true, trim: true }) recoveryEmail: string | null;
   @Prop({ default: false }) emailVerified: boolean;
+  @Prop({ type: Date, default: null }) emailVerifiedAt: Date | null;
+  @Prop({ type: String, select: false }) emailVerificationCodeHash?: string;
+  @Prop({ type: Date, select: false }) emailVerificationExpiresAt?: Date;
+  @Prop({ default: 0, select: false }) emailVerificationAttempts: number;
   @Prop({ default: false }) phoneVerified: boolean;
   @Prop({ required: true, select: false }) passwordHash: string;
+  @Prop({ type: String, select: false }) pinHash?: string;
+  @Prop({ default: false }) pinRequiresChange: boolean;
+  @Prop({ default: 0 }) pinVersion: number;
+  @Prop({ default: 0, select: false }) pinFailedAttempts: number;
+  @Prop({ type: Date, default: null, select: false }) pinLockedUntil: Date | null;
+  @Prop({ type: String, select: false }) pinChallengeId?: string;
+  @Prop({ type: String, select: false }) pinResetCodeHash?: string;
+  @Prop({ type: Date, select: false }) pinResetExpiresAt?: Date;
+  @Prop({ default: 0, select: false }) pinResetAttempts: number;
   @Prop({ required: true, enum: Role }) role: Role;
   @Prop({ default: true }) isActive: boolean;
 }

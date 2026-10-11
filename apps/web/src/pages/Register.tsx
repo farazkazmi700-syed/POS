@@ -3,14 +3,13 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api';
 import ThemeToggle from '../components/ThemeToggle';
-import { useAuth } from '../store/auth';
 import { errorMessage } from '../utils/errors';
 
 const DOMAINS = ['retail', 'restaurant', 'pharmacy', 'salon', 'custom'];
 
 export default function Register() {
   const navigate = useNavigate();
-  const setSession = useAuth((s) => s.setSession);
+  const [registered, setRegistered] = useState(false);
   const [form, setForm] = useState({
     businessName: '', domainType: 'retail', ownerName: '', email: '', password: '',
     developerEmail: '', developerPassword: '', taxRegNo: '', address: '',
@@ -19,7 +18,7 @@ export default function Register() {
 
   const register = useMutation({
     mutationFn: authApi.register,
-    onSuccess: (res) => { setSession(res); navigate('/settings'); },
+    onSuccess: () => setRegistered(true),
   });
 
   const submit = (e: FormEvent) => {
@@ -30,6 +29,16 @@ export default function Register() {
       address: form.address || undefined,
     });
   };
+
+  if (registered) return (
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="card w-full max-w-md space-y-4 text-center">
+        <h1 className="text-xl font-semibold">Business account created</h1>
+        <p className="text-sm text-slate-600">Sign in with the new Owner account. The initial admin PIN must be changed before access.</p>
+        <button className="btn-primary w-full" onClick={() => navigate('/login')}>Go to sign in</button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex min-h-screen items-center justify-center p-3 sm:p-5">

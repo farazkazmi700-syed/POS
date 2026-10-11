@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsOptional, IsString, Length, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from 'class-validator';
 import { DomainType, Role } from '../../../common/enums';
 
 export class RegisterDto {
@@ -18,6 +18,26 @@ export class RegisterDto {
 export class LoginDto {
   @ApiProperty() @IsEmail() email: string;
   @ApiProperty() @IsString() password: string;
+}
+
+export class CompletePinLoginDto {
+  @ApiProperty() @IsString() challengeToken: string;
+  @ApiProperty() @IsString() @Matches(/^\d{4}$/) pin: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Matches(/^\d{4}$/) newPin?: string;
+}
+
+export class PinResetRequestDto {
+  @ApiProperty() @IsEmail() email: string;
+}
+
+export class PinResetDto {
+  @ApiProperty() @IsEmail() email: string;
+  @ApiProperty() @IsString() @Matches(/^\d{6}$/) code: string;
+  @ApiProperty() @IsString() @Matches(/^\d{4}$/) newPin: string;
+}
+
+export class VerifyEmailCodeDto {
+  @ApiProperty() @IsString() @Matches(/^\d{6}$/) code: string;
 }
 
 export class RefreshDto {

@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { PassportModule } from '@nestjs/passport';
 import { TenantModule } from '../tenant/tenant.module';
 import { AuthController } from './auth.controller';
+import { EmailService } from './email.service';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { User, UserSchema } from './schemas/user.schema';
@@ -16,6 +17,6 @@ import { User, UserSchema } from './schemas/user.schema';
     TenantModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, EmailService, JwtStrategy],
 })
 export class AuthModule {}

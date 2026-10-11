@@ -8,7 +8,8 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums';
 import { AuthService } from './auth.service';
 import {
-  CreateStaffDto, LoginDto, RefreshDto, RegisterDto, UpdateProfileDto, VerifyRecoveryDto,
+  CompletePinLoginDto, CreateStaffDto, LoginDto, PinResetDto, PinResetRequestDto, RefreshDto, RegisterDto,
+  UpdateProfileDto, VerifyEmailCodeDto, VerifyRecoveryDto,
 } from './dto/auth.dto';
 
 @ApiTags('auth')
@@ -31,6 +32,27 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 15 * 60_000 } })
+  @Post('login/pin')
+  completePinLogin(@Body() dto: CompletePinLoginDto) {
+    return this.auth.completePinLogin(dto);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 3, ttl: 15 * 60_000 } })
+  @Post('pin/reset/request')
+  requestPinReset(@Body() dto: PinResetRequestDto) {
+    return this.auth.requestPinReset(dto);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 15 * 60_000 } })
+  @Post('pin/reset')
+  resetPin(@Body() dto: PinResetDto) {
+    return this.auth.resetPin(dto);
+  }
+
+  @Public()
   @Post('refresh')
   refresh(@Body() dto: RefreshDto) {
     return this.auth.refresh(dto.refreshToken);
@@ -49,9 +71,17 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
+  @Throttle({ default: { limit: 3, ttl: 15 * 60_000 } })
   @Post('me/verify-recovery')
   verifyRecovery(@CurrentUser() user: AuthUser, @Body() dto: VerifyRecoveryDto) {
     return this.auth.verifyRecovery(user.userId, dto);
+  }
+
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 5, ttl: 15 * 60_000 } })
+  @Post('me/verify-recovery/confirm')
+  confirmRecoveryEmail(@CurrentUser() user: AuthUser, @Body() dto: VerifyEmailCodeDto) {
+    return this.auth.confirmRecoveryEmail(user.userId, dto);
   }
 
   @ApiBearerAuth()

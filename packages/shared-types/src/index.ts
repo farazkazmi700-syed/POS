@@ -63,6 +63,14 @@ export interface AuthResponse {
   user: UserSummary;
 }
 
+export interface PinChallengeResponse {
+  requiresPin: true;
+  challengeToken: string;
+  pinRequiresChange: boolean;
+}
+
+export type LoginResponse = AuthResponse | PinChallengeResponse;
+
 export interface Product {
   _id: string;
   name: string;
