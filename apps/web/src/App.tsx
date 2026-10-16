@@ -11,6 +11,7 @@ import Orders from './pages/Orders';
 import POS from './pages/POS';
 import Products from './pages/Products';
 import Register from './pages/Register';
+import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import SuperAdmin from './pages/SuperAdmin';
 import { useAuth } from './store/auth';
@@ -45,6 +46,7 @@ export default function App() {
           </Route>
           <Route element={<ProtectedRoute roles={['owner', 'admin']} />}>
             <Route path="dashboard" element={<Dashboard />} />
+            <Route path="reports" element={<Reports />} />
             <Route path="products" element={<Products />} />
             <Route path="settings" element={<Settings />} />
           </Route>

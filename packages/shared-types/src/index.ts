@@ -221,6 +221,21 @@ export interface SalesSummary {
   topProducts: { productId: string; name: string; qty: number; revenue: number }[];
 }
 
+// ---------- reports ----------
+export interface SalesReport {
+  from: string; // YYYY-MM-DD
+  to: string; // YYYY-MM-DD
+  revenue: number;
+  orders: number;
+  tax: number;
+  discounts: number;
+  itemsSold: number;
+  averageOrder: number;
+  daily: { date: string; revenue: number; orders: number }[];
+  topProducts: { productId: string; name: string; qty: number; revenue: number }[];
+  paymentModes: { mode: PaymentMode; orders: number; revenue: number }[];
+}
+
 // ---------- customers & installments ----------
 export interface Guarantor {
   name?: string;

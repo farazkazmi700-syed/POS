@@ -16,6 +16,7 @@ import { InstallmentModule } from './modules/installment/installment.module';
 import { InvoiceModule } from './modules/invoice/invoice.module';
 import { OrderModule } from './modules/order/order.module';
 import { ProductModule } from './modules/product/product.module';
+import { ReportModule } from './modules/report/report.module';
 import { SuperAdminModule } from './modules/super-admin/super-admin.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 
@@ -41,7 +42,7 @@ import { TenantModule } from './modules/tenant/tenant.module';
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
     AuthModule, TenantModule, ProductModule, OrderModule, InvoiceModule, CustomerModule, InstallmentModule,
-    SuperAdminModule, DeveloperModule,
+    SuperAdminModule, DeveloperModule, ReportModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

@@ -159,6 +159,27 @@ export default function Layout() {
                   )}
                 </div>
               )}
+              {isManager && tenant?.featureFlags?.reports !== false && (
+                <NavLink
+                  to="/reports"
+                  aria-label="Reports"
+                  className={({ isActive }) =>
+                    `flex h-10 w-10 items-center justify-center rounded-lg border ${
+                      isActive
+                        ? 'border-indigo-500/60 bg-indigo-50 text-indigo-600 dark:border-indigo-500/50 dark:bg-indigo-500/10 dark:text-indigo-300'
+                        : 'border-slate-200 bg-white/70 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200 dark:hover:bg-slate-800'
+                    }`
+                  }
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth="1.8">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
+                    />
+                  </svg>
+                </NavLink>
+              )}
               <ThemeToggle />
               <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-2.5 py-1.5 text-xs text-slate-600 sm:flex dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
                 <span className="font-semibold text-slate-800 dark:text-slate-100">{user?.name}</span>

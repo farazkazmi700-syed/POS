@@ -1,6 +1,6 @@
 import type {
   AuthResponse, Customer, Guarantor, InstallmentPlan, InstallmentQuote, InstallmentStats, LoginResponse, Order, OrderItemInput,
-  OrderTotals, Paginated, PaymentMode, PlanPayment, Product, SalesSummary, TaxClass, TaxProfile, Tenant,
+  OrderTotals, Paginated, PaymentMode, PlanPayment, Product, SalesReport, SalesSummary, TaxClass, TaxProfile, Tenant,
   TenantNavigationKey, UserSummary, AdminAuditEntry, FeatureFlags, ManagedBusiness, SubscriptionPlan,
   SuperAdminOverview, BusinessPlanTarget,
 } from '@pos/shared-types';
@@ -102,6 +102,11 @@ export const orderApi = {
   list: (page = 1, limit = 20) => api.get<Paginated<Order>>('/orders', { params: { page, limit } }).then((r) => r.data),
   void: (id: string) => api.post<Order>(`/orders/${id}/void`).then((r) => r.data),
   summary: (days: number) => api.get<SalesSummary>('/orders/stats/summary', { params: { days } }).then((r) => r.data),
+};
+
+export const reportApi = {
+  sales: (params: { from: string; to: string }) =>
+    api.get<SalesReport>('/reports/sales', { params }).then((r) => r.data),
 };
 
 export const invoiceApi = {

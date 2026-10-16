@@ -350,7 +350,6 @@ function DeveloperWorkspace() {
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const businesses = useQuery({ queryKey: ['developer', 'businesses'], queryFn: developerApi.businesses });
   const plans = useQuery({ queryKey: ['developer', 'plans'], queryFn: developerApi.plans });
