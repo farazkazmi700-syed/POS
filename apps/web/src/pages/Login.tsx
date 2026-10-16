@@ -111,7 +111,7 @@ export default function Login() {
 
             {step !== 'pin' && <div>
               <label className="label">Account email</label>
-              <input className="input border-[#c8dad7] bg-white focus:border-teal-700 focus:shadow-[0_0_0_4px_rgba(13,148,136,0.14)] dark:border-slate-700 dark:bg-slate-900 dark:focus:border-teal-400 dark:focus:shadow-[0_0_0_4px_rgba(45,212,191,0.14)]" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              <input className="input border-[#c8dad7] bg-white focus:border-teal-700 focus:shadow-[0_0_0_4px_rgba(13,148,136,0.14)] dark:border-slate-700 dark:bg-slate-900 dark:focus:border-teal-400 dark:focus:shadow-[0_0_0_4px_rgba(45,212,191,0.14)]" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>}
 
             {step === 'credentials' && <div>
@@ -141,10 +141,12 @@ export default function Login() {
               {login.isPending ? 'Signing in…' : completePin.isPending ? 'Verifying PIN…' : requestReset.isPending ? 'Sending code…' : resetPin.isPending ? 'Resetting PIN…' : step === 'credentials' ? 'Sign in' : step === 'pin' ? (pinRequiresChange ? 'Set PIN and continue' : 'Verify PIN') : step === 'reset-request' ? 'Send reset code' : 'Reset PIN'}
             </button>
 
-            {step === 'credentials' && <div className="flex justify-between text-sm">
-              <button type="button" className="font-medium text-teal-800 hover:underline dark:text-teal-300" onClick={() => { setNotice(''); setStep('reset-request'); }}>Forgot PIN?</button>
-              <Link className="font-medium text-teal-800 hover:underline dark:text-teal-300" to="/register">Create account</Link>
-            </div>}
+            {step === 'credentials' && (
+              <div className="flex items-center justify-between text-sm">
+                <button type="button" className="font-medium text-teal-800 hover:underline dark:text-teal-300" onClick={() => { setNotice(''); setStep('reset-request'); }}>Forgot PIN?</button>
+                <Link to="/developer" className="font-medium text-teal-800 hover:underline dark:text-teal-300">Developer Portal &rarr;</Link>
+              </div>
+            )}
             {step !== 'credentials' && <button type="button" className="w-full text-sm text-slate-600 hover:underline dark:text-slate-300" onClick={() => { setStep('credentials'); setChallengeToken(''); setNotice(''); setPin(''); setNewPin(''); setResetCode(''); }}>Back to sign in</button>}
           </form>
         </div>

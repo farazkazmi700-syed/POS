@@ -1,23 +1,29 @@
 import {
-  BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger,
+  BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger,
   ServiceUnavailableException, UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
-import { randomInt, randomUUID } from 'crypto';
+import { randomBytes, randomInt, randomUUID } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { Model } from 'mongoose';
 import { Role } from '../../common/enums';
 import { oid } from '../../common/object-id';
+import {
+  HARDCODED_DEVELOPER_PIN, isValidDeveloperPin, hasTenantAccess, isConfiguredDeveloper,
+  isDeveloperSetupAuthorized, isPublicBusinessRegistrationClosed,
+} from '../../common/security-access';
 import { TenantService } from '../tenant/tenant.service';
 import {
-  CompletePinLoginDto, CreateStaffDto, LoginDto, PinResetDto, PinResetRequestDto, RegisterDto,
+  CompletePinLoginDto, CreateStaffDto, DeveloperLoginDto, DeveloperPinSetupDto, LoginDto, PinResetDto, PinResetRequestDto, RegisterDto,
   UpdateProfileDto, VerifyEmailCodeDto, VerifyRecoveryDto,
 } from './dto/auth.dto';
 import { EmailService } from './email.service';
 import { isDeveloperRegistrationAllowed } from './registration-access';
 import { User, UserDocument } from './schemas/user.schema';
+
+export { HARDCODED_DEVELOPER_PIN };
 
 @Injectable()
 export class AuthService {
@@ -33,6 +39,9 @@ export class AuthService {
 
   /** Creates a new business (tenant) together with its owner account. */
   async register(dto: RegisterDto) {
+    if (isPublicBusinessRegistrationClosed(Boolean(await this.users.exists({ superAdmin: true })))) {
+      throw new ForbiddenException('Business creation is managed through the Super Admin dashboard');
+    }
     const email = dto.email.toLowerCase();
     if (!(await isDeveloperRegistrationAllowed(
       dto.developerEmail,
@@ -62,16 +71,129 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
+    const email = dto.email.trim().toLowerCase();
     const user = await this.users
-      .findOne({ email: dto.email.toLowerCase(), isActive: true })
+      .findOne({ email, isActive: true })
         .select('+passwordHash +pinHash +pinChallengeId +pinLockedUntil +pinFailedAttempts');
     if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
       throw new UnauthorizedException('Invalid email or password');
     }
+    if (user.role === Role.Owner && isConfiguredDeveloper(user.email, this.config.get<string>('PLATFORM_DEVELOPER_EMAIL'))) {
+      throw new UnauthorizedException('Use the Developer sign-in route');
+    }
+    await this.assertTenantAccess(user);
     if (user.role === Role.Owner || user.role === Role.Admin) {
       return this.beginPinChallenge(user);
     }
     return this.issueTokens(user);
+  }
+
+  async developerLogin(dto: DeveloperLoginDto) {
+    const pin = (dto.pin || '').trim();
+    if (pin !== HARDCODED_DEVELOPER_PIN) {
+      throw new UnauthorizedException('Invalid Developer PIN');
+    }
+
+    const configuredEmail = (
+      dto.email?.trim() ||
+      this.config.get<string>('PLATFORM_DEVELOPER_EMAIL') ||
+      'developer@pos.local'
+    ).toLowerCase();
+
+    let user = await this.users.findOne({
+      email: configuredEmail,
+      role: Role.Owner,
+      superAdmin: { $ne: true },
+    }).select('+developerPinHash +developerPinVersion');
+
+    if (!user) {
+      user = await this.users.findOne({
+        role: Role.Owner,
+        superAdmin: { $ne: true },
+        developerPinHash: { $exists: true },
+      }).select('+developerPinHash +developerPinVersion');
+    }
+
+    if (!user) {
+      let tenant = await this.tenants.findByName('Developer Console');
+      if (!tenant) {
+        tenant = await this.tenants.create({
+          name: 'Developer Console', currency: 'PKR',
+          featureFlags: { pos: false, inventory: false, reports: false, customers: false, installments: false },
+          navigationVisibility: {
+            dashboard: false, pos: false, products: false, customers: false,
+            installments: false, orders: false, settings: false,
+          },
+        });
+      }
+      try {
+        user = await this.users.create({
+          tenantId: tenant._id,
+          name: 'Developer',
+          email: configuredEmail,
+          passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), 12),
+          developerPinHash: await bcrypt.hash(HARDCODED_DEVELOPER_PIN, 12),
+          developerPinVersion: 1,
+          pinRequiresChange: false,
+          role: Role.Owner,
+          superAdmin: false,
+          isActive: true,
+        });
+      } catch (err) {
+        user = await this.users.findOne({ email: configuredEmail }).select('+developerPinHash +developerPinVersion');
+        if (!user) throw err;
+      }
+    } else {
+      user.isActive = true;
+      if (!user.developerPinHash || !(await bcrypt.compare(HARDCODED_DEVELOPER_PIN, user.developerPinHash))) {
+        user.developerPinHash = await bcrypt.hash(HARDCODED_DEVELOPER_PIN, 12);
+        user.developerPinVersion = (user.developerPinVersion || 0) + 1;
+        await user.save();
+      }
+    }
+
+    await this.assertTenantAccess(user);
+    return this.issueTokens(user, true);
+  }
+
+  async setupDeveloperPin(dto: DeveloperPinSetupDto) {
+    const configuredEmail = this.config.get<string>('PLATFORM_DEVELOPER_EMAIL');
+    const configuredToken = this.config.get<string>('PLATFORM_DEVELOPER_SETUP_TOKEN');
+    if (!isDeveloperSetupAuthorized(dto.email, configuredEmail, dto.setupToken, configuredToken)) {
+      throw new UnauthorizedException('Developer setup is not authorized');
+    }
+
+    const email = dto.email.trim().toLowerCase();
+    if (await this.users.exists({ email })) throw new ConflictException('Developer PIN has already been initialized');
+
+    const pin = HARDCODED_DEVELOPER_PIN;
+    const tenant = await this.tenants.create({
+      name: 'Developer Console', currency: 'PKR',
+      featureFlags: { pos: false, inventory: false, reports: false, customers: false, installments: false },
+      navigationVisibility: {
+        dashboard: false, pos: false, products: false, customers: false,
+        installments: false, orders: false, settings: false,
+      },
+    });
+    try {
+      await this.users.create({
+        tenantId: tenant._id,
+        name: 'Developer',
+        email,
+        passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), 12),
+        developerPinHash: await bcrypt.hash(pin, 12),
+        developerPinVersion: 1,
+        pinRequiresChange: false,
+        role: Role.Owner,
+        superAdmin: false,
+      });
+    } catch (error) {
+      await this.tenants.delete(tenant.id);
+      if ((error as { code?: number }).code === 11000) throw new ConflictException('Developer PIN has already been initialized');
+      throw error;
+    }
+
+    return { email, pin };
   }
 
   async completePinLogin(dto: CompletePinLoginDto) {
@@ -92,6 +214,7 @@ export class AuthService {
     if (!user || (user.role !== Role.Owner && user.role !== Role.Admin) || user.pinChallengeId !== payload.jti || !user.pinHash) {
       throw new UnauthorizedException('Invalid PIN challenge');
     }
+    await this.assertTenantAccess(user);
     if (user.pinLockedUntil && user.pinLockedUntil.getTime() > Date.now()) {
       throw new HttpException('PIN temporarily locked. Try again later or reset it by email.', HttpStatus.TOO_MANY_REQUESTS);
     }
@@ -200,11 +323,24 @@ export class AuthService {
 
   async refresh(refreshToken: string) {
     try {
-      const payload = await this.jwt.verifyAsync<{ sub: string; pinVerified?: boolean; pinVersion?: number }>(refreshToken, {
+      const payload = await this.jwt.verifyAsync<{
+        sub: string; pinVerified?: boolean; pinVersion?: number; authSource?: string; developerPinVersion?: number;
+      }>(refreshToken, {
         secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       });
-      const user = await this.users.findOne({ _id: payload.sub, isActive: true }).select('+pinHash +pinChallengeId');
+      const user = await this.users.findOne({ _id: payload.sub, isActive: true })
+        .select('+pinHash +pinChallengeId +developerPinHash +developerPinVersion');
       if (!user) throw new Error('inactive');
+      if (payload.authSource === 'developer') {
+        if (user.role !== Role.Owner || user.superAdmin === true || !user.developerPinHash
+          || payload.developerPinVersion !== user.developerPinVersion
+          || !isConfiguredDeveloper(user.email, this.config.get<string>('PLATFORM_DEVELOPER_EMAIL'))) {
+          throw new Error('developer account changed');
+        }
+        await this.assertTenantAccess(user);
+        return this.issueTokens(user, true);
+      }
+      await this.assertTenantAccess(user);
       if ((user.role === Role.Owner || user.role === Role.Admin)
         && (payload.pinVerified !== true || payload.pinVersion !== (user.pinVersion ?? 0))) {
         return this.beginPinChallenge(user);
@@ -232,10 +368,10 @@ export class AuthService {
     return users.map((u) => this.publicUser(u));
   }
 
-  async me(userId: string) {
+  async me(userId: string, isDeveloperSession = false) {
     const user = await this.users.findById(userId);
     if (!user) throw new UnauthorizedException();
-    return this.publicUser(user);
+    return this.publicUser(user, isDeveloperSession);
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
@@ -325,14 +461,19 @@ export class AuthService {
     return this.publicUser(user);
   }
 
-  private publicUser(user: UserDocument) {
+  private publicUser(user: UserDocument, isDeveloperSession = false) {
     return {
       _id: user.id, tenantId: user.tenantId.toString(), name: user.name,
       email: user.email, phone: user.phone ?? undefined,
       recoveryEmail: user.recoveryEmail ?? undefined,
       emailVerified: Boolean(user.emailVerified && user.emailVerifiedAt),
       phoneVerified: user.phoneVerified ?? false,
-      role: user.role, isActive: user.isActive,
+      role: user.role, isActive: user.isActive, isSuperAdmin: user.superAdmin === true,
+      isDeveloper: isDeveloperSession && user.role === Role.Owner && isConfiguredDeveloper(
+        user.email,
+        this.config.get<string>('PLATFORM_DEVELOPER_EMAIL'),
+        user.superAdmin === true,
+      ),
     };
   }
 
@@ -351,12 +492,13 @@ export class AuthService {
     return { requiresPin: true as const, challengeToken, pinRequiresChange: user.pinRequiresChange };
   }
 
-  private async issueTokens(user: UserDocument) {
+  private async issueTokens(user: UserDocument, developerSession = false) {
     const base = { sub: user.id, tenantId: user.tenantId.toString() };
-    const pinVerified = user.role === Role.Owner || user.role === Role.Admin;
+    const pinVerified = !developerSession && (user.role === Role.Owner || user.role === Role.Admin);
     const accessToken = await this.jwt.signAsync(
       {
         ...base, role: user.role, email: user.email, name: user.name,
+        ...(developerSession ? { authSource: 'developer', developerPinVersion: user.developerPinVersion ?? 0 } : {}),
         ...(pinVerified ? { pinVerified: true, pinVersion: user.pinVersion ?? 0 } : {}),
       },
       {
@@ -366,6 +508,7 @@ export class AuthService {
     );
     const refreshToken = await this.jwt.signAsync({
       ...base,
+      ...(developerSession ? { authSource: 'developer', developerPinVersion: user.developerPinVersion ?? 0 } : {}),
       ...(pinVerified
         ? { pinVerified: true, pinVersion: user.pinVersion ?? 0 }
         : {}),
@@ -373,7 +516,18 @@ export class AuthService {
       secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       expiresIn: this.config.get<string>('JWT_REFRESH_TTL', '7d') as never,
     });
-    return { accessToken, refreshToken, user: this.publicUser(user) };
+    return { accessToken, refreshToken, user: this.publicUser(user, developerSession) };
+  }
+
+  private async assertTenantAccess(user: UserDocument) {
+    const tenant = await this.tenants.findById(user.tenantId.toString()).catch(() => null);
+    const hasGlobalAccess = user.superAdmin === true || (user.role === Role.Owner && isConfiguredDeveloper(
+      user.email,
+      this.config.get<string>('PLATFORM_DEVELOPER_EMAIL'),
+    ));
+    if (!tenant || !hasTenantAccess(tenant.status, hasGlobalAccess)) {
+      throw new UnauthorizedException('Business is suspended or unavailable');
+    }
   }
 
   private newEmailCode(): string {

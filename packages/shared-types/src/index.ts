@@ -1,4 +1,6 @@
 export type Role = 'owner' | 'admin' | 'cashier';
+export type FeatureKey = 'pos' | 'inventory' | 'reports' | 'customers' | 'installments';
+export type FeatureFlags = Record<FeatureKey, boolean>;
 export type DomainType = 'retail' | 'restaurant' | 'pharmacy' | 'salon' | 'custom';
 export type TaxClass = 'standard' | 'reduced' | 'exempt';
 export type PaymentMode = 'cash' | 'card' | 'wallet' | 'installment';
@@ -19,11 +21,11 @@ export interface TaxProfile {
 }
 
 export const TENANT_NAVIGATION_ITEMS = [
-  { key: 'dashboard', to: '/dashboard', label: 'Dashboard', managerOnly: true },
-  { key: 'pos', to: '/pos', label: 'POS', managerOnly: false },
-  { key: 'products', to: '/products', label: 'Products', managerOnly: true },
-  { key: 'customers', to: '/customers', label: 'Customers', managerOnly: false },
-  { key: 'installments', to: '/installments', label: 'Installments', managerOnly: false },
+  { key: 'dashboard', to: '/dashboard', label: 'Dashboard', managerOnly: true, feature: 'reports' },
+  { key: 'pos', to: '/pos', label: 'POS', managerOnly: false, feature: 'pos' },
+  { key: 'products', to: '/products', label: 'Products', managerOnly: true, feature: 'inventory' },
+  { key: 'customers', to: '/customers', label: 'Customers', managerOnly: false, feature: 'customers' },
+  { key: 'installments', to: '/installments', label: 'Installments', managerOnly: false, feature: 'installments' },
   { key: 'orders', to: '/orders', label: 'Orders', managerOnly: false },
   { key: 'settings', to: '/settings', label: 'Settings', managerOnly: true },
 ] as const;
@@ -41,6 +43,9 @@ export interface Tenant {
   invoicePrefix: string;
   taxProfile: TaxProfile;
   installmentMarkupPercent: number;
+  status: 'active' | 'suspended';
+  featureFlags: FeatureFlags;
+  subscriptionPlanId?: string | null;
   navigationVisibility?: Partial<Record<TenantNavigationKey, boolean>>;
 }
 
@@ -55,6 +60,53 @@ export interface UserSummary {
   phoneVerified?: boolean;
   role: Role;
   isActive?: boolean;
+  isSuperAdmin?: boolean;
+  isDeveloper?: boolean;
+}
+
+export interface SubscriptionPlan {
+  _id: string;
+  name: string;
+  description: string;
+  price: number;
+  billingInterval: 'monthly' | 'yearly';
+  features: FeatureFlags;
+  isActive: boolean;
+}
+
+export interface ManagedBusiness extends Tenant {
+  businessId: string;
+  subscriptionPlan?: Pick<SubscriptionPlan, '_id' | 'name' | 'price' | 'billingInterval'> | null;
+}
+
+export interface BusinessPlanTarget {
+  businessId: string;
+  name: string;
+  domainType?: DomainType;
+  status?: 'active' | 'suspended';
+  currency?: string;
+  featureFlags?: FeatureFlags;
+  subscriptionPlanId: string | null;
+  subscriptionPlanName: string | null;
+  createdAt?: string;
+}
+
+export interface SuperAdminOverview {
+  businesses: number;
+  activeBusinesses: number;
+  suspendedBusinesses: number;
+  plans: number;
+  auditEvents: number;
+}
+
+export interface AdminAuditEntry {
+  _id: string;
+  actorEmail: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  details: Record<string, unknown>;
+  createdAt: string;
 }
 
 export interface AuthResponse {

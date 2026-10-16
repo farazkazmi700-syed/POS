@@ -17,7 +17,17 @@ export class RegisterDto {
 
 export class LoginDto {
   @ApiProperty() @IsEmail() email: string;
-  @ApiProperty() @IsString() password: string;
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(254) password: string;
+}
+
+export class DeveloperLoginDto {
+  @ApiPropertyOptional() @IsOptional() @IsEmail() email?: string;
+  @ApiProperty({ example: '52909063' }) @IsString() @Matches(/^\d{8}$/, { message: 'PIN must be an 8-digit code' }) pin: string;
+}
+
+export class DeveloperPinSetupDto {
+  @ApiProperty() @IsEmail() email: string;
+  @ApiProperty() @IsString() @MinLength(32) @MaxLength(256) setupToken: string;
 }
 
 export class CompletePinLoginDto {

@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { DomainType } from '../../common/enums';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
-import { Tenant, TenantDocument } from './schemas/tenant.schema';
+import { NavigationVisibility, Tenant, TenantDocument, TenantFeatureFlags } from './schemas/tenant.schema';
 
 @Injectable()
 export class TenantService {
@@ -11,6 +11,7 @@ export class TenantService {
 
   create(data: {
     name: string; domainType?: DomainType; taxRegNo?: string; address?: string; currency?: string;
+    featureFlags?: Partial<TenantFeatureFlags>; navigationVisibility?: Partial<NavigationVisibility>;
   }): Promise<TenantDocument> {
     return this.model.create(data);
   }
@@ -19,6 +20,10 @@ export class TenantService {
     const tenant = await this.model.findById(id);
     if (!tenant) throw new NotFoundException('Tenant not found');
     return tenant;
+  }
+
+  findByName(name: string): Promise<TenantDocument | null> {
+    return this.model.findOne({ name }).exec();
   }
 
   async update(id: string, dto: UpdateTenantDto): Promise<TenantDocument> {

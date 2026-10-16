@@ -32,7 +32,8 @@ export default function Layout() {
   }, [stockAlerts.data]);
 
   const links = TENANT_NAVIGATION_ITEMS.filter((item) =>
-    (!item.managerOnly || isManager) && tenant?.navigationVisibility?.[item.key] !== false,
+    (!item.managerOnly || isManager) && tenant?.navigationVisibility?.[item.key] !== false
+      && (!('feature' in item) || tenant?.featureFlags?.[item.feature] !== false),
   );
 
   return (
@@ -59,6 +60,22 @@ export default function Layout() {
               {l.label}
             </NavLink>
           ))}
+          {user?.isSuperAdmin && (
+            <NavLink
+              to="/super-admin"
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            >
+              Super Admin
+            </NavLink>
+          )}
+          {user?.isDeveloper && (
+            <NavLink
+              to="/developer"
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            >
+              Developer
+            </NavLink>
+          )}
         </nav>
       </aside>
 

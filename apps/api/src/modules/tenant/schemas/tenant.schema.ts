@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 import { ChargeType, DomainType } from '../../../common/enums';
 
 @Schema({ _id: false })
@@ -36,6 +36,16 @@ export class NavigationVisibility {
 }
 const NavigationVisibilitySchema = SchemaFactory.createForClass(NavigationVisibility);
 
+@Schema({ _id: false })
+export class TenantFeatureFlags {
+  @Prop({ default: true }) pos: boolean;
+  @Prop({ default: true }) inventory: boolean;
+  @Prop({ default: true }) reports: boolean;
+  @Prop({ default: true }) customers: boolean;
+  @Prop({ default: true }) installments: boolean;
+}
+const TenantFeatureFlagsSchema = SchemaFactory.createForClass(TenantFeatureFlags);
+
 @Schema({ timestamps: true })
 export class Tenant {
   @Prop({ required: true, trim: true }) name: string;
@@ -49,6 +59,9 @@ export class Tenant {
   /** Pre-filled markup % on the installment screen (the cashier can change it per sale). */
   @Prop({ default: 0, min: 0, max: 100 }) installmentMarkupPercent: number;
   @Prop({ type: NavigationVisibilitySchema, default: () => ({}) }) navigationVisibility: NavigationVisibility;
+  @Prop({ type: String, enum: ['active', 'suspended'], default: 'active', index: true }) status: 'active' | 'suspended';
+  @Prop({ type: TenantFeatureFlagsSchema, default: () => ({}) }) featureFlags: TenantFeatureFlags;
+  @Prop({ type: Types.ObjectId, ref: 'SubscriptionPlan', default: null }) subscriptionPlanId: Types.ObjectId | null;
 }
 
 export type TenantDocument = HydratedDocument<Tenant>;

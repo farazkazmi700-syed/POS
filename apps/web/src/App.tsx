@@ -3,6 +3,7 @@ import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Customers from './pages/Customers';
 import Dashboard from './pages/Dashboard';
+import Developer from './pages/Developer';
 import InstallmentDetail from './pages/InstallmentDetail';
 import Installments from './pages/Installments';
 import Login from './pages/Login';
@@ -11,11 +12,13 @@ import POS from './pages/POS';
 import Products from './pages/Products';
 import Register from './pages/Register';
 import Settings from './pages/Settings';
+import SuperAdmin from './pages/SuperAdmin';
 import { useAuth } from './store/auth';
 
 function HomeRedirect() {
-  const role = useAuth((s) => s.user?.role);
-  return <Navigate to={role === 'cashier' ? '/pos' : '/dashboard'} replace />;
+  const user = useAuth((s) => s.user);
+  const path = user?.isDeveloper ? '/developer' : user?.role === 'cashier' ? '/pos' : '/dashboard';
+  return <Navigate to={path} replace />;
 }
 
 export default function App() {
@@ -23,6 +26,12 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+
+      <Route element={<ProtectedRoute superAdminOnly />}>
+        <Route path="/super-admin" element={<SuperAdmin />} />
+      </Route>
+      <Route path="/developer" element={<Developer />} />
+      <Route path="/developer/setup" element={<Navigate to="/developer" replace />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>

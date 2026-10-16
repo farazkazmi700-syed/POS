@@ -1,7 +1,8 @@
 import type {
   AuthResponse, Customer, Guarantor, InstallmentPlan, InstallmentQuote, InstallmentStats, LoginResponse, Order, OrderItemInput,
   OrderTotals, Paginated, PaymentMode, PlanPayment, Product, SalesSummary, TaxClass, TaxProfile, Tenant,
-  TenantNavigationKey, UserSummary,
+  TenantNavigationKey, UserSummary, AdminAuditEntry, FeatureFlags, ManagedBusiness, SubscriptionPlan,
+  SuperAdminOverview, BusinessPlanTarget,
 } from '@pos/shared-types';
 import { api } from './client';
 
@@ -53,6 +54,10 @@ export interface InstallmentTerms {
 
 export const authApi = {
   login: (body: { email: string; password: string }) => api.post<LoginResponse>('/auth/login', body).then((r) => r.data),
+  developerLogin: (body: { pin: string; email?: string }) =>
+    api.post<AuthResponse>('/auth/developer/login', body).then((r) => r.data),
+  setupDeveloperPin: (body: { email: string; setupToken: string }) =>
+    api.post<{ email: string; pin: string }>('/auth/developer/setup-pin', body).then((r) => r.data),
   register: (body: {
     businessName: string; domainType: string; ownerName: string; email: string; password: string;
     developerEmail: string; developerPassword: string;
@@ -150,4 +155,31 @@ export const installmentApi = {
   get: (id: string) => api.get<InstallmentPlan>(`/installments/${id}`).then((r) => r.data),
   pay: (id: string, body: { amount: number; mode: 'cash' | 'card' | 'wallet'; note?: string; idempotencyKey?: string }) =>
     api.post<{ payment: PlanPayment; plan: InstallmentPlan }>(`/installments/${id}/payments`, body).then((r) => r.data),
+};
+
+export const superAdminApi = {
+  overview: () => api.get<SuperAdminOverview>('/super-admin/overview').then((r) => r.data),
+  businesses: () => api.get<ManagedBusiness[]>('/super-admin/businesses').then((r) => r.data),
+  updateBusiness: (id: string, body: { name?: string; status?: 'active' | 'suspended' }) =>
+    api.patch<ManagedBusiness>(`/super-admin/businesses/${id}`, body).then((r) => r.data),
+  updateFeatures: (id: string, featureFlags: Partial<FeatureFlags>) =>
+    api.patch(`/super-admin/businesses/${id}/features`, { featureFlags }).then((r) => r.data),
+  audit: (limit = 50) => api.get<AdminAuditEntry[]>('/super-admin/audit', { params: { limit } }).then((r) => r.data),
+};
+
+export const developerApi = {
+  businesses: () => api.get<BusinessPlanTarget[]>('/developer/businesses').then((r) => r.data),
+  createBusiness: (body: {
+    name: string; domainType: string; ownerName: string; ownerEmail: string; ownerPassword: string;
+    address?: string; currency?: string;
+  }) => api.post<ManagedBusiness>('/developer/businesses', body).then((r) => r.data),
+  assignPlan: (id: string, subscriptionPlanId: string) =>
+    api.patch<ManagedBusiness>(`/developer/businesses/${id}/plan`, { subscriptionPlanId }).then((r) => r.data),
+  updateFeatures: (id: string, featureFlags: Partial<FeatureFlags>) =>
+    api.patch<{ businessId: string; featureFlags: FeatureFlags }>(`/developer/businesses/${id}/features`, { featureFlags }).then((r) => r.data),
+  plans: () => api.get<SubscriptionPlan[]>('/developer/plans').then((r) => r.data),
+  createPlan: (body: Omit<SubscriptionPlan, '_id' | 'isActive'>) =>
+    api.post<SubscriptionPlan>('/developer/plans', body).then((r) => r.data),
+  updatePlan: (id: string, body: Partial<Omit<SubscriptionPlan, '_id'>>) =>
+    api.patch<SubscriptionPlan>(`/developer/plans/${id}`, body).then((r) => r.data),
 };

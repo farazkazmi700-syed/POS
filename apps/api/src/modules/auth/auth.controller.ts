@@ -8,7 +8,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums';
 import { AuthService } from './auth.service';
 import {
-  CompletePinLoginDto, CreateStaffDto, LoginDto, PinResetDto, PinResetRequestDto, RefreshDto, RegisterDto,
+  CompletePinLoginDto, CreateStaffDto, DeveloperLoginDto, DeveloperPinSetupDto, LoginDto, PinResetDto, PinResetRequestDto, RefreshDto, RegisterDto,
   UpdateProfileDto, VerifyEmailCodeDto, VerifyRecoveryDto,
 } from './dto/auth.dto';
 
@@ -29,6 +29,20 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 15 * 60_000 } })
+  @Post('developer/login')
+  developerLogin(@Body() dto: DeveloperLoginDto) {
+    return this.auth.developerLogin(dto);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 3, ttl: 15 * 60_000 } })
+  @Post('developer/setup-pin')
+  setupDeveloperPin(@Body() dto: DeveloperPinSetupDto) {
+    return this.auth.setupDeveloperPin(dto);
   }
 
   @Public()
@@ -61,7 +75,7 @@ export class AuthController {
   @ApiBearerAuth()
   @Get('me')
   me(@CurrentUser() user: AuthUser) {
-    return this.auth.me(user.userId);
+    return this.auth.me(user.userId, user.isDeveloper);
   }
 
   @ApiBearerAuth()

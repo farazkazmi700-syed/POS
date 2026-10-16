@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -42,6 +42,9 @@ export class OrderService {
     // Installment sale: validate the customer and the terms first, so a bad request changes nothing.
     let prepared: PreparedPlan | null = null;
     if (dto.paymentMode === PaymentMode.Installment) {
+      if (tenant.featureFlags?.installments === false) {
+        throw new ForbiddenException('The installments feature is disabled for this business');
+      }
       if (!dto.installment) throw new BadRequestException('Installment terms are required');
       prepared = await this.installments.prepare(user.tenantId, dto.installment, calc.grandTotal);
     }

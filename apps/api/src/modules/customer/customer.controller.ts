@@ -2,12 +2,14 @@ import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthUser } from '../../common/auth-user';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequiresFeature } from '../../common/decorators/feature.decorator';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
 import { CustomerService } from './customer.service';
 import { CreateCustomerDto, QueryCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
 
 @ApiTags('customers')
 @ApiBearerAuth()
+@RequiresFeature('customers')
 @Controller('customers')
 export class CustomerController {
   constructor(private readonly customers: CustomerService) {}

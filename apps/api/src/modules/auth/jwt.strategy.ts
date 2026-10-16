@@ -6,16 +6,20 @@ import { Model } from 'mongoose';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthUser } from '../../common/auth-user';
 import { Role } from '../../common/enums';
+import { isConfiguredDeveloper, isPersistedSuperAdmin } from '../../common/security-access';
 import { User } from './schemas/user.schema';
 
 interface JwtPayload {
   sub: string; tenantId: string; role: Role; email: string; name: string;
-  purpose?: string; pinVerified?: boolean; pinVersion?: number;
+  purpose?: string; authSource?: string; pinVerified?: boolean; pinVersion?: number; developerPinVersion?: number;
 }
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(config: ConfigService, @InjectModel(User.name) private readonly users: Model<User>) {
+  constructor(
+    private readonly config: ConfigService,
+    @InjectModel(User.name) private readonly users: Model<User>,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: config.getOrThrow<string>('JWT_ACCESS_SECRET'),
@@ -24,18 +28,30 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload): Promise<AuthUser> {
     if (payload.purpose === 'admin-pin') throw new UnauthorizedException('PIN challenge is not a session token');
-    if (payload.role === Role.Owner || payload.role === Role.Admin) {
+    const user = await this.users.findById(payload.sub)
+      .select('tenantId role email name isActive superAdmin pinVersion +developerPinVersion +developerPinHash');
+    if (!user || !user.isActive) throw new UnauthorizedException('Account is inactive');
+    const isDeveloper = payload.authSource === 'developer'
+      && user.role === Role.Owner
+      && isConfiguredDeveloper(user.email, this.config.get<string>('PLATFORM_DEVELOPER_EMAIL'))
+      && user.superAdmin !== true
+      && Boolean(user.developerPinHash)
+      && payload.developerPinVersion === user.developerPinVersion;
+    if (payload.authSource === 'developer' && !isDeveloper) {
+      throw new UnauthorizedException('Developer access is no longer configured');
+    }
+    if (!isDeveloper && (user.role === Role.Owner || user.role === Role.Admin)) {
       if (payload.pinVerified !== true || payload.pinVersion === undefined) {
         throw new UnauthorizedException('Admin PIN verification is required');
       }
-      const user = await this.users.findById(payload.sub).select('pinVersion isActive');
-      if (!user || !user.isActive || (user.pinVersion ?? 0) !== payload.pinVersion) {
+      if ((user.pinVersion ?? 0) !== payload.pinVersion) {
         throw new UnauthorizedException('PIN changed. Sign in again.');
       }
     }
+    const isSuperAdmin = isPersistedSuperAdmin(user);
     return {
-      userId: payload.sub, tenantId: payload.tenantId, role: payload.role,
-      email: payload.email, name: payload.name,
+      userId: user.id, tenantId: user.tenantId.toString(), role: user.role,
+      isSuperAdmin, isDeveloper, email: user.email, name: user.name,
     };
   }
 }
