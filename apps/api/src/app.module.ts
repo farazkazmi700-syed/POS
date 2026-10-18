@@ -3,7 +3,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { MongooseModule } from '@nestjs/mongoose';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { AppThrottlerGuard } from './common/guards/app-throttler.guard';
 import { FeatureGuard } from './common/guards/feature.guard';
 import { DeveloperScopeGuard } from './common/guards/developer-scope.guard';
 import { TenantStatusGuard } from './common/guards/tenant-status.guard';
@@ -40,13 +41,21 @@ import { TenantModule } from './modules/tenant/tenant.module';
         };
       },
     }),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => [
+        {
+          ttl: Number(config.get('THROTTLE_TTL') || 60_000),
+          limit: Number(config.get('THROTTLE_LIMIT') || 2000),
+        },
+      ],
+    }),
     AuthModule, TenantModule, ProductModule, OrderModule, InvoiceModule, CustomerModule, InstallmentModule,
     SuperAdminModule, DeveloperModule, ReportModule,
   ],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
-    { provide: APP_GUARD, useClass: JwtAuthGuard }, // everything is private unless @Public()
+    { provide: APP_GUARD, useClass: JwtAuthGuard }, // runs first: populates req.user
+    { provide: APP_GUARD, useClass: AppThrottlerGuard }, // user-aware tracking, configurable limits & skip
     { provide: APP_GUARD, useClass: DeveloperScopeGuard },
     { provide: APP_GUARD, useClass: TenantStatusGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

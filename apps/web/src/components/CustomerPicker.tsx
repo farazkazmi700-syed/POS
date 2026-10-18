@@ -31,20 +31,20 @@ export default function CustomerPicker({ value, onChange }: { value: Customer | 
 
   if (value) {
     return (
-      <div className="flex items-start justify-between rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm">
+      <div className="flex items-start justify-between rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm dark:border-teal-500/30 dark:bg-teal-500/10">
         <div>
           <div className="font-medium">{value.name}</div>
-          <div className="text-slate-600">{value.phone}{value.cnic ? ` · CNIC ${value.cnic}` : ''}</div>
-          {value.guarantor?.name && <div className="text-xs text-slate-500">Guarantor: {value.guarantor.name}</div>}
+          <div className="text-slate-600 dark:text-slate-300">{value.phone}{value.cnic ? ` · CNIC ${value.cnic}` : ''}</div>
+          {value.guarantor?.name && <div className="text-xs text-slate-500 dark:text-slate-400">Guarantor: {value.guarantor.name}</div>}
         </div>
-        <button type="button" className="text-xs font-medium text-indigo-700" onClick={() => onChange(null)}>Change</button>
+        <button type="button" className="text-xs font-medium text-teal-700 dark:text-teal-400" onClick={() => onChange(null)}>Change</button>
       </div>
     );
   }
 
   if (adding) {
     return (
-      <form onSubmit={submit} className="space-y-2 rounded-lg border border-slate-200 p-3">
+      <form onSubmit={submit} className="space-y-2.5 rounded-xl border border-slate-200 dark:border-teal-950 bg-slate-50/50 dark:bg-slate-800/40 p-3.5">
         <div className="text-sm font-medium">New customer</div>
         <input className="input" placeholder="Full name" required value={form.name} onChange={set('name')} />
         <input className="input" placeholder="Phone" required minLength={5} value={form.phone} onChange={set('phone')} />
@@ -70,12 +70,12 @@ export default function CustomerPicker({ value, onChange }: { value: Customer | 
       <input className="input" placeholder="Search customer by name, phone or CNIC" value={search} onChange={(e) => setSearch(e.target.value)} />
       {results.data?.data.map((c) => (
         <button key={c._id} type="button" onClick={() => onChange(c)}
-          className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-left text-sm hover:border-indigo-400">
-          <span className="font-medium">{c.name}</span> <span className="text-slate-500">· {c.phone}</span>
+          className="block w-full rounded-lg border border-slate-200 px-3 py-2 text-left text-sm hover:border-teal-400 hover:bg-teal-50/50 dark:border-slate-700 dark:hover:border-teal-500 dark:hover:bg-teal-500/10">
+          <span className="font-medium">{c.name}</span> <span className="text-slate-500 dark:text-slate-400">· {c.phone}</span>
         </button>
       ))}
-      {results.data && results.data.data.length === 0 && <p className="text-xs text-slate-500">No match.</p>}
-      <button type="button" className="text-sm font-medium text-indigo-600" onClick={() => setAdding(true)}>+ New customer</button>
+      {results.data && results.data.data.length === 0 && <p className="text-xs text-slate-500 dark:text-slate-400">No match.</p>}
+      <button type="button" className="text-sm font-medium text-teal-600 dark:text-teal-400" onClick={() => setAdding(true)}>+ New customer</button>
     </div>
   );
 }

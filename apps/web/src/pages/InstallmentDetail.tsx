@@ -66,7 +66,7 @@ export default function InstallmentDetail() {
     <>
       <div className="no-print space-y-5">
         <div className="flex flex-wrap items-center gap-3">
-          <Link to="/installments" className="text-sm text-indigo-600">← Installments</Link>
+          <Link to="/installments" className="text-sm text-teal-600 hover:underline dark:text-teal-400">← Installments</Link>
           <h1 className="text-xl font-semibold">{p.customerName}</h1>
           <span className="text-sm text-slate-500">{p.invoiceNo}</span>
           {p.status === 'completed' ? <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Completed</span>
@@ -86,18 +86,61 @@ export default function InstallmentDetail() {
         </div>
 
         {p.status === 'active' && (
-          <form onSubmit={submit} className="card flex flex-wrap items-end gap-3">
-            <div><label className="label">Amount received</label>
-              <input className="input !w-40" type="number" min={0.01} max={p.balance} step="0.01" required value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
-            <div><label className="label">Paid by</label>
-              <select className="input" value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
-                <option value="cash">Cash</option><option value="card">Card</option><option value="wallet">Wallet</option>
-              </select></div>
-            <div className="min-w-48 flex-1"><label className="label">Note (optional)</label>
-              <input className="input" value={note} onChange={(e) => setNote(e.target.value)} /></div>
-            {suggested > 0 && <button type="button" className="btn-secondary" onClick={() => setAmount(String(suggested))}>Next due {money(suggested)}</button>}
-            <button className="btn-primary" disabled={pay.isPending}>{pay.isPending ? 'Saving…' : 'Collect and print receipt'}</button>
-            {pay.isError && <p className="w-full text-sm text-red-600">{errorMessage(pay.error)}</p>}
+          <form onSubmit={submit} className="card space-y-3">
+            <h2 className="text-sm font-semibold">Collect Installment Payment</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+              <div>
+                <label className="label">Amount received *</label>
+                <input
+                  className="input"
+                  type="number"
+                  min={0.01}
+                  max={p.balance}
+                  step="0.01"
+                  required
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="label">Paid by</label>
+                <select className="input" value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
+                  <option value="cash">Cash</option>
+                  <option value="card">Card</option>
+                  <option value="wallet">Wallet</option>
+                </select>
+              </div>
+              <div className="sm:col-span-2 lg:col-span-2">
+                <label className="label">Note (optional)</label>
+                <input
+                  className="input"
+                  placeholder="e.g. Paid in full / partial"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-teal-950">
+              {suggested > 0 && (
+                <button
+                  type="button"
+                  className="btn-secondary text-xs"
+                  onClick={() => setAmount(String(suggested))}
+                >
+                  Pay next due ({money(suggested)})
+                </button>
+              )}
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  className="btn-primary text-xs font-semibold"
+                  disabled={pay.isPending}
+                >
+                  {pay.isPending ? 'Processing…' : 'Collect & print receipt'}
+                </button>
+              </div>
+            </div>
+            {pay.isError && <p className="text-sm text-red-600">{errorMessage(pay.error)}</p>}
           </form>
         )}
 

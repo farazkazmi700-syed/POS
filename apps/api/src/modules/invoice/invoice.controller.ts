@@ -1,5 +1,6 @@
 import { Controller, Get, Param, Post, StreamableFile } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { createReadStream, existsSync } from 'fs';
 import { NotFoundException } from '@nestjs/common';
 import { AuthUser } from '../../common/auth-user';
@@ -16,6 +17,7 @@ export class InvoiceController {
   constructor(private readonly invoices: InvoiceService) {}
 
   /** Poll this after checkout until status === "ready". */
+  @SkipThrottle()
   @Get()
   async status(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
     const order = await this.invoices.getOrder(user.tenantId, id);

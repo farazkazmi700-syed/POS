@@ -119,38 +119,41 @@ export default function Reports() {
         </div>
       )}
 
-      <div className="no-print flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Reports</h1>
+      <div className="no-print flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Sales & Revenue Reports</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Export audited sales figures and payment summaries</p>
+        </div>
         <div className="flex items-center gap-2">
-          <button className="btn-secondary" disabled={!r} onClick={exportCsv}>Export CSV</button>
-          <button className="btn-secondary" disabled={!r} onClick={() => window.print()}>Print</button>
+          <button className="btn-secondary flex-1 sm:flex-none text-xs" disabled={!r} onClick={exportCsv}>Export CSV</button>
+          <button className="btn-secondary flex-1 sm:flex-none text-xs" disabled={!r} onClick={() => window.print()}>Print</button>
         </div>
       </div>
 
       <section className="card no-print">
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="flex min-w-40 flex-col gap-1 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+          <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
             Period
-            <select className="input" value={preset} onChange={(e) => choosePreset(e.target.value as Preset)}>
+            <select className="input text-xs" value={preset} onChange={(e) => choosePreset(e.target.value as Preset)}>
               {PRESET_LABELS.map((p) => (
                 <option key={p.value} value={p.value}>{p.label}</option>
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-sm">
-            From
-            <input className="input" type="date" value={from} max={to || undefined} onChange={(e) => editDate('from', e.target.value)} />
+          <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+            From Date
+            <input className="input text-xs" type="date" value={from} max={to || undefined} onChange={(e) => editDate('from', e.target.value)} />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
-            To
-            <input className="input" type="date" value={to} min={from || undefined} onChange={(e) => editDate('to', e.target.value)} />
+          <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+            To Date
+            <input className="input text-xs" type="date" value={to} min={from || undefined} onChange={(e) => editDate('to', e.target.value)} />
           </label>
-          <button className="btn-primary" disabled={invalidRange || report.isFetching} onClick={generate}>
+          <button className="btn-primary w-full text-xs font-semibold !py-2.5" disabled={invalidRange || report.isFetching} onClick={generate}>
             {report.isFetching ? 'Generating…' : 'Generate report'}
           </button>
         </div>
-        {invalidRange && <p className="mt-2 text-sm text-red-600">Pick a valid range: “from” must not be after “to”.</p>}
-        {report.isError && <p className="mt-2 text-sm text-red-600">Could not generate the report: {errorMessage(report.error)}</p>}
+        {invalidRange && <p className="mt-2 text-xs text-red-600">Pick a valid range: “from” must not be after “to”.</p>}
+        {report.isError && <p className="mt-2 text-xs text-red-600">Could not generate the report: {errorMessage(report.error)}</p>}
       </section>
 
       {report.isLoading && <p className="text-sm text-slate-500">Generating report…</p>}
@@ -179,7 +182,7 @@ export default function Reports() {
                   <li key={d.date} className="flex items-center gap-3 text-sm">
                     <span className="w-24 shrink-0 text-slate-500">{fmtDate(d.date)}</span>
                     <div className="h-5 flex-1 rounded bg-slate-100 dark:bg-slate-800">
-                      <div className="h-5 rounded bg-indigo-500" style={{ width: `${(d.revenue / maxRevenue) * 100}%` }} />
+                      <div className="h-5 rounded bg-gradient-to-r from-teal-400 to-teal-600" style={{ width: `${(d.revenue / maxRevenue) * 100}%` }} />
                     </div>
                     <span className="w-28 shrink-0 text-right">{money(d.revenue)}</span>
                   </li>
@@ -210,7 +213,7 @@ export default function Reports() {
                       <span className="w-24 shrink-0 capitalize text-slate-500">{m.mode}</span>
                       <div className="h-5 flex-1 rounded bg-slate-100 dark:bg-slate-800">
                         <div
-                          className="h-5 rounded bg-emerald-500"
+                          className="h-5 rounded bg-teal-500 dark:bg-teal-400"
                           style={{ width: `${r.revenue ? (m.revenue / r.revenue) * 100 : 0}%` }}
                         />
                       </div>

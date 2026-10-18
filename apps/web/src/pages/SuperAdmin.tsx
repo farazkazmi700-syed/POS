@@ -61,11 +61,16 @@ export default function SuperAdmin() {
 
       <section className="space-y-4">
         <h2 className="text-lg font-semibold">Businesses</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] border-collapse text-left text-sm">
-            <thead><tr className="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-slate-700">
-              <th className="py-2 pr-3">Business / ID</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Plan</th><th className="py-2">Features</th>
-            </tr></thead>
+        <div className="card overflow-x-auto !p-0">
+          <table className="w-full min-w-[800px] border-collapse text-left text-sm">
+            <thead className="border-b border-slate-200 bg-slate-50 dark:border-teal-950 dark:bg-slate-800/40">
+              <tr>
+                <th className="th">Business / ID</th>
+                <th className="th">Status</th>
+                <th className="th">Plan</th>
+                <th className="th">Features</th>
+              </tr>
+            </thead>
             <tbody>
               {businesses.data!.map((business) => (
                 <tr key={business.businessId} className="border-b border-slate-100 align-top dark:border-slate-800">

@@ -2,6 +2,7 @@ import { TENANT_NAVIGATION_ITEMS } from '@pos/shared-types';
 import type { ChargeRule, TaxProfile, Tenant, TenantNavigationKey } from '@pos/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import LogoBrandingManager from '../components/LogoBrandingManager';
 import { authApi, tenantApi } from '../api';
 import { useTenant } from '../hooks/useTenant';
 import { useAuth } from '../store/auth';
@@ -83,6 +84,18 @@ export default function Settings() {
 
   const submit = (e: FormEvent) => { e.preventDefault(); save.mutate(); };
 
+  const saveLogo = useMutation({
+    mutationFn: (url: string) => tenantApi.update({
+      logoUrl: url.trim() || undefined,
+      name: biz.name,
+      address: biz.address,
+      taxRegNo: biz.taxRegNo,
+      currency: biz.currency.toUpperCase(),
+      invoicePrefix: biz.invoicePrefix,
+    }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tenant'] }),
+  });
+
   const profileMutation = useMutation({
     mutationFn: () => authApi.updateProfile({
       name: profile.name.trim(),
@@ -145,15 +158,19 @@ export default function Settings() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="border-b border-slate-200 pb-5 dark:border-slate-700">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-300">Workspace</p>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">Workspace</p>
         <h1 className="text-2xl font-semibold">Settings</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Manage the business profile, operations, and access for {tenant?.name ?? 'your business'}.</p>
       </header>
 
       <div className="grid items-start gap-5 lg:grid-cols-[190px_minmax(0,1fr)] lg:gap-9">
-        <nav aria-label="Settings sections" className="flex gap-1 overflow-x-auto border-b border-slate-200 pb-2 dark:border-slate-700 lg:sticky lg:top-24 lg:block lg:overflow-visible lg:border-b-0 lg:border-l lg:pb-0">
+        <nav aria-label="Settings sections" className="flex gap-1.5 overflow-x-auto pb-2 no-scrollbar border-b border-slate-200 dark:border-slate-700 lg:sticky lg:top-24 lg:block lg:overflow-visible lg:border-b-0 lg:border-l lg:pb-0">
           {SETTINGS_SECTIONS.map((section) => (
-            <a key={section.id} href={`#${section.id}`} className="block shrink-0 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-indigo-600 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white lg:rounded-l-none lg:border-l-2 lg:border-transparent lg:-ml-px">
+            <a
+              key={section.id}
+              href={`#${section.id}`}
+              className="shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-teal-600 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white lg:block lg:rounded-l-none lg:border-l-2 lg:border-transparent lg:-ml-px lg:py-2 lg:text-sm"
+            >
               {section.label}
             </a>
           ))}
@@ -172,7 +189,7 @@ export default function Settings() {
                 <span>{item.label}</span>
                 <input
                   type="checkbox"
-                  className="h-4 w-4 accent-indigo-600"
+                  className="h-4 w-4 accent-teal-600"
                   checked={tenant?.navigationVisibility?.[item.key] !== false}
                   disabled={navigationMutation.isPending}
                   onChange={(event) => navigationMutation.mutate({ key: item.key, enabled: event.target.checked })}
@@ -215,12 +232,24 @@ export default function Settings() {
               <div><label className="label">Invoice prefix</label>
                 <input className="input" minLength={2} maxLength={8} required value={biz.invoicePrefix} onChange={(e) => setBiz({ ...biz, invoicePrefix: e.target.value })} /></div>
             </div>
-            {biz.logoUrl && (
-              <div className="sm:col-span-2 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-900/60">
-                <img src={biz.logoUrl} alt="Business logo preview" className="h-12 w-12 rounded-lg object-cover" />
-                <div className="text-xs text-slate-600 dark:text-slate-300">Logo preview appears on the receipt watermark and in the header branding.</div>
-              </div>
-            )}
+            <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/60">
+              <LogoBrandingManager
+                logoUrl={biz.logoUrl}
+                savedLogoUrl={tenant?.logoUrl ?? ''}
+                businessName={biz.name}
+                address={biz.address}
+                taxRegNo={biz.taxRegNo}
+                currency={biz.currency}
+                invoicePrefix={biz.invoicePrefix}
+                onChangeLogoUrl={(url) => setBiz((current) => ({ ...current, logoUrl: url }))}
+                onSaveLogo={async (url) => {
+                  setBiz((current) => ({ ...current, logoUrl: url }));
+                  await saveLogo.mutateAsync(url);
+                }}
+                isSaving={saveLogo.isPending}
+              />
+              {saveLogo.isError && <p className="mt-2 text-sm text-red-600">{errorMessage(saveLogo.error)}</p>}
+            </div>
           </div>
         </section>
 
@@ -241,7 +270,7 @@ export default function Settings() {
           <div>
             <div className="mb-1 flex items-center justify-between">
               <label className="label !mb-0">Other charges</label>
-              <button type="button" className="text-xs font-medium text-indigo-600"
+              <button type="button" className="text-xs font-medium text-teal-600 hover:underline dark:text-teal-400"
                 onClick={() => setTax({ ...tax, otherCharges: [...tax.otherCharges, { label: '', type: 'flat', value: 0 }] })}>+ Add charge</button>
             </div>
             {tax.otherCharges.map((c, i) => (

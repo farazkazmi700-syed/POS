@@ -49,11 +49,11 @@ export default function Register() {
       <form onSubmit={submit} className="card w-full max-w-3xl space-y-5 p-4 sm:p-6 md:p-8">
         <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-500">Get started</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-600 dark:text-teal-400">Get started</p>
             <h1 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">Create your business</h1>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Developer-authorized registration. The first business account will be Owner and can add staff afterwards.</p>
           </div>
-          <div className="inline-flex rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
+          <div className="inline-flex rounded-full bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-700 dark:bg-teal-500/10 dark:text-teal-400">
             Secure onboarding
           </div>
         </div>
@@ -102,7 +102,7 @@ export default function Register() {
         {register.isError && <p className="text-sm font-medium text-red-600">{errorMessage(register.error)}</p>}
         <button className="btn-primary w-full" disabled={register.isPending}>{register.isPending ? 'Creating…' : 'Create account'}</button>
         <p className="text-center text-sm text-slate-500 dark:text-slate-400">
-          Already registered? <Link className="font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400" to="/login">Sign in</Link>
+          Already registered? <Link className="font-semibold text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300" to="/login">Sign in</Link>
         </p>
       </form>
     </div>

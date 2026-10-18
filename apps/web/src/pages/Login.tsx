@@ -142,9 +142,15 @@ export default function Login() {
             </button>
 
             {step === 'credentials' && (
-              <div className="flex items-center justify-between text-sm">
-                <button type="button" className="font-medium text-teal-800 hover:underline dark:text-teal-300" onClick={() => { setNotice(''); setStep('reset-request'); }}>Forgot PIN?</button>
-                <Link to="/developer" className="font-medium text-teal-800 hover:underline dark:text-teal-300">Developer Portal &rarr;</Link>
+              <div className="space-y-2.5 pt-1 text-sm">
+                <div className="flex items-center justify-between text-xs sm:text-sm">
+                  <button type="button" className="font-medium text-teal-800 hover:underline dark:text-teal-300" onClick={() => { setNotice(''); setStep('reset-request'); }}>Forgot PIN?</button>
+                  <Link to="/developer" className="font-medium text-teal-800 hover:underline dark:text-teal-300">Developer Portal &rarr;</Link>
+                </div>
+                <div className="text-center pt-2 border-t border-slate-200/60 dark:border-teal-950/60">
+                  <span className="text-xs text-slate-500">New store or shop? </span>
+                  <Link to="/register" className="text-xs font-bold text-teal-700 hover:underline dark:text-teal-400">Register business</Link>
+                </div>
               </div>
             )}
             {step !== 'credentials' && <button type="button" className="w-full text-sm text-slate-600 hover:underline dark:text-slate-300" onClick={() => { setStep('credentials'); setChallengeToken(''); setNotice(''); setPin(''); setNewPin(''); setResetCode(''); }}>Back to sign in</button>}

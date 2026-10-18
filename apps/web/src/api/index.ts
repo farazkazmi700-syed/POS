@@ -173,11 +173,14 @@ export const superAdminApi = {
 };
 
 export const developerApi = {
+  overview: () => api.get<SuperAdminOverview>('/developer/overview').then((r) => r.data),
   businesses: () => api.get<BusinessPlanTarget[]>('/developer/businesses').then((r) => r.data),
   createBusiness: (body: {
     name: string; domainType: string; ownerName: string; ownerEmail: string; ownerPassword: string;
     address?: string; currency?: string;
   }) => api.post<ManagedBusiness>('/developer/businesses', body).then((r) => r.data),
+  updateBusiness: (id: string, body: { name?: string; status?: 'active' | 'suspended' }) =>
+    api.patch<ManagedBusiness>(`/developer/businesses/${id}`, body).then((r) => r.data),
   assignPlan: (id: string, subscriptionPlanId: string) =>
     api.patch<ManagedBusiness>(`/developer/businesses/${id}/plan`, { subscriptionPlanId }).then((r) => r.data),
   updateFeatures: (id: string, featureFlags: Partial<FeatureFlags>) =>
@@ -187,4 +190,5 @@ export const developerApi = {
     api.post<SubscriptionPlan>('/developer/plans', body).then((r) => r.data),
   updatePlan: (id: string, body: Partial<Omit<SubscriptionPlan, '_id'>>) =>
     api.patch<SubscriptionPlan>(`/developer/plans/${id}`, body).then((r) => r.data),
+  audit: (limit = 50) => api.get<AdminAuditEntry[]>('/developer/audit', { params: { limit } }).then((r) => r.data),
 };
