@@ -70,13 +70,13 @@ export class CreateStaffDto {
   @ApiProperty() @IsString() @MinLength(8) @MaxLength(72) password: string;
   @ApiProperty({ enum: [Role.Admin, Role.Cashier] }) @IsEnum(Role) role: Role.Admin | Role.Cashier;
   /** Modules this account may access; omit for full access per role. */
-  @ApiPropertyOptional({ type: [String], enum: ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'] })
-  @IsOptional() @IsArray() @ArrayMaxSize(6) @IsIn(['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'])
+  @ApiPropertyOptional({ type: [String], enum: ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcode-generator', 'barcode-scanner'] })
+  @IsOptional() @IsArray() @ArrayMaxSize(7) @IsIn(['pos', 'products', 'dashboard', 'orders', 'settings', 'installments', 'customers', 'barcode-generator', 'barcode-scanner'], { each: true })
   moduleRights?: string[];
 }
 
 export class UpdateStaffRightsDto {
-  @ApiProperty({ type: [String], enum: ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'] })
-  @IsArray() @ArrayMaxSize(6) @IsIn(['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'], { each: true })
+  @ApiProperty({ type: [String], enum: ['pos', 'products', 'dashboard', 'orders', 'settings', 'installments', 'customers', 'barcode-generator', 'barcode-scanner'] })
+  @IsArray() @ArrayMaxSize(9) @IsIn(['pos', 'products', 'dashboard', 'orders', 'settings', 'installments', 'customers', 'barcode-generator', 'barcode-scanner'], { each: true })
   moduleRights: string[];
 }

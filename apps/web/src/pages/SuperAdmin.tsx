@@ -5,7 +5,7 @@ import { superAdminApi } from '../api';
 
 const featureKeys: FeatureKey[] = ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'];
 const featureNames: Record<FeatureKey, string> = {
-  pos: 'POS', inventory: 'Inventory', reports: 'Reports', customers: 'Customers', installments: 'Installments', barcodes: 'Barcode Studio',
+  pos: 'POS', inventory: 'Inventory', reports: 'Reports', customers: 'Customers', installments: 'Installments', barcodes: 'Barcode tools',
 };
 
 export default function SuperAdmin() {

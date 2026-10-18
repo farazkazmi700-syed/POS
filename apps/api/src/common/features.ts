@@ -8,5 +8,5 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   reports: 'Reports',
   customers: 'Customers',
   installments: 'Installments',
-  barcodes: 'Barcode Studio',
+  barcodes: 'Barcode tools',
 };

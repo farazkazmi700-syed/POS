@@ -26,7 +26,8 @@ export class NavigationVisibilityDto {
   @IsOptional() @IsBoolean() installments?: boolean;
   @IsOptional() @IsBoolean() orders?: boolean;
   @IsOptional() @IsBoolean() settings?: boolean;
-  @IsOptional() @IsBoolean() barcodes?: boolean;
+  @IsOptional() @IsBoolean() barcodeGenerator?: boolean;
+  @IsOptional() @IsBoolean() barcodeScanner?: boolean;
 }
 
 export class UpdateTenantDto {

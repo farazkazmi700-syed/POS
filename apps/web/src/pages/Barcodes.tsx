@@ -463,21 +463,28 @@ function BarcodeScanner() {
   );
 }
 
-export default function Barcodes() {
+export function BarcodeGeneratorPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="border-b border-slate-200 pb-5 dark:border-slate-700">
         <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">Operations</p>
-        <h1 className="text-2xl font-semibold">Barcode Studio</h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
-          Generate and print product barcodes, and scan them straight from the camera or a USB scanner.
-        </p>
+        <h1 className="text-2xl font-semibold">Barcode Generator</h1>
+        <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Create, download, and print retail barcodes for products and shelves.</p>
       </header>
+      <BarcodeGenerator />
+    </div>
+  );
+}
 
-      <div className="grid items-start gap-6 lg:grid-cols-2">
-        <BarcodeGenerator />
-        <BarcodeScanner />
-      </div>
+export function BarcodeScannerPage() {
+  return (
+    <div className="mx-auto max-w-5xl space-y-6">
+      <header className="border-b border-slate-200 pb-5 dark:border-slate-700">
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">Operations</p>
+        <h1 className="text-2xl font-semibold">Barcode Scanner</h1>
+        <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Scan barcodes from your camera or a connected USB barcode reader.</p>
+      </header>
+      <BarcodeScanner />
     </div>
   );
 }

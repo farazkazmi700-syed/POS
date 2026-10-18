@@ -31,7 +31,8 @@ export class NavigationVisibility {
   @Prop({ default: true }) products: boolean;
   @Prop({ default: true }) customers: boolean;
   @Prop({ default: true }) installments: boolean;
-  @Prop({ default: true }) barcodes: boolean;
+  @Prop({ default: true }) barcodeGenerator: boolean;
+  @Prop({ default: true }) barcodeScanner: boolean;
   @Prop({ default: true }) orders: boolean;
   @Prop({ default: true }) settings: boolean;
 }

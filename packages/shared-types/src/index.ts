@@ -1,13 +1,14 @@
 export type Role = 'owner' | 'admin' | 'cashier';
 
 /** Module rights an admin can grant to individual staff/cashier accounts. */
-export type ModuleRightKey = 'dashboard' | 'pos' | 'products' | 'customers' | 'installments' | 'orders' | 'settings' | 'barcodes';
+export type ModuleRightKey = 'dashboard' | 'pos' | 'products' | 'customers' | 'installments' | 'orders' | 'settings' | 'barcode-generator' | 'barcode-scanner';
 export const MODULE_RIGHTS: { key: ModuleRightKey; label: string }[] = [
   { key: 'pos', label: 'POS' },
   { key: 'products', label: 'Inventory' },
   { key: 'customers', label: 'Customers' },
   { key: 'installments', label: 'Installments' },
-  { key: 'barcodes', label: 'Barcode Studio' },
+  { key: 'barcode-generator', label: 'Barcode Generator' },
+  { key: 'barcode-scanner', label: 'Barcode Scanner' },
 ];
 /** All module right keys as a plain array (handy for defaults & toggles). */
 export const MODULE_RIGHT_KEYS: ModuleRightKey[] = MODULE_RIGHTS.map((r) => r.key);
@@ -40,7 +41,8 @@ export const TENANT_NAVIGATION_ITEMS = [
   { key: 'installments', to: '/installments', label: 'Installments', managerOnly: false, feature: 'installments' },
   { key: 'orders', to: '/orders', label: 'Orders', managerOnly: false },
   { key: 'settings', to: '/settings', label: 'Settings', managerOnly: true },
-  { key: 'barcodes', to: '/barcodes', label: 'Barcode Studio', managerOnly: true, feature: 'barcodes' },
+  { key: 'barcode-generator', to: '/barcode-generator', label: 'Barcode Generator', managerOnly: true, feature: 'barcodes' },
+  { key: 'barcode-scanner', to: '/barcode-scanner', label: 'Barcode Scanner', managerOnly: true, feature: 'barcodes' },
 ] as const;
 
 export type TenantNavigationKey = (typeof TENANT_NAVIGATION_ITEMS)[number]['key'];

@@ -123,3 +123,15 @@ export function IconBarcode(props: IconProps) {
     </svg>
   );
 }
+
+export function IconBarcodeGenerator(props: IconProps) {
+  return <IconBarcode {...props} />;
+}
+
+export function IconBarcodeScanner(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 7V5a1 1 0 011-1h2m10 0h2a1 1 0 011 1v2M4 17v2a1 1 0 001 1h2m10 0h2a1 1 0 001-1v-2M5 12h14" />
+    </svg>
+  );
+}

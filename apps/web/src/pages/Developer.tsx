@@ -18,7 +18,7 @@ const featureNames: Record<FeatureKey, string> = {
   reports: 'Reports',
   customers: 'Customers',
   installments: 'Installments',
-  barcodes: 'Barcode Studio',
+  barcodes: 'Barcode tools',
 };
 
 const featureDescriptions: Record<FeatureKey, string> = {
@@ -27,7 +27,7 @@ const featureDescriptions: Record<FeatureKey, string> = {
   reports: 'Sales reports & analytics',
   customers: 'Customer ledger & CRM',
   installments: 'Installment plans & schedules',
-  barcodes: 'Barcode generator & camera scanner',
+  barcodes: 'Barcode generator and scanner access',
 };
 
 /* Feature vector icons */

@@ -122,7 +122,7 @@ export class AuthService {
           featureFlags: { pos: false, inventory: false, reports: false, customers: false, installments: false, barcodes: false },
           navigationVisibility: {
             dashboard: false, pos: false, products: false, customers: false,
-            installments: false, orders: false, settings: false, barcodes: false,
+            installments: false, orders: false, settings: false, barcodeGenerator: false, barcodeScanner: false,
           },
         });
       }
@@ -172,7 +172,7 @@ export class AuthService {
       featureFlags: { pos: false, inventory: false, reports: false, customers: false, installments: false, barcodes: false },
       navigationVisibility: {
         dashboard: false, pos: false, products: false, customers: false,
-        installments: false, orders: false, settings: false, barcodes: false,
+        installments: false, orders: false, settings: false, barcodeGenerator: false, barcodeScanner: false,
       },
     });
     try {

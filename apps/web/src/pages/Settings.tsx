@@ -377,15 +377,9 @@ function StaffSection() {
     toggle: (key: ModuleRightKey) => void,
   ) => (
     <div className="grid gap-1 sm:grid-cols-2">
-      {MODULE_RIGHTS.map((right) => (
+      {MODULE_RIGHTS.filter((right) => right.key !== 'dashboard' && right.key !== 'orders' && right.key !== 'settings').map((right) => (
         <label key={right.key} className="flex items-center gap-2 py-1 text-xs">
-          <input
-            type="checkbox"
-            className="h-3.5 w-3.5 accent-teal-600"
-            checked={selected.includes(right.key)}
-            onChange={() => toggle(right.key)}
-            aria-label={`Grant ${right.label} module access`}
-          />
+          <input type="checkbox" className="h-3.5 w-3.5 accent-teal-600" checked={selected.includes(right.key)} onChange={() => toggle(right.key)} aria-label={`Grant ${right.label} module access`} />
           <span>{right.label}</span>
         </label>
       ))}
