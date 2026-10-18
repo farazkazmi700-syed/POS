@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { productApi } from '../api';
@@ -16,7 +16,8 @@ import {
   IconOrders,
   IconReports,
   IconSettings,
-  IconBarcode,
+  IconBarcodeGenerator,
+  IconBarcodeScanner,
   IconSuperAdmin,
   IconDeveloper,
   IconMenu,
@@ -33,6 +34,10 @@ export default function Layout() {
   const isManager = user?.role === 'owner' || user?.role === 'admin';
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showStockAlerts, setShowStockAlerts] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const userMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [menuFocusIndex, setMenuFocusIndex] = useState(0);
   const [dismissedStockAlertIds, setDismissedStockAlertIds] = useState<Set<string>>(() => new Set());
 
   // Close mobile drawer on route change
@@ -40,17 +45,30 @@ export default function Layout() {
     setMobileOpen(false);
   }, [location.pathname]);
 
-  // Handle ESC key to close drawer
+  // Close the user menu on outside click and Escape; keep Escape focus on the trigger.
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setMobileOpen(false);
-        setShowStockAlerts(false);
+    if (!userMenuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) setUserMenuOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setUserMenuOpen(false);
+        userMenuTriggerRef.current?.focus();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [userMenuOpen]);
+
+  useEffect(() => {
+    setUserMenuOpen(false);
+    setShowStockAlerts(false);
+  }, [location.pathname]);
 
   // Lock body scroll when mobile drawer is open
   useEffect(() => {
@@ -103,17 +121,53 @@ export default function Layout() {
         return <IconOrders className="h-5 w-5 shrink-0" />;
       case 'settings':
         return <IconSettings className="h-5 w-5 shrink-0" />;
-      case 'barcodes':
-        return <IconBarcode className="h-5 w-5 shrink-0" />;
+      case 'barcode-generator':
+        return <IconBarcodeGenerator className="h-5 w-5 shrink-0" />;
+      case 'barcode-scanner':
+        return <IconBarcodeScanner className="h-5 w-5 shrink-0" />;
       default:
         return null;
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
+    if (cart.items.length > 0 && !window.confirm('You have items in your cart. Log out and discard this unsaved cart?')) return;
     logout();
     queryClient.clear();
     navigate('/login');
+  }, [cart.items.length, logout, queryClient, navigate]);
+
+  const initials = (user?.name ?? 'U')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'U';
+  const formattedName = (user?.name ?? 'User').replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+  const toggleUserMenu = () => {
+    const willOpen = !userMenuOpen;
+    setUserMenuOpen(willOpen);
+    setMenuFocusIndex(0);
+    if (willOpen) requestAnimationFrame(() => userMenuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus());
+  };
+
+  const onUserMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const menuItems = userMenuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]');
+    if (!menuItems?.length) return;
+    const currentIndex = Array.from(menuItems).indexOf(document.activeElement as HTMLElement);
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const delta = event.key === 'ArrowDown' ? 1 : -1;
+      const next = (Math.max(0, currentIndex) + delta + menuItems.length) % menuItems.length;
+      setMenuFocusIndex(next);
+      menuItems[next].focus();
+    } else if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault();
+      const next = event.key === 'Home' ? 0 : menuItems.length - 1;
+      setMenuFocusIndex(next);
+      menuItems[next].focus();
+    }
   };
 
   return (
@@ -180,16 +234,15 @@ export default function Layout() {
 
         {/* Sidebar user profile & logout footer */}
         <div className="mt-auto border-t border-[var(--panel-border)] pt-4">
-          <div className="flex items-center gap-3 rounded-xl p-2 bg-[var(--panel-soft)]">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-600/15 text-xs font-bold text-teal-800 dark:bg-teal-500/20 dark:text-teal-300">
-              {user?.name?.slice(0, 2).toUpperCase() ?? 'U'}
-            </div>
+          <div className="flex items-center gap-2 rounded-xl bg-[var(--panel-soft)] p-2">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white">{initials}</div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">{user?.name}</p>
-              <p className="truncate text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                {user?.role}
-              </p>
+              <p className="truncate text-[10px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">{user?.role}</p>
             </div>
+            <button type="button" onClick={handleLogout} className="header-icon-btn !h-9 !w-9 !rounded-lg text-red-600 dark:text-red-400" aria-label="Log out" title="Log out">
+              <LogoutIcon className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </aside>
@@ -278,24 +331,14 @@ export default function Layout() {
             </nav>
 
             {/* Mobile drawer footer */}
-            <div className="border-t border-[var(--panel-border)] pt-3 space-y-2">
-              <div className="flex items-center gap-2.5 rounded-xl bg-[var(--panel-soft)] p-2">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-600/15 text-xs font-bold text-teal-800 dark:bg-teal-500/20 dark:text-teal-300">
-                  {user?.name?.slice(0, 2).toUpperCase() ?? 'U'}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">{user?.name}</p>
-                  <p className="truncate text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    {user?.role}
-                  </p>
-                </div>
+            <div className="flex items-center gap-2 rounded-xl border-t border-[var(--panel-border)] bg-[var(--panel-soft)] p-2 pt-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white">{initials}</div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">{user?.name}</p>
+                <p className="truncate text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">{user?.role}</p>
               </div>
-              <button
-                type="button"
-                className="btn-secondary w-full !py-2 text-xs"
-                onClick={handleLogout}
-              >
-                Log out
+              <button type="button" onClick={handleLogout} className="header-icon-btn !h-9 !w-9 !rounded-lg text-red-600 dark:text-red-400" aria-label="Log out" title="Log out">
+                <LogoutIcon className="h-4 w-4" />
               </button>
             </div>
           </aside>
@@ -426,21 +469,26 @@ export default function Layout() {
                 </NavLink>
               )}
 
-              <ThemeToggle />
-
-              <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1.5 text-xs text-slate-600 sm:flex dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200">
-                <span className="font-semibold text-slate-800 dark:text-slate-100">{user?.name}</span>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-700 dark:text-slate-200">
-                  {user?.role}
-                </span>
+              <div className="relative" ref={userMenuRef}>
+                <button ref={userMenuTriggerRef} type="button" onClick={toggleUserMenu} onKeyDown={(event) => {
+                  if ((event.key === 'Enter' || event.key === ' ') && !userMenuOpen) {
+                    event.preventDefault();
+                    setMenuFocusIndex(0);
+                  }
+                }} aria-haspopup="menu" aria-expanded={userMenuOpen} aria-label={`User menu for ${formattedName}`} className="flex min-h-11 items-center gap-2 rounded-xl px-1.5 py-1 text-left transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-teal-600 dark:hover:bg-slate-800 sm:px-2">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white ring-2 ring-teal-600/15">{initials}</span>
+                  <span className="hidden min-w-0 items-center gap-2 sm:flex"><span className="max-w-32 truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{formattedName}</span><span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-700 dark:bg-teal-950 dark:text-teal-300">{user?.role}</span></span>
+                  <ChevronIcon className="h-4 w-4 shrink-0 text-slate-500" />
+                </button>
+                {userMenuOpen && <div role="menu" aria-label="User account menu" onKeyDown={onUserMenuKeyDown} className="absolute right-0 z-50 mt-2 w-72 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border-slate-200 bg-white p-1.5 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                  <div className="px-3 py-3"><p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{formattedName}</p><div className="mt-1 flex items-center gap-2"><span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-700 dark:bg-teal-950 dark:text-teal-300">{user?.role}</span><p className="truncate text-xs text-slate-500 dark:text-slate-400">{user?.email}</p></div></div>
+                  <div className="my-1 border-t border-slate-200 dark:border-slate-700" />
+                  <Link role="menuitem" tabIndex={menuFocusIndex === 0 ? 0 : -1} to="/settings#account" onClick={() => setUserMenuOpen(false)} onFocus={() => setMenuFocusIndex(0)} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none dark:text-slate-200 dark:hover:bg-slate-800 dark:focus:bg-slate-800"><ProfileIcon className="h-4 w-4" /> Profile / Admin account</Link>
+                  <div role="menuitem" tabIndex={menuFocusIndex === 1 ? 0 : -1} onFocus={() => setMenuFocusIndex(1)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); (event.currentTarget.querySelector('button') as HTMLButtonElement | null)?.click(); } }} className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 text-sm text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none dark:text-slate-200 dark:hover:bg-slate-800 dark:focus:bg-slate-800"><span className="flex items-center gap-3"><ThemeIcon className="h-4 w-4" /> Dark mode</span><ThemeToggle /></div>
+                  <div className="my-1 border-t border-slate-200 dark:border-slate-700" />
+                  <button role="menuitem" tabIndex={menuFocusIndex === 2 ? 0 : -1} type="button" onFocus={() => setMenuFocusIndex(2)} onClick={() => { setUserMenuOpen(false); handleLogout(); }} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none dark:text-red-400 dark:hover:bg-red-950/50 dark:focus:bg-red-950/50"><LogoutIcon className="h-4 w-4" /> Log out</button>
+                </div>}
               </div>
-
-              <button
-                className="btn-secondary hidden sm:inline-flex"
-                onClick={handleLogout}
-              >
-                Log out
-              </button>
             </div>
           </div>
         </header>
@@ -524,4 +572,20 @@ export default function Layout() {
       </div>
     </div>
   );
+}
+
+function ChevronIcon({ className = '' }: { className?: string }) {
+  return <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" /></svg>;
+}
+
+function ProfileIcon({ className = '' }: { className?: string }) {
+  return <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.1a7.5 7.5 0 0 1 15 0A17.9 17.9 0 0 1 12 21.75c-2.67 0-5.2-.58-7.5-1.65Z" /></svg>;
+}
+
+function ThemeIcon({ className = '' }: { className?: string }) {
+  return <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" /></svg>;
+}
+
+function LogoutIcon({ className = '' }: { className?: string }) {
+  return <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" /></svg>;
 }
