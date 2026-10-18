@@ -31,6 +31,7 @@ export class NavigationVisibility {
   @Prop({ default: true }) products: boolean;
   @Prop({ default: true }) customers: boolean;
   @Prop({ default: true }) installments: boolean;
+  @Prop({ default: true }) barcodes: boolean;
   @Prop({ default: true }) orders: boolean;
   @Prop({ default: true }) settings: boolean;
 }
@@ -43,6 +44,7 @@ export class TenantFeatureFlags {
   @Prop({ default: true }) reports: boolean;
   @Prop({ default: true }) customers: boolean;
   @Prop({ default: true }) installments: boolean;
+  @Prop({ default: true }) barcodes: boolean;
 }
 const TenantFeatureFlagsSchema = SchemaFactory.createForClass(TenantFeatureFlags);
 

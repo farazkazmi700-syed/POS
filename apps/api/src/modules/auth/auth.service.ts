@@ -1,6 +1,6 @@
 import {
   BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger,
-  ServiceUnavailableException, UnauthorizedException,
+  NotFoundException, ServiceUnavailableException, UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -119,10 +119,10 @@ export class AuthService {
       if (!tenant) {
         tenant = await this.tenants.create({
           name: 'Developer Console', currency: 'PKR',
-          featureFlags: { pos: false, inventory: false, reports: false, customers: false, installments: false },
+          featureFlags: { pos: false, inventory: false, reports: false, customers: false, installments: false, barcodes: false },
           navigationVisibility: {
             dashboard: false, pos: false, products: false, customers: false,
-            installments: false, orders: false, settings: false,
+            installments: false, orders: false, settings: false, barcodes: false,
           },
         });
       }
@@ -169,10 +169,10 @@ export class AuthService {
     const pin = HARDCODED_DEVELOPER_PIN;
     const tenant = await this.tenants.create({
       name: 'Developer Console', currency: 'PKR',
-      featureFlags: { pos: false, inventory: false, reports: false, customers: false, installments: false },
+      featureFlags: { pos: false, inventory: false, reports: false, customers: false, installments: false, barcodes: false },
       navigationVisibility: {
         dashboard: false, pos: false, products: false, customers: false,
-        installments: false, orders: false, settings: false,
+        installments: false, orders: false, settings: false, barcodes: false,
       },
     });
     try {
@@ -359,8 +359,17 @@ export class AuthService {
       passwordHash: await bcrypt.hash(dto.password, 12),
       ...(dto.role === Role.Admin ? { pinHash: await bcrypt.hash('0000', 12), pinRequiresChange: true } : {}),
       role: dto.role,
+      ...(Array.isArray(dto.moduleRights) ? { moduleRights: dto.moduleRights } : {}),
     });
     return this.publicUser(user);
+  }
+
+  async updateStaffRights(actorTenantId: string, staffId: string, moduleRights: string[]) {
+    const staff = await this.users.findOne({ _id: staffId, tenantId: oid(actorTenantId), role: { $ne: Role.Owner } });
+    if (!staff) throw new NotFoundException('Staff member not found');
+    staff.moduleRights = moduleRights;
+    await staff.save();
+    return this.publicUser(staff);
   }
 
   async listStaff(tenantId: string) {
@@ -469,6 +478,7 @@ export class AuthService {
       emailVerified: Boolean(user.emailVerified && user.emailVerifiedAt),
       phoneVerified: user.phoneVerified ?? false,
       role: user.role, isActive: user.isActive, isSuperAdmin: user.superAdmin === true,
+      moduleRights: Array.isArray(user.moduleRights) ? user.moduleRights : undefined,
       isDeveloper: isDeveloperSession && user.role === Role.Owner && isConfiguredDeveloper(
         user.email,
         this.config.get<string>('PLATFORM_DEVELOPER_EMAIL'),

@@ -11,6 +11,7 @@ export class FeatureFlagsDto {
   @IsOptional() @IsBoolean() reports?: boolean;
   @IsOptional() @IsBoolean() customers?: boolean;
   @IsOptional() @IsBoolean() installments?: boolean;
+  @IsOptional() @IsBoolean() barcodes?: boolean;
 }
 
 export class PlanFeaturesDto {
@@ -19,6 +20,7 @@ export class PlanFeaturesDto {
   @IsBoolean() reports: boolean;
   @IsBoolean() customers: boolean;
   @IsBoolean() installments: boolean;
+  @IsBoolean() barcodes: boolean;
 }
 
 export class CreateBusinessDto {

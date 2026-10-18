@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
+import Barcodes from './pages/Barcodes';
 import ProtectedRoute from './components/ProtectedRoute';
 import Customers from './pages/Customers';
 import Dashboard from './pages/Dashboard';
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="orders" element={<Orders />} />
           <Route path="customers" element={<Customers />} />
           <Route element={<ProtectedRoute roles={['owner', 'admin', 'cashier']} />}>
+            <Route path="barcodes" element={<Barcodes />} />
             <Route path="installments" element={<Installments />} />
             <Route path="installments/:id" element={<InstallmentDetail />} />
           </Route>

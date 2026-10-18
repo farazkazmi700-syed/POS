@@ -1,5 +1,5 @@
-import { TENANT_NAVIGATION_ITEMS } from '@pos/shared-types';
-import type { ChargeRule, TaxProfile, Tenant, TenantNavigationKey } from '@pos/shared-types';
+import { MODULE_RIGHTS, MODULE_RIGHT_KEYS, TENANT_NAVIGATION_ITEMS } from '@pos/shared-types';
+import type { ChargeRule, ModuleRightKey, TaxProfile, Tenant, TenantNavigationKey } from '@pos/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import LogoBrandingManager from '../components/LogoBrandingManager';
@@ -355,31 +355,95 @@ export default function Settings() {
 function StaffSection() {
   const queryClient = useQueryClient();
   const staff = useQuery({ queryKey: ['staff'], queryFn: authApi.staff });
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'cashier' as 'cashier' | 'admin' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'cashier' as 'cashier' | 'admin', moduleRights: [...MODULE_RIGHT_KEYS] as ModuleRightKey[] });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingRights, setEditingRights] = useState<ModuleRightKey[]>([]);
   const add = useMutation({
     mutationFn: () => authApi.addStaff(form),
-    onSuccess: () => { setForm({ name: '', email: '', password: '', role: 'cashier' }); queryClient.invalidateQueries({ queryKey: ['staff'] }); },
+    onSuccess: () => { setForm({ name: '', email: '', password: '', role: 'cashier', moduleRights: [...MODULE_RIGHT_KEYS] }); queryClient.invalidateQueries({ queryKey: ['staff'] }); },
   });
+  const updateRights = useMutation({
+    mutationFn: ({ id, rights }: { id: string; rights: ModuleRightKey[] }) => authApi.updateStaffRights(id, rights),
+    onSuccess: () => { setEditingId(null); queryClient.invalidateQueries({ queryKey: ['staff'] }); },
+  });
+
+  const toggleFormRight = (key: ModuleRightKey) =>
+    setForm((f) => ({ ...f, moduleRights: f.moduleRights.includes(key) ? f.moduleRights.filter((k) => k !== key) : [...f.moduleRights, key] }));
+  const toggleEditRight = (key: ModuleRightKey) =>
+    setEditingRights((r) => (r.includes(key) ? r.filter((k) => k !== key) : [...r, key]));
+
+  const rightsChecklist = (
+    selected: ModuleRightKey[],
+    toggle: (key: ModuleRightKey) => void,
+  ) => (
+    <div className="grid gap-1 sm:grid-cols-2">
+      {MODULE_RIGHTS.map((right) => (
+        <label key={right.key} className="flex items-center gap-2 py-1 text-xs">
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 accent-teal-600"
+            checked={selected.includes(right.key)}
+            onChange={() => toggle(right.key)}
+            aria-label={`Grant ${right.label} module access`}
+          />
+          <span>{right.label}</span>
+        </label>
+      ))}
+    </div>
+  );
 
   return (
     <section className="card space-y-3">
       <h2 className="text-sm font-semibold">Staff</h2>
       <ul className="divide-y divide-slate-100 text-sm">
         {staff.data?.map((u) => (
-          <li key={u._id} className="flex justify-between py-2">
-            <span>{u.name} <span className="text-slate-500">· {u.email}</span></span>
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs uppercase">{u.role}</span>
+          <li key={u._id} className="py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span>{u.name} <span className="text-slate-500">· {u.email}</span></span>
+              <span className="flex items-center gap-2">
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs uppercase dark:bg-slate-800">{u.role}</span>
+                {u.role !== 'owner' && (
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-teal-600 hover:underline dark:text-teal-400"
+                    onClick={() => { setEditingId(editingId === u._id ? null : u._id); setEditingRights(u.moduleRights ?? [...MODULE_RIGHT_KEYS]); }}
+                  >
+                    {editingId === u._id ? 'Cancel' : 'Edit rights'}
+                  </button>
+                )}
+              </span>
+            </div>
+            {u.moduleRights && u.moduleRights.length > 0 && editingId !== u._id && (
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Modules: {u.moduleRights.join(', ')}</p>
+            )}
+            {editingId === u._id && (
+              <div className="mt-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                {rightsChecklist(editingRights, toggleEditRight)}
+                <div className="mt-2 flex items-center gap-2">
+                  <button type="button" className="btn-primary !w-auto" disabled={updateRights.isPending} onClick={() => updateRights.mutate({ id: u._id, rights: editingRights })}>
+                    {updateRights.isPending ? 'Saving…' : 'Save rights'}
+                  </button>
+                  {updateRights.isError && <p className="text-xs text-red-600">{errorMessage(updateRights.error)}</p>}
+                </div>
+              </div>
+            )}
           </li>
         ))}
       </ul>
-      <form className="grid gap-2 sm:grid-cols-5" onSubmit={(e) => { e.preventDefault(); add.mutate(); }}>
-        <input className="input sm:col-span-1" placeholder="Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <input className="input sm:col-span-2" type="email" placeholder="Email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        <input className="input" type="password" placeholder="Password (8+)" minLength={8} required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-        <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as 'cashier' | 'admin' })}>
-          <option value="cashier">Cashier</option><option value="admin">Admin</option>
-        </select>
-        <button className="btn-primary sm:col-span-5" disabled={add.isPending}>{add.isPending ? 'Adding…' : 'Add staff member'}</button>
+      <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); add.mutate(); }}>
+        <div className="grid gap-2 sm:grid-cols-5">
+          <input className="input sm:col-span-1" placeholder="Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input className="input sm:col-span-2" type="email" placeholder="Email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <input className="input" type="password" placeholder="Password (8+)" minLength={8} required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as 'cashier' | 'admin' })}>
+            <option value="cashier">Cashier</option><option value="admin">Admin</option>
+          </select>
+        </div>
+        <div>
+          <p className="mb-1 text-xs font-medium text-slate-600 dark:text-slate-300">Module access</p>
+          {rightsChecklist(form.moduleRights, toggleFormRight)}
+        </div>
+        <button className="btn-primary w-full sm:w-auto" disabled={add.isPending}>{add.isPending ? 'Adding…' : 'Add staff member'}</button>
       </form>
       {add.isError && <p className="text-sm text-red-600">{errorMessage(add.error)}</p>}
     </section>

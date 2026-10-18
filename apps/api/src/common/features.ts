@@ -1,4 +1,4 @@
-export const FEATURE_KEYS = ['pos', 'inventory', 'reports', 'customers', 'installments'] as const;
+export const FEATURE_KEYS = ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 export type FeatureRequirement = FeatureKey | readonly FeatureKey[];
 
@@ -8,4 +8,5 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   reports: 'Reports',
   customers: 'Customers',
   installments: 'Installments',
+  barcodes: 'Barcode Studio',
 };

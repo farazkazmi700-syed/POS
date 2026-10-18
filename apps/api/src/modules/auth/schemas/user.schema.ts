@@ -28,6 +28,8 @@ export class User {
   @Prop({ type: Date, select: false }) pinResetExpiresAt?: Date;
   @Prop({ default: 0, select: false }) pinResetAttempts: number;
   @Prop({ required: true, enum: Role }) role: Role;
+  /** Module rights granted by the business admin; empty/absent = all modules for the role. */
+  @Prop({ type: [String], default: undefined }) moduleRights?: string[];
   @Prop({ default: false }) superAdmin: boolean;
   @Prop({ default: true }) isActive: boolean;
 }

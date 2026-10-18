@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthUser } from '../../common/auth-user';
@@ -9,7 +10,7 @@ import { Role } from '../../common/enums';
 import { AuthService } from './auth.service';
 import {
   CompletePinLoginDto, CreateStaffDto, DeveloperLoginDto, DeveloperPinSetupDto, LoginDto, PinResetDto, PinResetRequestDto, RefreshDto, RegisterDto,
-  UpdateProfileDto, VerifyEmailCodeDto, VerifyRecoveryDto,
+  UpdateProfileDto, UpdateStaffRightsDto, VerifyEmailCodeDto, VerifyRecoveryDto,
 } from './dto/auth.dto';
 
 @ApiTags('auth')
@@ -110,5 +111,12 @@ export class AuthController {
   @Get('staff')
   listStaff(@CurrentUser() user: AuthUser) {
     return this.auth.listStaff(user.tenantId);
+  }
+
+  @ApiBearerAuth()
+  @Roles(Role.Owner, Role.Admin)
+  @Patch('staff/:id/rights')
+  updateStaffRights(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateStaffRightsDto) {
+    return this.auth.updateStaffRights(user.tenantId, id, dto.moduleRights);
   }
 }

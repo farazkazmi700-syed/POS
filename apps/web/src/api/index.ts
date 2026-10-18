@@ -75,8 +75,10 @@ export const authApi = {
   confirmRecoveryEmail: (code: string) =>
     api.post<UserSummary>('/auth/me/verify-recovery/confirm', { code }).then((r) => r.data),
   staff: () => api.get<UserSummary[]>('/auth/staff').then((r) => r.data),
-  addStaff: (body: { name: string; email: string; password: string; role: 'admin' | 'cashier' }) =>
+  addStaff: (body: { name: string; email: string; password: string; role: 'admin' | 'cashier'; moduleRights?: string[] }) =>
     api.post<UserSummary>('/auth/staff', body).then((r) => r.data),
+  updateStaffRights: (id: string, moduleRights: string[]) =>
+    api.patch<UserSummary>(`/auth/staff/${id}/rights`, { moduleRights }).then((r) => r.data),
 };
 
 export const tenantApi = {

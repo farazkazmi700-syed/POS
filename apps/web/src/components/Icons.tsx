@@ -115,3 +115,11 @@ export function IconPhone(props: IconProps) {
   );
 }
 
+
+export function IconBarcode(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25v13.5M6.75 5.25v13.5M9.75 5.25v13.5M13.5 5.25v13.5M17.25 5.25v13.5M20.25 5.25v13.5" />
+    </svg>
+  );
+}

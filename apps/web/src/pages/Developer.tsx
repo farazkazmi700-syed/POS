@@ -11,13 +11,14 @@ import { fmtDateTime } from '../utils/dates';
 
 /* ─────────────── Feature Config ─────────────── */
 
-const featureKeys: FeatureKey[] = ['pos', 'inventory', 'reports', 'customers', 'installments'];
+const featureKeys: FeatureKey[] = ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'];
 const featureNames: Record<FeatureKey, string> = {
   pos: 'POS',
   inventory: 'Inventory',
   reports: 'Reports',
   customers: 'Customers',
   installments: 'Installments',
+  barcodes: 'Barcode Studio',
 };
 
 const featureDescriptions: Record<FeatureKey, string> = {
@@ -26,6 +27,7 @@ const featureDescriptions: Record<FeatureKey, string> = {
   reports: 'Sales reports & analytics',
   customers: 'Customer ledger & CRM',
   installments: 'Installment plans & schedules',
+  barcodes: 'Barcode generator & camera scanner',
 };
 
 /* Feature vector icons */
@@ -53,6 +55,11 @@ const featureIcons: Record<FeatureKey, (props: { className?: string }) => ReactN
   installments: ({ className = 'w-4 h-4' }) => (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+    </svg>
+  ),
+  barcodes: ({ className = 'w-4 h-4' }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25v13.5M6.75 5.25v13.5M9.75 5.25v13.5M13.5 5.25v13.5M17.25 5.25v13.5M20.25 5.25v13.5" />
     </svg>
   ),
 };
@@ -216,6 +223,15 @@ function IconActivity({ className = 'w-4 h-4' }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
+    </svg>
+  );
+}
+
+function IconSettings({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.188.698.29 1.094.29.606 0 1.172-.24 1.586-.679l.83-.832c.312-.312.817-.312 1.13 0l1.832 1.833c.313.312.313.817 0 1.13l-.832.829c-.44.414-.68.98-.68 1.586 0 .395.101.77.29 1.094.043.073.086.146.126.22.185.331.486.582.86.645l1.282.213c.54.09.939.56.939 1.109v2.594c0 .55-.398 1.02-.94 1.11l-1.281.213c-.374.063-.686.313-.87.645-.04.074-.083.147-.127.22-.188.324-.29.698-.29 1.094 0 .606.24 1.172.679 1.586l.83.83c.313.312.313.817 0 1.13l-1.833 1.833c-.312.312-.817.312-1.13 0l-.83-.832c-.414-.44-.98-.68-1.586-.68-.395 0-.77.102-1.094.29-.073.04-.146.086-.22.126-.331.185-.582.486-.645.86l-.213 1.281c-.09.541-.56.939-1.11.939h-2.593c-.55 0-1.02-.398-1.11-.94l-.213-1.28c-.063-.375-.313-.687-.645-.87-.074-.04-.147-.083-.22-.127-.324-.188-.698-.29-1.094-.29-.606 0-1.172.24-1.586.679l-.83.83c-.312.313-.817.313-1.13 0L4.51 19.49c-.313-.312-.313-.817 0-1.13l.83-.83c.44-.414.68-.98.68-1.586 0-.395-.102-.77-.29-1.094-.04-.073-.086-.146-.126-.22-.185-.331-.486-.582-.86-.645l-1.281-.213c-.541-.09-.939-.56-.939-1.11v-2.593c0-.55.398-1.02.94-1.11l1.28-.213c.375-.063.687-.313.87-.645.04-.074.083-.147.127-.22.188-.324.29-.698.29-1.094 0-.606-.24-1.172-.679-1.586l-.83-.83c-.313-.312-.313-.817 0-1.13L4.51 4.51c.312-.313.817-.313 1.13 0l.83.83c.414.44.98.68 1.586.68.395 0 .77-.102 1.094-.29.073-.04.146-.086.22-.126.331-.185.582-.486.645-.86l.213-1.28z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   );
 }
@@ -660,7 +676,7 @@ function DeveloperSetupModal({ onClose }: { onClose: () => void }) {
    Developer Workspace
    ═══════════════════════════════════════════════ */
 
-type Tab = 'overview' | 'businesses' | 'plans' | 'create-business' | 'audit';
+type Tab = 'overview' | 'businesses' | 'plans' | 'create-business' | 'audit' | 'settings';
 
 function DeveloperWorkspace() {
   const client = useQueryClient();
@@ -906,6 +922,7 @@ function DeveloperWorkspace() {
     { key: 'plans', label: 'Plans', icon: <IconBadge className="w-[18px] h-[18px]" />, badge: plans.data?.length },
     { key: 'create-business', label: 'Provision', icon: <IconPlus className="w-[18px] h-[18px]" /> },
     { key: 'audit', label: 'Audit Log', icon: <IconClock className="w-[18px] h-[18px]" />, badge: auditLogs.data?.length },
+    { key: 'settings', label: 'Settings', icon: <IconSettings className="w-[18px] h-[18px]" /> },
   ];
 
   const pageTitle =
@@ -913,14 +930,16 @@ function DeveloperWorkspace() {
       : activeTab === 'businesses' ? 'Business Tenants'
         : activeTab === 'plans' ? 'Subscription Plans'
           : activeTab === 'create-business' ? 'Provision Tenant'
-            : 'Audit & Telemetry';
+            : activeTab === 'audit' ? 'Audit & Telemetry'
+              : 'Console Settings';
 
   const pageSubtitle =
     activeTab === 'overview' ? 'High-level engine analytics, tenant health, and quick actions.'
       : activeTab === 'businesses' ? 'Manage tenant organizations, assign plans, and toggle module entitlements.'
         : activeTab === 'plans' ? 'Configure subscription tiers, pricing, and baseline features.'
           : activeTab === 'create-business' ? 'Onboard a new organization with root Owner credentials.'
-            : 'Live security and administrative event stream from the POS platform.';
+            : activeTab === 'audit' ? 'Live security and administrative event stream from the POS platform.'
+              : 'Developer console appearance and workspace preferences.';
 
   const signOut = () => {
     logout();
@@ -1118,7 +1137,7 @@ function DeveloperWorkspace() {
                   icon={<IconCube className="w-4 h-4" />}
                   label="Modules"
                   value={featureKeys.length}
-                  hint="POS, Inv, Rep, Cust, Inst"
+                  hint="POS, Inv, Rep, Cust, Inst, Barcode"
                   tone="default"
                 />
                 <StatCard
@@ -1849,6 +1868,39 @@ function DeveloperWorkspace() {
                 ) : (
                   <div className="p-8 text-center text-xs text-slate-400">No audit records found.</div>
                 )}
+              </div>
+            </section>
+          )}
+
+          {/* ════════════════════════════════════════
+             TAB: CONSOLE SETTINGS
+             ════════════════════════════════════════ */}
+          {activeTab === 'settings' && (
+            <section className="space-y-4">
+              <div className="dev-card p-5 space-y-5">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Console preferences</h3>
+                  <p className="mt-1 text-xs text-slate-500">Personal workspace settings for this developer account. These do not affect business tenants.</p>
+                </div>
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Dark mode</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">Use a dark theme across the developer console.</p>
+                  </div>
+                  <ThemeToggle />
+                </div>
+                <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Account</p>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Signed in as <span className="font-mono font-semibold">{user?.email}</span> — developer scope. Use the header profile menu to sign out.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Hierarchy reference</p>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Developer → grants module rights to Business Admin (owner) → Business Admin assigns rights to Staff & Cashier accounts from Settings → Staff.
+                  </p>
+                </div>
               </div>
             </section>
           )}

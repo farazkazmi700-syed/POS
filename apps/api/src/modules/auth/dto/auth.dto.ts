@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsEmail, IsEnum, IsIn, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from 'class-validator';
 import { DomainType, Role } from '../../../common/enums';
 
 export class RegisterDto {
@@ -69,4 +69,14 @@ export class CreateStaffDto {
   @ApiProperty() @IsEmail() email: string;
   @ApiProperty() @IsString() @MinLength(8) @MaxLength(72) password: string;
   @ApiProperty({ enum: [Role.Admin, Role.Cashier] }) @IsEnum(Role) role: Role.Admin | Role.Cashier;
+  /** Modules this account may access; omit for full access per role. */
+  @ApiPropertyOptional({ type: [String], enum: ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'] })
+  @IsOptional() @IsArray() @ArrayMaxSize(6) @IsIn(['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'])
+  moduleRights?: string[];
+}
+
+export class UpdateStaffRightsDto {
+  @ApiProperty({ type: [String], enum: ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'] })
+  @IsArray() @ArrayMaxSize(6) @IsIn(['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'], { each: true })
+  moduleRights: string[];
 }

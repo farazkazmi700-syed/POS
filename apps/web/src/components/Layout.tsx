@@ -16,6 +16,7 @@ import {
   IconOrders,
   IconReports,
   IconSettings,
+  IconBarcode,
   IconSuperAdmin,
   IconDeveloper,
   IconMenu,
@@ -81,7 +82,9 @@ export default function Layout() {
 
   const links = TENANT_NAVIGATION_ITEMS.filter((item) =>
     (!item.managerOnly || isManager) && tenant?.navigationVisibility?.[item.key] !== false
-      && (!('feature' in item) || tenant?.featureFlags?.[item.feature] !== false),
+      && (!('feature' in item) || tenant?.featureFlags?.[item.feature] !== false)
+      // Module rights: owner sees everything; admin/staff are limited to their granted modules.
+      && (user?.role === 'owner' || !user?.moduleRights || user.moduleRights.includes(item.key)),
   );
 
   const getNavIcon = (key: string) => {
@@ -100,6 +103,8 @@ export default function Layout() {
         return <IconOrders className="h-5 w-5 shrink-0" />;
       case 'settings':
         return <IconSettings className="h-5 w-5 shrink-0" />;
+      case 'barcodes':
+        return <IconBarcode className="h-5 w-5 shrink-0" />;
       default:
         return null;
     }

@@ -3,9 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FeatureKey, ManagedBusiness } from '@pos/shared-types';
 import { superAdminApi } from '../api';
 
-const featureKeys: FeatureKey[] = ['pos', 'inventory', 'reports', 'customers', 'installments'];
+const featureKeys: FeatureKey[] = ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'];
 const featureNames: Record<FeatureKey, string> = {
-  pos: 'POS', inventory: 'Inventory', reports: 'Reports', customers: 'Customers', installments: 'Installments',
+  pos: 'POS', inventory: 'Inventory', reports: 'Reports', customers: 'Customers', installments: 'Installments', barcodes: 'Barcode Studio',
 };
 
 export default function SuperAdmin() {

@@ -1,5 +1,17 @@
 export type Role = 'owner' | 'admin' | 'cashier';
-export type FeatureKey = 'pos' | 'inventory' | 'reports' | 'customers' | 'installments';
+
+/** Module rights an admin can grant to individual staff/cashier accounts. */
+export type ModuleRightKey = 'dashboard' | 'pos' | 'products' | 'customers' | 'installments' | 'orders' | 'settings' | 'barcodes';
+export const MODULE_RIGHTS: { key: ModuleRightKey; label: string }[] = [
+  { key: 'pos', label: 'POS' },
+  { key: 'products', label: 'Inventory' },
+  { key: 'customers', label: 'Customers' },
+  { key: 'installments', label: 'Installments' },
+  { key: 'barcodes', label: 'Barcode Studio' },
+];
+/** All module right keys as a plain array (handy for defaults & toggles). */
+export const MODULE_RIGHT_KEYS: ModuleRightKey[] = MODULE_RIGHTS.map((r) => r.key);
+export type FeatureKey = 'pos' | 'inventory' | 'reports' | 'customers' | 'installments' | 'barcodes';
 export type FeatureFlags = Record<FeatureKey, boolean>;
 export type DomainType = 'retail' | 'restaurant' | 'pharmacy' | 'salon' | 'custom';
 export type TaxClass = 'standard' | 'reduced' | 'exempt';
@@ -28,6 +40,7 @@ export const TENANT_NAVIGATION_ITEMS = [
   { key: 'installments', to: '/installments', label: 'Installments', managerOnly: false, feature: 'installments' },
   { key: 'orders', to: '/orders', label: 'Orders', managerOnly: false },
   { key: 'settings', to: '/settings', label: 'Settings', managerOnly: true },
+  { key: 'barcodes', to: '/barcodes', label: 'Barcode Studio', managerOnly: true, feature: 'barcodes' },
 ] as const;
 
 export type TenantNavigationKey = (typeof TENANT_NAVIGATION_ITEMS)[number]['key'];
@@ -62,8 +75,9 @@ export interface UserSummary {
   isActive?: boolean;
   isSuperAdmin?: boolean;
   isDeveloper?: boolean;
+  /** Modules this account may access; undefined/absent = full access per role. */
+  moduleRights?: ModuleRightKey[];
 }
-
 export interface SubscriptionPlan {
   _id: string;
   name: string;
@@ -123,10 +137,21 @@ export interface PinChallengeResponse {
 
 export type LoginResponse = AuthResponse | PinChallengeResponse;
 
+export type BarcodeFormat = 'CODE128' | 'EAN13' | 'EAN8' | 'UPC' | 'CODE39';
+
+export interface BarcodeToolState {
+  format: BarcodeFormat;
+  value: string;
+  width: number;
+  height: number;
+  displayValue: boolean;
+}
+
 export interface Product {
   _id: string;
   name: string;
   sku?: string;
+  barcode?: string;
   category?: string;
   unit: string;
   price: number;
