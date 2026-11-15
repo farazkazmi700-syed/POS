@@ -20,13 +20,13 @@ export class InvoiceController {
   @SkipThrottle()
   @Get()
   async status(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
-    const order = await this.invoices.getOrder(user.tenantId, id);
+    const order = await this.invoices.getOrder(user.tenantId, id, user.role === Role.Cashier ? user.userId : undefined);
     return { status: order.invoiceStatus, invoiceNo: order.invoiceNo };
   }
 
   @Get('pdf')
   async pdf(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
-    const order = await this.invoices.getOrder(user.tenantId, id);
+    const order = await this.invoices.getOrder(user.tenantId, id, user.role === Role.Cashier ? user.userId : undefined);
     const file = this.invoices.resolvePdfPath(order);
     if (!existsSync(file)) throw new NotFoundException('Invoice PDF not found on disk');
     return new StreamableFile(createReadStream(file), {

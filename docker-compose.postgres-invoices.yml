@@ -1,0 +1,21 @@
+# Apply only after both application images and the PostgreSQL invoice stores validate.
+services:
+  api:
+    environment:
+      INVOICE_STORE: postgres
+      INVOICE_DATABASES_FILE: /run/secrets/invoice_databases
+    secrets: [invoice_databases]
+    networks: [default, invoice_postgres]
+  pdf-worker:
+    environment:
+      INVOICE_STORE: postgres
+      INVOICE_DATABASES_FILE: /run/secrets/invoice_databases
+    secrets: [invoice_databases]
+    networks: [default, invoice_postgres]
+secrets:
+  invoice_databases:
+    file: ./storage/postgresql-staging/invoice-databases.docker.json
+networks:
+  invoice_postgres:
+    external: true
+    name: pos-postgres-staging_default

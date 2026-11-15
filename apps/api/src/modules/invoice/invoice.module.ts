@@ -6,6 +6,7 @@ import { TenantModule } from '../tenant/tenant.module';
 import { INVOICE_QUEUE } from './invoice.constants';
 import { InvoiceController } from './invoice.controller';
 import { InvoiceService } from './invoice.service';
+import { InvoiceStateService } from './invoice-state.service';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { InvoiceService } from './invoice.service';
     TenantModule,
   ],
   controllers: [InvoiceController],
-  providers: [InvoiceService],
+  providers: [InvoiceService, InvoiceStateService],
   exports: [InvoiceService],
 })
 export class InvoiceModule {}

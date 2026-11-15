@@ -12,6 +12,7 @@ import { Order, OrderDocument } from '../order/schemas/order.schema';
 import { TenantService } from '../tenant/tenant.service';
 import { INVOICE_QUEUE } from './invoice.constants';
 import { InvoiceJobData } from './invoice-job.types';
+import { InvoiceStateService } from './invoice-state.service';
 
 @Injectable()
 export class InvoiceService {
@@ -22,14 +23,19 @@ export class InvoiceService {
     @InjectModel(Order.name) private readonly orders: Model<Order>,
     private readonly tenants: TenantService,
     private readonly config: ConfigService,
+    private readonly state: InvoiceStateService,
   ) {}
 
   /** Queue PDF generation. Never throws: a queue outage must not fail a completed sale. */
   async enqueue(order: OrderDocument): Promise<void> {
+    let generation: string | undefined;
     try {
+      generation = await this.state.postgres?.begin(order.tenantId.toString(), order.id);
+      order.invoiceStatus = InvoiceStatus.Pending;
       const tenant = await this.tenants.findById(order.tenantId.toString());
       const data: InvoiceJobData = {
         orderId: order.id,
+        invoiceGeneration: generation,
         invoiceNo: order.invoiceNo,
         createdAt: ((order as unknown as { createdAt?: Date }).createdAt ?? new Date()).toISOString(),
         tenant: {
@@ -39,6 +45,7 @@ export class InvoiceService {
         cashierName: order.cashierName,
         customer: order.customer ? { name: order.customer.name, phone: order.customer.phone } : undefined,
         paymentMode: order.paymentMode,
+        payments: order.payments,
         items: order.items.map((i) => ({
           name: i.name, qty: i.qty, unitPrice: i.unitPrice, discountPercent: i.discountPercent,
           discountAmount: i.discountAmount, taxPercent: i.taxPercent, taxAmount: i.taxAmount, lineTotal: i.lineTotal,
@@ -62,20 +69,29 @@ export class InvoiceService {
       });
     } catch (err) {
       this.logger.error(`Could not queue invoice for order ${order.id}: ${(err as Error).message}`);
-      await this.orders.updateOne({ _id: order.id }, { invoiceStatus: InvoiceStatus.Failed });
+      order.invoiceStatus = InvoiceStatus.Failed;
+      if (this.state.postgres) {
+        if (generation) {
+          try { await this.state.postgres.finish(order.tenantId.toString(), order.id, generation, 'failed'); }
+          catch { this.logger.error('Could not persist PostgreSQL invoice failure'); }
+        }
+      } else await this.orders.updateOne({ _id: order.id, tenantId: order.tenantId }, { invoiceStatus: InvoiceStatus.Failed });
     }
   }
 
-  async getOrder(tenantId: string, orderId: string): Promise<OrderDocument> {
-    const order = await this.orders.findOne({ _id: orderId, tenantId: oid(tenantId) });
+  async getOrder(tenantId: string, orderId: string, cashierId?: string): Promise<OrderDocument> {
+    const order = await this.orders.findOne({ _id: orderId, tenantId: oid(tenantId), ...(cashierId ? { cashierId: oid(cashierId) } : {}) });
     if (!order) throw new NotFoundException('Order not found');
+    await this.state.hydrate(tenantId, [order]);
     return order;
   }
+
+  hydrate(tenantId: string, orders: OrderDocument[]) { return this.state.hydrate(tenantId, orders); }
 
   async regenerate(tenantId: string, orderId: string) {
     const order = await this.getOrder(tenantId, orderId);
     order.invoiceStatus = InvoiceStatus.Pending;
-    await order.save();
+    if (!this.state.postgres) await order.save();
     await this.enqueue(order);
     return { status: order.invoiceStatus };
   }

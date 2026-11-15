@@ -32,6 +32,12 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
+    await page.setJavaScriptEnabled(false);
+    await page.setRequestInterception(true);
+    page.on('request', (request) => {
+      const allowed = request.url() === 'about:blank' || /^data:image\/(png|jpeg|webp|gif);base64,/.test(request.url());
+      void (allowed ? request.continue() : request.abort()).catch(() => undefined);
+    });
     await page.setContent(html, { waitUntil: 'load' });
     const pdf = await page.pdf({
       format: 'A4', printBackground: true,

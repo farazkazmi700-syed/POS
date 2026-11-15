@@ -1,6 +1,7 @@
 /** Payload sent through BullMQ to the pdf-worker. Keep in sync with apps/pdf-worker/src/types.ts */
 export interface InvoiceJobData {
   orderId: string;
+  invoiceGeneration?: string;
   invoiceNo: string;
   createdAt: string; // ISO
   tenant: {
@@ -9,6 +10,7 @@ export interface InvoiceJobData {
   cashierName: string;
   customer?: { name?: string; phone?: string };
   paymentMode: string;
+  payments?: { mode: string; amount: number }[];
   items: {
     name: string; qty: number; unitPrice: number; discountPercent: number; discountAmount: number;
     taxPercent: number; taxAmount: number; lineTotal: number;

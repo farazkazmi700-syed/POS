@@ -1,0 +1,9 @@
+{
+  "name": "@pos/invoice-store",
+  "version": "1.0.1",
+  "private": true,
+  "main": "index.cjs",
+  "types": "index.d.ts",
+  "files": ["index.cjs", "index.d.ts", "schema.sql"],
+  "dependencies": { "pg": "8.23.1" }
+}

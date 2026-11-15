@@ -1,12 +1,14 @@
 /** Payload produced by the API (apps/api/src/modules/invoice/invoice-job.types.ts). Keep in sync. */
 export interface InvoiceJobData {
   orderId: string;
+  invoiceGeneration?: string;
   invoiceNo: string;
   createdAt: string;
   tenant: { id: string; name: string; address?: string; taxRegNo?: string; currency: string; logoUrl?: string };
   cashierName: string;
   customer?: { name?: string; phone?: string };
   paymentMode: string;
+  payments?: { mode: string; amount: number }[];
   items: {
     name: string; qty: number; unitPrice: number; discountPercent: number; discountAmount: number;
     taxPercent: number; taxAmount: number; lineTotal: number;
