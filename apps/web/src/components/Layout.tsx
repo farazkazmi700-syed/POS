@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { productApi } from '../api';
+import BranchSwitcher from './BranchSwitcher';
+import ProductFooter from './ProductFooter';
 import { useTenant } from '../hooks/useTenant';
 import ThemeToggle from './ThemeToggle';
 import { useAuth } from '../store/auth';
@@ -85,10 +87,11 @@ export default function Layout() {
   const stockAlerts = useQuery({
     queryKey: ['products', 'stock-alerts'],
     queryFn: () => productApi.list({ lowStock: true, limit: 100 }),
-    enabled: isManager,
+    enabled: isManager && tenant?.featureFlags?.inventory !== false && (user?.role === 'owner' || user?.moduleRights === undefined || user.moduleRights.includes('products')),
     refetchInterval: 60_000,
   });
   const visibleStockAlerts = stockAlerts.data?.data.filter((product) => !dismissedStockAlertIds.has(product._id)) ?? [];
+  const activeLogoUrl = tenant?.logoUrl || '/kazmion-logo.jpg';
 
   useEffect(() => {
     const activeIds = new Set(stockAlerts.data?.data.map((product) => product._id) ?? []);
@@ -175,20 +178,14 @@ export default function Layout() {
       {/* ─────────────── Desktop Sidebar ─────────────── */}
       <aside className="app-sidebar no-print">
         <div className="app-brand">
-          {tenant?.logoUrl ? (
-            <img
-              src={tenant.logoUrl}
-              alt={tenant.name || 'Business logo'}
-              className="h-10 w-10 rounded-xl object-cover shadow-md shadow-teal-600/20 ring-2 ring-white/60 dark:ring-slate-800/80"
-            />
-          ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 text-base font-bold text-white shadow-md shadow-teal-600/25">
-              {tenant?.name?.slice(0, 1)?.toUpperCase() ?? 'P'}
-            </div>
-          )}
+          <img
+            src={activeLogoUrl}
+            alt={tenant?.name || 'KazmiOn POS'}
+            className="h-10 w-10 rounded-xl object-contain bg-white dark:bg-slate-900 p-0.5 shadow-md shadow-sky-600/20 ring-2 ring-white/60 dark:ring-slate-800/80"
+          />
           <div className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-base">
-              {tenant?.name ?? 'POS'}
+            <span className="block line-clamp-2 text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-base">
+              {tenant?.name ?? 'KazmiOn POS'}
             </span>
             <span className="block truncate text-[11px] font-medium text-slate-500 dark:text-slate-400 capitalize">
               {tenant?.domainType ?? 'Retail'} System
@@ -206,7 +203,7 @@ export default function Layout() {
               {getNavIcon(l.key)}
               <span className="truncate flex-1">{l.label}</span>
               {l.key === 'pos' && cart.items.length > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-teal-600 px-1.5 text-[11px] font-bold text-white shadow-sm">
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-1.5 text-[11px] font-bold text-white shadow-sm shadow-orange-500/30">
                   {cart.items.length}
                 </span>
               )}
@@ -261,20 +258,14 @@ export default function Layout() {
           <aside className="fixed inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col gap-4 border-r border-[var(--panel-border)] bg-[var(--panel)] p-5 shadow-2xl transition-transform animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between border-b border-[var(--panel-border)] pb-4">
               <div className="flex items-center gap-2.5">
-                {tenant?.logoUrl ? (
-                  <img
-                    src={tenant.logoUrl}
-                    alt={tenant.name || 'Business logo'}
-                    className="h-9 w-9 rounded-xl object-cover ring-1 ring-slate-200 dark:ring-slate-700"
-                  />
-                ) : (
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 text-sm font-bold text-white shadow-sm">
-                    {tenant?.name?.slice(0, 1)?.toUpperCase() ?? 'P'}
-                  </div>
-                )}
+                <img
+                  src={activeLogoUrl}
+                  alt={tenant?.name || 'KazmiOn POS'}
+                  className="h-9 w-9 rounded-xl object-contain bg-white dark:bg-slate-900 p-0.5 ring-1 ring-slate-200 dark:ring-slate-700 shadow-xs"
+                />
                 <div className="min-w-0">
                   <span className="block truncate text-sm font-bold text-slate-900 dark:text-slate-100">
-                    {tenant?.name ?? 'POS'}
+                    {tenant?.name ?? 'KazmiOn POS'}
                   </span>
                   <span className="block truncate text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                     {tenant?.domainType ?? 'Retail'}
@@ -302,7 +293,7 @@ export default function Layout() {
                   {getNavIcon(l.key)}
                   <span className="truncate flex-1">{l.label}</span>
                   {l.key === 'pos' && cart.items.length > 0 && (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-teal-600 px-1.5 text-[11px] font-bold text-white shadow-sm">
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-amber-500 px-1.5 text-[11px] font-bold text-white shadow-sm shadow-orange-500/30">
                       {cart.items.length}
                     </span>
                   )}
@@ -332,7 +323,7 @@ export default function Layout() {
 
             {/* Mobile drawer footer */}
             <div className="flex items-center gap-2 rounded-xl border-t border-[var(--panel-border)] bg-[var(--panel-soft)] p-2 pt-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white">{initials}</div>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#0084f0] to-[#00183c] text-xs font-bold text-white shadow-xs">{initials}</div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">{user?.name}</p>
                 <p className="truncate text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">{user?.role}</p>
@@ -360,28 +351,14 @@ export default function Layout() {
                 <IconMenu className="h-5 w-5" />
               </button>
               <div className="flex items-center gap-2">
-                {tenant?.logoUrl ? (
-                  <img
-                    src={tenant.logoUrl}
-                    alt={tenant.name || 'Logo'}
-                    className="h-7 w-7 rounded-lg object-cover ring-1 ring-slate-200 dark:ring-slate-700"
-                  />
-                ) : (
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-teal-700 text-xs font-bold text-white">
-                    {tenant?.name?.slice(0, 1)?.toUpperCase() ?? 'P'}
-                  </div>
-                )}
                 <span className="max-w-[130px] sm:max-w-[200px] truncate text-sm font-bold text-slate-900 dark:text-slate-100">
-                  {tenant?.name ?? 'POS'}
+                  {tenant?.name ?? 'KazmiOn POS'}
                 </span>
               </div>
             </div>
 
-            {/* Desktop spacer */}
-            <div className="hidden lg:block" />
-
             {/* Header Right Actions */}
-            <div className="flex items-center gap-1.5 sm:gap-2.5">
+            <div className="ml-auto flex items-center gap-1.5 sm:gap-2.5">
               {isManager && (
                 <div className="relative">
                   <button
@@ -476,14 +453,14 @@ export default function Layout() {
                     setMenuFocusIndex(0);
                   }
                 }} aria-haspopup="menu" aria-expanded={userMenuOpen} aria-label={`User menu for ${formattedName}`} className="flex min-h-11 items-center gap-2 rounded-xl px-1.5 py-1 text-left transition hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-teal-600 dark:hover:bg-slate-800 sm:px-2">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white ring-2 ring-teal-600/15">{initials}</span>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#0084f0] to-[#00183c] text-xs font-bold text-white shadow-xs ring-2 ring-sky-500/20">{initials}</span>
                   <span className="hidden min-w-0 items-center gap-2 sm:flex"><span className="max-w-32 truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{formattedName}</span><span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-700 dark:bg-teal-950 dark:text-teal-300">{user?.role}</span></span>
                   <ChevronIcon className="h-4 w-4 shrink-0 text-slate-500" />
                 </button>
                 {userMenuOpen && <div role="menu" aria-label="User account menu" onKeyDown={onUserMenuKeyDown} className="absolute right-0 z-50 mt-2 w-72 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border-slate-200 bg-white p-1.5 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
                   <div className="px-3 py-3"><p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{formattedName}</p><div className="mt-1 flex items-center gap-2"><span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-700 dark:bg-teal-950 dark:text-teal-300">{user?.role}</span><p className="truncate text-xs text-slate-500 dark:text-slate-400">{user?.email}</p></div></div>
                   <div className="my-1 border-t border-slate-200 dark:border-slate-700" />
-                  <Link role="menuitem" tabIndex={menuFocusIndex === 0 ? 0 : -1} to="/settings#account" onClick={() => setUserMenuOpen(false)} onFocus={() => setMenuFocusIndex(0)} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none dark:text-slate-200 dark:hover:bg-slate-800 dark:focus:bg-slate-800"><ProfileIcon className="h-4 w-4" /> Profile / Admin account</Link>
+                  <Link role="menuitem" tabIndex={menuFocusIndex === 0 ? 0 : -1} to="/recover" onClick={() => setUserMenuOpen(false)} onFocus={() => setMenuFocusIndex(0)} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none dark:text-slate-200 dark:hover:bg-slate-800 dark:focus:bg-slate-800"><ProfileIcon className="h-4 w-4" /> Account security</Link>
                   <div role="menuitem" tabIndex={menuFocusIndex === 1 ? 0 : -1} onFocus={() => setMenuFocusIndex(1)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); (event.currentTarget.querySelector('button') as HTMLButtonElement | null)?.click(); } }} className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 text-sm text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none dark:text-slate-200 dark:hover:bg-slate-800 dark:focus:bg-slate-800"><span className="flex items-center gap-3"><ThemeIcon className="h-4 w-4" /> Dark mode</span><ThemeToggle /></div>
                   <div className="my-1 border-t border-slate-200 dark:border-slate-700" />
                   <button role="menuitem" tabIndex={menuFocusIndex === 2 ? 0 : -1} type="button" onFocus={() => setMenuFocusIndex(2)} onClick={() => { setUserMenuOpen(false); handleLogout(); }} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none dark:text-red-400 dark:hover:bg-red-950/50 dark:focus:bg-red-950/50"><LogoutIcon className="h-4 w-4" /> Log out</button>
@@ -494,7 +471,9 @@ export default function Layout() {
         </header>
 
         {/* Page Content with safe padding for mobile bottom bar */}
-        <main className="app-content mx-auto w-full max-w-7xl flex-1 px-3 py-4 sm:px-5 sm:py-6 pb-24 lg:pb-6">
+        <a className="skip-link" href="#workspace-content">Skip to main content</a>
+        <main id="workspace-content" tabIndex={-1} className="app-content mx-auto w-full max-w-7xl flex-1 px-3 py-4 sm:px-5 sm:py-6 pb-24 lg:pb-6">
+          <BranchSwitcher />
           <Outlet />
         </main>
 
@@ -569,6 +548,7 @@ export default function Layout() {
             <span>More</span>
           </button>
         </nav>
+        <ProductFooter />
       </div>
     </div>
   );
