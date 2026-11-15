@@ -1,11 +1,39 @@
+# Dependencies and build output
 node_modules/
 dist/
+*.tsbuildinfo
+
+# Local configuration (keep distributable examples)
 .env
 .env.*
 !.env.example
+
+# Python environments and caches
 venv/
+.venv/
 __pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Logs and test output
 *.log
 coverage/
+qa/artifacts/
+test-results/
+playwright-report/
+
+# Runtime data and generated invoice previews
 storage/
-*.tsbuildinfo
+/apps/pdf-worker/artifacts/
+/apps/pdf-worker/sample-invoice.html
+/apps/pdf-worker/sample-invoice.pdf
+
+# Obsolete source snapshots belong in Git history
+/apps-backup/
+
+# Operating system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini

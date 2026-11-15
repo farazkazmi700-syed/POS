@@ -1,8 +1,9 @@
 /**
- * Renders a sample invoice to ./sample-invoice.html (and .pdf when Chromium is available).
+ * Renders a sample invoice to artifacts/sample-invoice.html (and .pdf when Chromium is available).
  * Handy while you tweak templates/invoice.hbs:   npm run render:sample
  */
 import fs from 'fs';
+import path from 'path';
 import { renderInvoiceHtml } from './services/invoice-renderer';
 import { InvoiceJobData } from './types';
 
@@ -31,14 +32,18 @@ export const sample: InvoiceJobData = {
 };
 
 (async () => {
+  const outputDirectory = path.resolve(__dirname, '..', 'artifacts');
+  fs.mkdirSync(outputDirectory, { recursive: true });
   const html = await renderInvoiceHtml(sample);
-  fs.writeFileSync('sample-invoice.html', html);
-  console.log('wrote sample-invoice.html');
+  const htmlPath = path.join(outputDirectory, 'sample-invoice.html');
+  fs.writeFileSync(htmlPath, html);
+  console.log(`wrote ${htmlPath}`);
   try {
     const { htmlToPdf, closeBrowser } = await import('./services/pdf.service');
-    fs.writeFileSync('sample-invoice.pdf', await htmlToPdf(html));
+    const pdfPath = path.join(outputDirectory, 'sample-invoice.pdf');
+    fs.writeFileSync(pdfPath, await htmlToPdf(html));
     await closeBrowser();
-    console.log('wrote sample-invoice.pdf');
+    console.log(`wrote ${pdfPath}`);
   } catch (e) {
     console.log('PDF step skipped (no Chromium available):', (e as Error).message.split('\n')[0]);
   }

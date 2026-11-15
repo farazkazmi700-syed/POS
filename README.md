@@ -10,6 +10,8 @@ TypeScript POS where any business (retail, restaurant, pharmacy, salon, ...) can
 | Shared contract | plain TypeScript interfaces | `packages/shared-types` |
 | Phase 2 (stubs) | FastAPI analytics + chatbot | `apps/analytics-service`, `apps/chatbot-service` |
 
+See [Project structure and repository conventions](docs/project-structure.md) for directory ownership, generated files and verification commands.
+
 ## How a sale flows
 
 ```
@@ -47,7 +49,7 @@ npm run dev:web                 # http://localhost:5173 (proxies /api to :3000)
 ```
 
 `STORAGE_DIR` must point at the **same folder** for the API and the worker; both load it from the root `.env`.
-Tune the invoice layout with `cd apps/pdf-worker && npm run render:sample` (writes `sample-invoice.html`).
+Tune the invoice layout with `cd apps/pdf-worker && npm run render:sample` (writes previews to `apps/pdf-worker/artifacts/`, which is ignored by Git).
 
 ## Tests
 
@@ -133,6 +135,3 @@ Installment sales cannot be voided in the app; handle returns manually.
 ## Phase 2 (AI)
 
 `apps/analytics-service` (forecasting, anomaly detection, restock advice) and `apps/chatbot-service` (RAG over each tenant's own data) are stubs with `/health` endpoints. Install their Python packages with `apps/analytics-service/requirements.txt` inside a `venv`. Every query they run must filter by `tenantId`, like the API.
-#   P O S 
- 
- 
