@@ -6,8 +6,9 @@ import BranchSwitcher from './BranchSwitcher';
 import ProductFooter from './ProductFooter';
 import { useTenant } from '../hooks/useTenant';
 import ThemeToggle from './ThemeToggle';
-import { useAuth } from '../store/auth';
+import { urduClass } from '../utils/urdu';
 import { useCart } from '../store/cart';
+import { useAuth } from '../store/auth';
 import { TENANT_NAVIGATION_ITEMS } from '@pos/shared-types';
 import {
   IconDashboard,
@@ -184,10 +185,10 @@ export default function Layout() {
             className="h-10 w-10 rounded-xl object-contain bg-white dark:bg-slate-900 p-0.5 shadow-md shadow-sky-600/20 ring-2 ring-white/60 dark:ring-slate-800/80"
           />
           <div className="min-w-0 flex-1">
-            <span className="block line-clamp-2 text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-base">
+            <span className={`block line-clamp-2 text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-base ${urduClass(tenant?.name ?? '')}`}>
               {tenant?.name ?? 'KazmiOn POS'}
             </span>
-            <span className="block truncate text-[11px] font-medium text-slate-500 dark:text-slate-400 capitalize">
+            <span className={`block truncate text-[11px] font-medium text-slate-500 dark:text-slate-400 capitalize ${urduClass(tenant?.domainType ?? '')}`}>
               {tenant?.domainType ?? 'Retail'} System
             </span>
           </div>
