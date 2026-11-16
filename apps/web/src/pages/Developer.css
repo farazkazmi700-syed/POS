@@ -1,0 +1,186 @@
+/* Developer-only visual tokens. Shared tenant styles are intentionally untouched. */
+.dev-workspace, .dev-login-bg, .dev-modal, .dev-toast {
+  --dev-radius: 14px;
+  --dev-control-radius: 8px;
+  --dev-space: clamp(16px, 2.4vw, 32px);
+  --dev-shadow: 0 2px 4px #13243b04, 0 8px 24px #13243b05;
+}
+.dev-workspace { background: var(--bg); }
+.dev-workspace .dev-sidebar { background: var(--panel); flex-shrink: 0; }
+.dev-workspace .dev-main { max-width: 1800px; margin-inline: auto; }
+.dev-workspace .dev-page-header { gap: 20px; flex-wrap: wrap; }
+.dev-workspace .dev-card { border-radius: 16px; box-shadow: 0 2px 8px #00183c04; }
+.dev-workspace .dev-stat-card { border-radius: 14px; }
+.dev-workspace .dev-page-title { letter-spacing: -.035em; }
+.dev-workspace .dev-page-subtitle { max-width: 680px; line-height: 1.7; }
+.dev-workspace .dev-feature-strip { background: var(--panel-soft); }
+.dev-workspace .dev-switch-pill { min-height: 36px; }
+.dev-workspace .dev-btn-primary, .dev-workspace .dev-btn-secondary, .dev-modal .dev-btn-primary, .dev-modal .dev-btn-secondary { min-height: 40px; }
+.dev-workspace button:disabled, .dev-modal button:disabled { cursor: not-allowed; opacity: .55; }
+.dev-workspace button:focus-visible, .dev-workspace a:focus-visible, .dev-modal button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.dev-workspace .dev-content { padding-top: 8px; }
+.dev-workspace .dev-mobile-header { background: var(--panel); }
+.dev-modal .input { min-height: 44px; }
+.dev-modal { overscroll-behavior: contain; }
+.dev-modal-head { position: sticky; top: 0; z-index: 2; background: var(--panel); }
+
+/* Shell and navigation */
+.dev-workspace .dev-sidebar { width: 248px; padding: 24px 14px 16px; backdrop-filter: none; overflow-y: auto; scrollbar-width: thin; }
+.dev-workspace .dev-sidebar nav { margin-top: 28px; padding-bottom: 24px; }
+.dev-workspace .dev-nav-caption { color: var(--text-soft); font-size: 10px; letter-spacing: .12em; margin-bottom: 12px; }
+.dev-workspace .dev-nav-item { min-height: 44px; border-radius: var(--dev-control-radius); padding: 10px 12px; font-weight: 500; transition: background-color .15s, color .15s; }
+.dev-workspace .dev-nav-item svg { flex-shrink: 0; }
+.dev-workspace .dev-nav-item-active { color: var(--accent-strong); background: var(--accent-soft); box-shadow: inset 3px 0 var(--accent); font-weight: 650; }
+.dev-workspace .dev-nav-badge { font-variant-numeric: tabular-nums; background: var(--panel); color: var(--text-soft); }
+.dev-workspace .dev-brand-mark, .dev-workspace .dev-avatar { box-shadow: none; }
+.dev-topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 72px; padding: 12px var(--dev-space); border-bottom: 1px solid var(--panel-border); background: var(--panel); }
+.dev-topbar-brand { font-size: 12px; color: var(--text-soft); }
+.dev-topbar-brand > span { margin: 0 12px; color: var(--muted-subtle); }
+.dev-topbar-brand strong { color: var(--text); font-weight: 600; }
+.dev-topbar-security { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); min-height: 44px; }
+.dev-mobile-section { display: none; }
+.dev-skip-link { position: fixed; top: 8px; left: 8px; z-index: 100; padding: 12px 20px; background: var(--panel); color: var(--accent-strong); border: 2px solid var(--accent); border-radius: 8px; transform: translateY(-160%); }
+.dev-skip-link:focus { transform: translateY(0); }
+.dev-workspace .dev-page-header { padding: 32px var(--dev-space) 24px; align-items: center; }
+.dev-workspace .dev-content { padding: 0 var(--dev-space) 24px; }
+.dev-workspace .dev-page-title { font-size: clamp(24px, 2.1vw, 30px); font-weight: 700; line-height: 1.25; }
+.dev-workspace .dev-eyebrow { font-size: 10px; color: var(--text-soft); letter-spacing: .13em; }
+.dev-workspace .dev-page-subtitle { margin-top: 8px; font-size: 13px; max-width: 64ch; }
+.dev-workspace .dev-live-pill { box-shadow: none; font-size: 11px; }
+
+/* Consistent surfaces and data density across all eleven modules */
+.dev-workspace .dev-card, .dev-workspace .dev-stat-card { border: 1px solid var(--panel-border); border-radius: var(--dev-radius); background: var(--panel); box-shadow: var(--dev-shadow); }
+.dev-workspace .dev-card-hover:hover { transform: none; border-color: var(--accent); box-shadow: var(--dev-shadow); }
+.dev-workspace .dev-stat-card { padding: 20px; }
+.dev-workspace .dev-stat-value { letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.dev-workspace .dev-stat-icon { box-shadow: none; border-radius: 10px; }
+.dev-workspace .dev-feature-strip { border-top: 1px solid var(--panel-border); padding: 12px 16px; }
+.dev-workspace .dev-form-section { padding-block: 24px; }
+.dev-workspace .dev-step-badge { border-radius: 8px; box-shadow: none; }
+.dev-workspace .dev-empty-state { min-height: 220px; padding: 32px 20px; }
+.dev-workspace table { border-collapse: collapse; }
+.dev-workspace table th { color: var(--text-soft); font-size: 11px; letter-spacing: .06em; white-space: nowrap; padding: 14px 16px; }
+.dev-workspace table td { padding: 16px; vertical-align: top; }
+.dev-workspace table tbody tr { transition: background-color .15s; }
+.dev-workspace .dev-audit-details { min-width: 120px; max-width: 320px; }
+.dev-audit-details summary { cursor: pointer; color: var(--accent-strong); font-family: inherit; padding-block: 4px; }
+.dev-audit-details pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; margin-top: 8px; background: var(--panel-soft); border-radius: 8px; }
+.dev-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; font-size: 12px; color: var(--text-soft); }
+
+/* Controls, feedback and keyboard affordances */
+.dev-workspace .input, .dev-modal .input, .dev-login-bg .input { border-radius: var(--dev-control-radius); min-height: 44px; border-color: var(--panel-border); box-shadow: none; }
+.dev-workspace .label, .dev-modal .label { color: var(--text-muted); font-weight: 600; }
+.dev-workspace :is(.dev-btn-primary, .dev-btn-secondary), .dev-modal :is(.dev-btn-primary, .dev-btn-secondary) { border-radius: var(--dev-control-radius); min-height: 44px; padding-inline: 16px; box-shadow: none; font-weight: 600; }
+.dev-workspace .dev-icon-btn, .dev-modal .dev-icon-btn { width: 40px; height: 40px; flex-shrink: 0; }
+.dev-workspace :is(button, a, input, select, textarea, summary):focus-visible,
+.dev-modal :is(button, a, input, select, textarea):focus-visible,
+.dev-login-bg :is(button, a, input):focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.dev-workspace .dev-switch-pill { min-height: 40px; border-radius: 8px; }
+.dev-toast { align-items: flex-start; line-height: 1.6; border-radius: 10px; box-shadow: var(--dev-shadow); }
+.dev-modal { border-radius: 18px; border: 1px solid var(--panel-border); box-shadow: 0 24px 80px #0004; }
+.dev-modal-head { padding: 24px; border-bottom: 1px solid var(--panel-border); }
+.dev-modal-body { padding: 24px; }
+.dev-modal-foot { background: var(--panel-soft); border-top: 1px solid var(--panel-border); padding: 16px 24px; }
+.dev-login-bg { background: var(--bg); }
+.dev-login-bg .dev-login-card { border: 1px solid var(--panel-border); border-radius: 20px; box-shadow: var(--dev-shadow); }
+.dev-login-bg .dev-login-btn { box-shadow: none; min-height: 48px; border-radius: 10px; }
+@media (min-width: 840px) {
+  .dev-workspace-collapsed .dev-sidebar { width: 80px; padding-inline: 12px; }
+  .dev-workspace-collapsed .dev-sidebar-brand { padding-inline: 6px; }
+  .dev-workspace-collapsed :is(.dev-brand-copy, .dev-nav-label, .dev-nav-badge, .dev-nav-caption) { display: none; }
+  .dev-workspace-collapsed .dev-nav-item { justify-content: center; padding-inline: 0; }
+  .dev-workspace-collapsed .dev-sidebar-footer > div:first-child { justify-content: center; padding: 0; }
+  .dev-workspace-collapsed .dev-sidebar-footer > div:first-child > div { display: none; }
+  .dev-workspace-collapsed .dev-sidebar-footer > div:last-child { flex-direction: column; }
+}
+@media (max-width: 839px) {
+  .dev-workspace .dev-topbar { display: none; }
+  .dev-workspace .dev-mobile-section { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 16px; padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--panel-border); }
+  .dev-mobile-section label { font-size: 12px; font-weight: 600; color: var(--text-soft); }
+  .dev-workspace .dev-bottom-nav { display: none; }
+  .dev-workspace .dev-main { padding-bottom: 16px; }
+  .dev-workspace { display: block; }
+  .dev-workspace .dev-main { width: 100%; }
+  .dev-workspace .dev-page-header { padding: 24px 16px 16px; }
+  .dev-workspace .dev-content { padding: 0 16px 24px; }
+  .dev-workspace .dev-bottom-nav { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  .dev-workspace .dev-page-title { font-size: 25px; }
+}
+@media (max-width: 480px) {
+  .dev-workspace .dev-switch-pill { flex: 1 1 45%; justify-content: space-between; }
+  .dev-workspace .dev-page-subtitle { font-size: 12px; }
+  .dev-modal-backdrop { padding: 10px; }
+  .dev-modal-head, .dev-modal-body { padding: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dev-workspace *, .dev-login-bg *, .dev-modal, .dev-toast { animation: none !important; transition: none !important; }
+}
+/* Developer Engine — UX polish: section headers, panels, badges */
+.dev-workspace .dev-section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 24px 0 12px; }
+.dev-workspace .dev-section-header h2 { font-size: clamp(16px, 1.1vw, 20px); font-weight: 700; letter-spacing: -.02em; color: var(--text); margin: 0; }
+.dev-workspace .dev-section-header p { font-size: 12.5px; color: var(--text-soft); margin: 2px 0 0; line-height: 1.5; }
+.dev-workspace .dev-panel { border: 1px solid var(--panel-border); border-radius: var(--dev-radius); background: var(--panel); box-shadow: var(--dev-shadow); }
+.dev-workspace .dev-panel.padded { padding: 18px 20px; }
+.dev-workspace .dev-panel > header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--panel-border); }
+.dev-workspace .dev-panel .kicker { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 6px 0; }
+.dev-workspace .dev-panel h3 { font-size: 16px; font-weight: 700; color: var(--text); margin: 0; }
+.dev-workspace .dev-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; letter-spacing: .04em; }
+.dev-workspace .dev-badge-outline { border: 1px solid var(--panel-border); color: var(--text-soft); background: transparent; }
+.dev-workspace .dev-badge-active { background: var(--accent-soft); color: var(--accent-strong); border-color: var(--accent-soft); }
+.dev-workspace .dev-badge-warn { background: rgba(245,158,11,0.10); color: #b45309; border-color: rgba(245,158,11,0.18); }
+.dev-workspace .dev-badge-danger { background: rgba(239,68,68,0.10); color: #dc2626; border-color: rgba(239,68,68,0.18); }
+.dev-workspace .dev-badge-success { background: rgba(16,185,129,0.10); color: #15803d; border-color: rgba(16,185,129,0.18); }
+/* Developer Engine — UX polish: buttons, inputs, empty states */
+.dev-workspace .dev-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--panel-border); border-radius: var(--dev-control-radius); min-height: 42px; padding: 0 16px; font-size: 13.5px; font-weight: 600; background: var(--panel); color: var(--text); cursor: pointer; transition: background .15s, border-color .15s, color .15s, box-shadow .15s; }
+.dev-workspace .dev-btn:hover { border-color: var(--accent); color: var(--accent-strong); }
+.dev-workspace .dev-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 2px 6px rgba(0,112,224,.18); }
+.dev-workspace .dev-btn-primary:hover { background: #006fd6; border-color: #006fd6; }
+.dev-workspace .dev-btn-ghost { background: transparent; border-color: transparent; color: var(--text-soft); }
+.dev-workspace .dev-btn-ghost:hover { background: var(--panel-muted); color: var(--text); }
+.dev-workspace .dev-btn:disabled { opacity: .55; cursor: not-allowed; }
+.dev-workspace .dev-btn-sm { min-height: 34px; padding: 0 12px; font-size: 12px; }
+.dev-workspace .dev-icon-btn { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--dev-control-radius); border: 1px solid var(--panel-border); background: var(--panel); color: var(--text-soft); cursor: pointer; }
+.dev-workspace .dev-icon-btn:hover { color: var(--text); border-color: var(--panel-border); }
+.dev-workspace .dev-field { margin-bottom: 14px; }
+.dev-workspace .dev-field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; letter-spacing: .02em; }
+.dev-workspace .dev-input, .dev-workspace .dev-select { width: 100%; border-radius: var(--dev-control-radius); min-height: 42px; border: 1px solid var(--panel-border); background: var(--bg); color: var(--text); padding: 0 14px; font-size: 13.5px; transition: border-color .15s, box-shadow .15s; }
+.dev-workspace .dev-input:focus, .dev-workspace .dev-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,132,240,.12); }
+.dev-workspace .dev-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 48px 20px; text-align: center; border: 1px dashed var(--panel-border); border-radius: var(--dev-radius); background: rgba(0,0,0,.015); }
+.dev-workspace .dev-empty svg { color: var(--text-muted); opacity: .5; }
+.dev-workspace .dev-empty h3 { font-size: 16px; font-weight: 700; color: var(--text); margin: 0; }
+.dev-workspace .dev-empty p { font-size: 13px; color: var(--text-soft); margin: 0; line-height: 1.6; }
+/* Developer Engine — UX polish: grid, list, switch, table, tabs, stats, toast */
+.dev-workspace .dev-grid { display: grid; gap: 14px; }
+.dev-workspace .dev-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.dev-workspace .dev-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.dev-workspace .dev-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 720px) { .dev-workspace .dev-grid.cols-2, .dev-workspace .dev-grid.cols-3, .dev-workspace .dev-grid.cols-4 { grid-template-columns: 1fr; } }
+.dev-workspace .dev-list-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: var(--dev-control-radius); border: 1px solid var(--panel-border); background: var(--panel); margin-bottom: 8px; }
+.dev-workspace .dev-list-item-main { min-width: 0; }
+.dev-workspace .dev-list-item-title { font-weight: 650; color: var(--text); display: block; }
+.dev-workspace .dev-list-item-sub { font-size: 12px; color: var(--text-soft); }
+.dev-workspace .dev-switch { position: relative; display: inline-flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer; }
+.dev-workspace .dev-switch input { appearance: none; width: 46px; height: 24px; border-radius: 999px; border: 1px solid var(--panel-border); background: var(--bg); position: relative; outline: none; transition: border-color .15s, background .15s; }
+.dev-workspace .dev-switch input::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.15); transition: transform .15s; }
+.dev-workspace .dev-switch input:checked { background: var(--accent); border-color: var(--accent); }
+.dev-workspace .dev-switch input:checked::after { transform: translateX(22px); }
+.dev-workspace .dev-switch input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.dev-workspace .dev-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dev-workspace .dev-table th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); padding: 10px 14px; border-bottom: 1px solid var(--panel-border); }
+.dev-workspace .dev-table td { padding: 12px 14px; border-bottom: 1px solid var(--panel-border); color: var(--text); vertical-align: middle; }
+.dev-workspace .dev-table tr:last-child td { border-bottom: none; }
+.dev-workspace .dev-table tr:hover td { background: rgba(0,132,240,.03); }
+.dev-workspace .dev-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--panel-border); margin-bottom: 18px; overflow-x: auto; }
+.dev-workspace .dev-tab { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--text-soft); border-bottom: 2px solid transparent; cursor: pointer; transition: color .15s, border-color .15s, background .15s; white-space: nowrap; }
+.dev-workspace .dev-tab:hover { color: var(--text); background: var(--panel-muted); }
+.dev-workspace .dev-tab-active { color: var(--accent-strong); border-bottom-color: var(--accent); }
+.dev-workspace .dev-stat { border: 1px solid var(--panel-border); border-radius: var(--dev-radius); background: var(--panel); padding: 16px 18px; box-shadow: var(--dev-shadow); }
+.dev-workspace .dev-stat .kicker { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 8px 0; }
+.dev-workspace .dev-stat .value { font-size: 26px; font-weight: 800; letter-spacing: -.03em; color: var(--text); margin: 0 0 4px 0; }
+.dev-workspace .dev-stat .delta { font-size: 12px; font-weight: 600; }
+.dev-workspace .dev-stat .delta.pos { color: #15803d; }
+.dev-workspace .dev-stat .delta.neg { color: #dc2626; }
+.dev-workspace .dev-stat .delta.neutral { color: var(--text-soft); }
+.dev-workspace .dev-toast { border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px 16px; box-shadow: var(--dev-shadow); }
+.dev-workspace .dev-toast-dismiss { padding: 4px; border-radius: 6px; color: var(--text-soft); }
+.dev-workspace .dev-toast-dismiss:hover { background: var(--panel-muted); color: var(--text); }

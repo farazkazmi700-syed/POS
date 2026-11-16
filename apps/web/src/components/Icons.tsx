@@ -135,3 +135,115 @@ export function IconBarcodeScanner(props: IconProps) {
     </svg>
   );
 }
+
+export function IconHelp(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.09 9a3 3 0 015.83 1c0 1.4-1 2-1 2m-2 4h.01M12 21a9 9 0 100-18 9 9 0 000 18z" />
+    </svg>
+  );
+}
+
+export function IconBackup(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 6.75L12 3l4.5 3.75M7.5 17.25L12 21l4.5-3.75" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v7.5l-3 3M12 21v-7.5l3-3" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 12a9 9 0 0115-6.7L21 8M21 12a9 9 0 01-15 6.7L3 16" />
+    </svg>
+  );
+}
+export function IconBox(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 15.25a1.25 1.25 0 01-1.25 1.25H7.5a1.25 1.25 0 01-1.25-1.25V8a1.25 1.25 0 011.25-1.25h12.25a1.25 1.25 0 011.25 1.25z" />
+    </svg>
+  );
+}
+
+export function IconPlus(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+    </svg>
+  );
+}
+
+export function IconSearch(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+  );
+}
+
+export function IconEdit(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    </svg>
+  );
+}
+
+export function IconTrash2(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  );
+}
+
+export function IconAlertCircle(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.859-3.213l-.314-1.532A2.32 2.32 0 0020.193 9c0-1.275-.98-2.36-2.312-2.684l-1.658-.4a2.32 2.32 0 00-2.597.2l-.322 1.058c-.218.71-.332 1.485-.332 2.23v2.757c0 .745.114 1.476.332 2.186l.322 1.058a2.32 2.32 0 002.597.2l1.658.4a2.32 2.32 0 002.312-.28c.333-.317.535-.944.535-1.857V9c0-.913-.2-.883-.535-1.857a2.32 2.32 0 00-2.597-.2l-.322-1.058c-.218-.71-.332-1.476-.332-2.228V5.5c0-1.134-.899-2.052-2.034-2.167a2 2 0 00-1.794.146l-1.658.401c-.588.146-.987.646-1.075 1.26l-.035.243c-.047.244-.074.496-.074.751v10.002c0 .254.027.505.074.749l.035.243c.088.614.487 1.113 1.075 1.261l1.658-.401a2 2 0 001.794-.146c1.135-.114 2.034-1.033 2.034-2.167V9a2.32 2.32 0 00-2.312-2.684l-1.658-.4a2.32 2.32 0 00-2.597.2l-.322 1.058c-.218.71-.332 1.485-.332 2.23v2.757c0 .745.114 1.476.332 2.186l.322 1.058a2.32 2.32 0 002.597.2l1.658.4a2.32 2.32 0 002.312-.28c.333-.317.535-.944.535-1.857V9c0-.913-.2-.883-.535-1.857a2.32 2.32 0 00-2.597-.2l-.322-1.058c-.218-.71-.332-1.476-.332-2.228V5.5c0-1.134-.899-2.052-2.034-2.167a2 2 0 00-1.794.146l-1.658.401c-.588.146-.987.646-1.075 1.26l-.035.243c-.047.244-.074.496-.074.751v10.002c0 .254.027.505.074.749l.035.243c.088.614.487 1.113 1.075 1.261l1.658-.401a2 2 0 001.794-.146c1.135-.114 2.034-1.033 2.034-2.167V9a2.32 2.32 0 00-2.312-2.684l-1.658-.4a2.32 2.32 0 00-2.597.2l-.322 1.058c-.218.71-.332 1.485-.332 2.23v2.757c0 .745.114 1.476.332 2.186l.322 1.058a2.32 2.32 0 002.597.2l1.658.4a2.32 2.32 0 002.312-.28c.333-.317.535-.944.535-1.857V9z" />
+    </svg>
+  );
+}
+export function IconActivity(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  );
+}
+
+export function IconBuilding(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+    </svg>
+  );
+}
+
+export function IconBadge(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+    </svg>
+  );
+}
+
+export function IconCube(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3a9 9 0 019-9m9 9c1.578 0 3-2.222 3-5v-2a3 3 0 00-3-3H3a3 3 0 00-3 3v2a5 5 0 005 5h16a5 5 0 005-5m0 0h3a3 3 0 003-3v-2a3 3 0 00-3-3H3a3 3 0 00-3 3v2a3 3 0 003 3h3" />
+    </svg>
+  );
+}
+
+export function IconShield(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0" />
+    </svg>
+  );
+}
+
+export function IconClock(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
