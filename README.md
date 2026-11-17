@@ -93,7 +93,7 @@ $lines = Get-Content $envFile | Where-Object { $_ -notmatch '^PLATFORM_DEVELOPER
 $lines += "PLATFORM_DEVELOPER_SETUP_TOKEN=$token"
 Set-Content $envFile $lines -Encoding ascii
 Remove-Variable token
-```
+``` 
 
 Restart/recreate the API after setting the token, then open `/developer` (`http://localhost:8080/developer` in Docker or `http://localhost:5173/developer` with Vite). Choose **Set up Developer PIN**, then enter the configured Developer email and setup token. The page creates a dedicated empty tenant, generates an 8-digit PIN, stores only its bcrypt hash, and displays the PIN once. The setup token is accepted only once; remove it from the env file and restart the API after setup. Main-window sign-in at `/login` remains email/password-based for business users. Developer sign-in at `/developer` uses the configured email plus the generated PIN. The Developer session is restricted to Developer APIs and cannot access ordinary POS/business routes.
 

@@ -8,5 +8,6 @@ export function provisioningRights(domain: string, role: ProvisionableRole, flag
   const rights = requested ?? defaults;
   if (rights.some((key) => !Object.hasOwn(featureForRight, key))) throw new Error('Unknown module right');
   const features = flags as Record<string, boolean | undefined>;
-  return [...new Set(rights)].filter((key) => featureForRight[key] === null || features[featureForRight[key]!] === true);
+  // Settings module is always granted so every provisioned account can manage its own preferences.
+  return [...new Set([...rights, 'settings'])].filter((key) => featureForRight[key] === null || features[featureForRight[key]!] === true);
 }

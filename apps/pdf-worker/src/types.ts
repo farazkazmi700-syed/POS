@@ -1,7 +1,7 @@
 /** Payload produced by the API (apps/api/src/modules/invoice/invoice-job.types.ts). Keep in sync. */
 export interface InvoiceJobData {
   installment?: {
-    cashPrice: number; downPayment: number; principal: number; charges: number; count: number; frequency: string;
+    cashPrice: number; downPayment: number; principal: number; financedAmount?: number; charges: number; count: number; frequency: string;
     totalPayable: number; paidToDate: number; remaining: number; overdue: number; overdueCount: number;
     nextDue?: { dueDate: string; amount: number } | null;
     schedule: { no: number; dueDate: string; amount: number; paidAmount: number; status: string }[];

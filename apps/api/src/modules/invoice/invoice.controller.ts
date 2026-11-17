@@ -33,7 +33,7 @@ export class InvoiceController {
     if (!existsSync(file)) throw new NotFoundException('Invoice PDF not found on disk');
     return new StreamableFile(createReadStream(file), {
       type: 'application/pdf',
-      disposition: `inline; filename="${order.invoiceNo}.pdf"`,
+      disposition: `inline; filename="${(order.invoiceNo || 'invoice').replace(/[^A-Za-z0-9._-]+/g, '_')}.pdf"`,
     });
   }
 

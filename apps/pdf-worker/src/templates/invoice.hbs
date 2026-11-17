@@ -99,6 +99,10 @@
   .tax-table tbody tr:last-child td { border-bottom: none; }
 
   /* ── Installment panel ── */
+  .installment-agreement-page,
+  .installment-details-page { break-before: page; page-break-before: always; }
+  .installment-agreement-page { break-after: page; page-break-after: always; }
+  .installment-agreement-page .section { margin-top: 0; }
   .inst-panel { background: #f0f6ff; border: 1px solid #c7d9f0; border-top: 3px solid var(--navy); border-radius: 4px; padding: 10px; margin-top: 2px; }
   .inst-product-card { background: var(--white); border: 1px solid var(--line); border-radius: 3px; padding: 7px 9px; margin-bottom: 8px; }
   .inst-product-name { font-weight: 700; font-size: 11px; color: var(--navy); }
@@ -347,12 +351,13 @@
 
 <!-- ═══════════════ INSTALLMENT AGREEMENT ═══════════════ -->
 {{#if installment}}
-<div class="section">
-  <div class="section-title">
-    Installment Agreement
-    {{#if installment.agreementId}}— {{installment.agreementId}}{{/if}}
-  </div>
-  <div class="inst-panel">
+<section class="installment-agreement-page">
+  <div class="section">
+    <div class="section-title">
+      Installment Agreement
+      {{#if installment.agreementId}}— {{installment.agreementId}}{{/if}}
+    </div>
+    <div class="inst-panel">
 
     <!-- Product snapshot -->
     {{#ifAny items}}
@@ -390,8 +395,17 @@
       {{#if installment.nextDue}}<tr class="highlight"><td>Next payment due</td><td>{{installment.nextDue.dueDate}} &nbsp;·&nbsp; {{money installment.nextDue.amount}}</td></tr>{{/if}}
     </table>
 
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ INSTALLMENT DETAILS — NEXT PAGE ═══════════════ -->
+<section class="installment-details-page">
+  <div class="section">
+    <div class="inst-panel">
+
     <!-- Payment schedule -->
-    <div class="section-title" style="margin-top:10px; margin-bottom:6px">Payment Schedule / <span class="urdu" lang="ur" style="font-size:9px">اقساط کا شیڈول</span></div>
+    <div class="section-title" style="margin-top:0; margin-bottom:6px">Payment Schedule / <span class="urdu" lang="ur" style="font-size:9px">اقساط کا شیڈول</span></div>
     <table class="sched-table">
       <thead>
         <tr>
@@ -468,9 +482,8 @@
         </div>
       </div>
     </div>
-
   </div>
-</div>
+</section>
 {{/if}}
 
 <!-- ═══════════════ FOOTER ═══════════════ -->

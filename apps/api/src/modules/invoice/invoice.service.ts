@@ -137,14 +137,25 @@ export class InvoiceService {
     if (order.invoiceStatus !== InvoiceStatus.Ready || !order.invoicePdfPath) {
       throw new NotFoundException('Invoice PDF is not ready yet');
     }
-    const root = path.resolve(this.config.get<string>('STORAGE_DIR', './storage/record of business'));
-    const file = path.resolve(root, order.invoicePdfPath);
-    if (!file.startsWith(root + path.sep)) throw new NotFoundException('Invoice PDF not found');
-    if (existsSync(file)) return file;
-
-    const legacyRoot = path.resolve(root, '..', 'invoices');
-    const legacyFile = path.resolve(legacyRoot, order.invoicePdfPath);
-    if (!legacyFile.startsWith(legacyRoot + path.sep)) throw new NotFoundException('Invoice PDF not found');
-    return legacyFile;
+    const rel = order.invoicePdfPath.replace(/^[/\\]+/, '');
+    const configured = this.config.get<string>('STORAGE_DIR', './storage/record of business');
+    const roots = [
+      path.resolve(configured),
+      path.resolve(process.cwd(), configured),
+      path.resolve(configured, '..', 'invoices'),
+      path.resolve(process.cwd(), configured, '..', 'invoices'),
+      path.resolve(process.cwd(), 'storage', 'record of business'),
+      path.resolve(process.cwd(), 'storage', 'invoices'),
+    ];
+    const seen = new Set<string>();
+    for (const root of roots) {
+      const key = root.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const file = path.resolve(root, rel);
+      if (file !== root && !file.startsWith(root + path.sep)) continue;
+      if (existsSync(file)) return file;
+    }
+    throw new NotFoundException('Invoice PDF not found on disk');
   }
 }
