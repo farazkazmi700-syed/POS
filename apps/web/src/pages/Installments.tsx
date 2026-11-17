@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { installmentApi } from '../api';
+import PageHeading from '../components/PageHeading';
 import { useDebounce } from '../hooks/useDebounce';
 import { useTenant } from '../hooks/useTenant';
 import { fmtDate } from '../utils/dates';
@@ -40,62 +41,52 @@ export default function Installments() {
   const plans = list.data?.data ?? [];
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">
-            Installment Plans {customerId && <span className="text-sm font-normal text-slate-500">· Filtered by Customer</span>}
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Monitor payment schedules, collections, and overdue receivables
-          </p>
+    <div className="installment-shell space-y-5">
+      <div className="hero-panel card">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <PageHeading eyebrow="Credit portfolio" title={customerId ? 'Customer installment plans' : 'Installment plans'} description="Monitor payment schedules, collections, and overdue balances." />
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link to="/customers" className="btn-secondary text-xs font-semibold">
+              Customer ledger
+            </Link>
+            <Link to="/pos" className="btn-primary text-xs font-semibold">
+              + New installment sale
+            </Link>
+          </div>
         </div>
-        <Link
-          to="/pos"
-          className="btn-primary self-start sm:self-auto text-xs font-semibold"
-        >
-          + New installment sale
-        </Link>
       </div>
 
-      {/* ─────────────── Stat Grid ─────────────── */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="module-stat-grid">
         <Stat
           label="Outstanding"
           value={money(s?.outstanding ?? 0)}
           sub={`${s?.activePlans ?? 0} active accounts`}
+          accent="cyan"
         />
         <Stat
           label="Overdue"
           value={money(s?.overdueAmount ?? 0)}
           sub={`${s?.overduePlans ?? 0} overdue accounts`}
           tone={s && s.overdueAmount > 0 ? 'bad' : undefined}
+          accent="red"
         />
         <Stat
           label="Collected Today"
           value={money(s?.collectedToday ?? 0)}
           sub="Today's receipts"
+          accent="green"
         />
-        <div className="card flex flex-col justify-between p-3.5 bg-gradient-to-br from-teal-500/10 to-teal-700/10 border-teal-500/30">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-teal-800 dark:text-teal-300">
-              Active Portfolio
-            </div>
-            <div className="mt-1 text-xl font-bold text-teal-900 dark:text-teal-100">
-              {s?.activePlans ?? 0} Plans
-            </div>
-          </div>
-          <Link
-            to="/customers"
-            className="mt-2 text-xs font-semibold text-teal-700 hover:underline dark:text-teal-400"
-          >
-            Manage customer credit →
+        <div className="metric-card metric-card--accent card">
+          <div className="metric-card__eyebrow">Active portfolio</div>
+          <div className="metric-card__value">{s?.activePlans ?? 0}</div>
+          <div className="metric-card__meta">plans in motion</div>
+          <Link to="/customers" className="metric-card__link">
+            Manage credit →
           </Link>
         </div>
       </div>
 
-      {/* ─────────────── Filters & Search ─────────────── */}
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="toolbar-row card">
         <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
           {TABS.map((t) => (
             <button
@@ -105,11 +96,7 @@ export default function Installments() {
                 setFilter(t.key);
                 setPage(1);
               }}
-              className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition ${
-                filter === t.key
-                  ? 'bg-teal-600 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-              }`}
+              className={`pill-button ${filter === t.key ? 'is-active' : ''}`}
             >
               {t.label}
             </button>
@@ -129,8 +116,8 @@ export default function Installments() {
 
       {/* ─────────────── Desktop Table (hidden on mobile) ─────────────── */}
       <div className="card overflow-x-auto !p-0 hidden md:block">
-        <table className="w-full">
-          <thead className="border-b border-slate-200 bg-slate-50 dark:border-teal-950 dark:bg-slate-800/40">
+        <table className="data-table w-full">
+          <thead>
             <tr>
               <th className="th">Customer</th>
               <th className="th">Invoice</th>
@@ -142,25 +129,30 @@ export default function Installments() {
               <th className="th text-right">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-teal-950">
+          <tbody>
             {plans.map((p) => (
               <tr key={p._id}>
                 <td className="td">
-                  <div className="font-semibold text-slate-900 dark:text-slate-100">{p.customerName}</div>
-                  <div className="text-xs text-slate-500">{p.customerPhone}</div>
+                  <div className="customer-cell">
+                    <div className="customer-cell__avatar">{p.customerName.slice(0, 1).toUpperCase()}</div>
+                    <div>
+                      <div className="customer-cell__name">{p.customerName}</div>
+                      <div className="customer-cell__meta">{p.customerPhone}</div>
+                    </div>
+                  </div>
                 </td>
-                <td className="td font-mono text-xs text-slate-600 dark:text-slate-400">{p.invoiceNo}</td>
-                <td className="td text-xs text-slate-500">{money(p.totalPayable)}</td>
-                <td className="td text-xs text-emerald-600 dark:text-emerald-400">{money(p.paidTotal)}</td>
-                <td className="td font-bold text-teal-700 dark:text-teal-400">{money(p.balance)}</td>
+                <td className="td"><span className="invoice-chip">{p.invoiceNo}</span></td>
+                <td className="td text-slate-600 dark:text-slate-300">{money(p.totalPayable)}</td>
+                <td className="td text-emerald-600 dark:text-emerald-400 font-semibold">{money(p.paidTotal)}</td>
+                <td className="td font-bold text-teal-700 dark:text-teal-300">{money(p.balance)}</td>
                 <td className="td text-xs">
                   {p.nextDue ? (
-                    <>
-                      <div className="font-medium text-slate-800 dark:text-slate-200">{fmtDate(p.nextDue.dueDate)}</div>
-                      <div className="text-slate-500">{money(p.nextDue.amount)}</div>
-                    </>
+                    <div className="due-stack">
+                      <div className="due-stack__date">{fmtDate(p.nextDue.dueDate)}</div>
+                      <div className="due-stack__amount">{money(p.nextDue.amount)}</div>
+                    </div>
                   ) : (
-                    '—'
+                    <span className="text-slate-400">—</span>
                   )}
                 </td>
                 <td className="td">
@@ -173,7 +165,7 @@ export default function Installments() {
                   )}
                 </td>
                 <td className="td text-right">
-                  <Link className="btn-secondary !px-3 !py-1 text-xs font-semibold" to={`/installments/${p._id}`}>
+                  <Link className="compact-link" to={`/installments/${p._id}`}>
                     Open
                   </Link>
                 </td>
@@ -291,31 +283,37 @@ function Stat({
   value,
   sub,
   tone,
+  accent,
 }: {
   label: string;
   value: string;
   sub?: string;
   tone?: 'bad';
+  accent?: 'cyan' | 'red' | 'green';
 }) {
+  const accentClass =
+    accent === 'red'
+      ? 'text-red-600 dark:text-red-400'
+      : accent === 'green'
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : 'text-teal-700 dark:text-teal-300';
+
   return (
-    <div className="card p-3.5 flex flex-col justify-between">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-        {label}
-      </div>
-      <div className={`mt-1 text-xl font-bold ${tone === 'bad' ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-slate-100'}`}>
+    <div className="metric-card card">
+      <div className="metric-card__eyebrow">{label}</div>
+      <div className={`metric-card__value ${tone === 'bad' ? 'text-red-600 dark:text-red-400' : accentClass}`}>
         {value}
       </div>
-      {sub && <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{sub}</div>}
+      {sub && <div className="metric-card__meta">{sub}</div>}
     </div>
   );
 }
 
 function Badge({ children, tone }: { children: React.ReactNode; tone?: 'good' | 'bad' }) {
-  const cls =
-    tone === 'bad'
-      ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400'
-      : tone === 'good'
-      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-      : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
-  return <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>{children}</span>;
+  const cls = tone === 'bad'
+    ? 'status-badge status-badge--bad'
+    : tone === 'good'
+    ? 'status-badge status-badge--good'
+    : 'status-badge status-badge--default';
+  return <span className={cls}>{children}</span>;
 }

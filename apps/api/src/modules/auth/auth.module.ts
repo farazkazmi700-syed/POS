@@ -6,8 +6,11 @@ import { TenantModule } from '../tenant/tenant.module';
 import { AuthController } from './auth.controller';
 import { EmailService } from './email.service';
 import { AuthService } from './auth.service';
+import { PasswordHashingService } from './password-hashing.service';
+import { PasswordRecoveryService } from './password-recovery.service';
 import { JwtStrategy } from './jwt.strategy';
 import { User, UserSchema } from './schemas/user.schema';
+import { RecoveryModule } from './recovery.module';
 
 @Module({
   imports: [
@@ -15,8 +18,9 @@ import { User, UserSchema } from './schemas/user.schema';
     PassportModule,
     JwtModule.register({}), // secrets/TTLs are passed per-token in AuthService
     TenantModule,
+    RecoveryModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, EmailService, JwtStrategy],
+  providers: [AuthService, EmailService, JwtStrategy, PasswordHashingService, PasswordRecoveryService],
 })
 export class AuthModule {}

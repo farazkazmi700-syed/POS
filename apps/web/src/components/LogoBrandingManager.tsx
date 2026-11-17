@@ -176,12 +176,25 @@ export default function LogoBrandingManager({
             )}
           </div>
           <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            Customize your business logo. It renders in the header navigation bar, desktop sidebar, and as an authentic rotated watermark on customer receipts and PDF invoices.
+            Customize your business logo. It renders in the sidebar and as a watermark on customer receipts and PDF invoices.
           </p>
         </div>
 
         {/* Quick Save Logo Button */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              onChangeLogoUrl('/kazmion-logo.jpg');
+              setErrorMessage(null);
+            }}
+            disabled={isSaving}
+            className="btn-secondary !py-2 !px-3 text-xs flex items-center gap-1.5 text-blue-600 hover:text-blue-700 dark:text-sky-400 font-semibold"
+            title="Load default KazmiOn brand logo"
+          >
+            <span className="h-2 w-2 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 shadow-xs" />
+            Use KazmiOn Logo
+          </button>
           {logoUrl && (
             <button
               type="button"
@@ -190,7 +203,7 @@ export default function LogoBrandingManager({
               className="btn-secondary !py-2 !px-3 text-xs text-red-600 hover:text-red-700 dark:text-red-400"
               title="Remove logo"
             >
-              Remove Logo
+              Remove
             </button>
           )}
           <button
@@ -198,7 +211,7 @@ export default function LogoBrandingManager({
             onClick={handleSaveClick}
             disabled={isSaving || !isDirty}
             className={`btn-primary !py-2 !px-4 text-xs font-semibold shadow-sm transition ${
-              isDirty ? 'ring-2 ring-teal-500/50 shadow-teal-600/20' : 'opacity-70 cursor-not-allowed'
+              isDirty ? 'ring-2 ring-sky-500/50 shadow-sky-600/20' : 'opacity-70 cursor-not-allowed'
             }`}
           >
             {isSaving ? (
@@ -250,8 +263,8 @@ export default function LogoBrandingManager({
           onClick={() => fileInputRef.current?.click()}
           className={`group relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-5 text-center transition ${
             isDragging
-              ? 'border-teal-500 bg-teal-50/60 dark:border-teal-400 dark:bg-teal-950/30'
-              : 'border-slate-300 bg-slate-50/60 hover:border-teal-500/80 hover:bg-slate-100/60 dark:border-slate-700 dark:bg-slate-800/40 dark:hover:border-teal-500/60'
+              ? 'border-sky-500 bg-sky-50/60 dark:border-sky-400 dark:bg-sky-950/30'
+              : 'border-slate-300 bg-slate-50/60 hover:border-sky-500/80 hover:bg-slate-100/60 dark:border-slate-700 dark:bg-slate-800/40 dark:hover:border-sky-500/60'
           }`}
         >
           <input
@@ -262,7 +275,7 @@ export default function LogoBrandingManager({
             onChange={handleFileInputChange}
           />
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-xs ring-1 ring-slate-200 transition group-hover:scale-105 group-hover:shadow-md dark:bg-slate-800 dark:ring-slate-700">
-            <svg className="h-6 w-6 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <svg className="h-6 w-6 text-sky-600 dark:text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
             </svg>
           </div>
@@ -273,7 +286,7 @@ export default function LogoBrandingManager({
             PNG, SVG, JPG, WebP (auto-optimized for fast receipts)
           </p>
           {isDataUri && (
-            <span className="mt-2 inline-flex items-center gap-1 rounded-md bg-teal-50 px-2 py-0.5 text-[10px] font-medium text-teal-700 dark:bg-teal-950/40 dark:text-teal-300">
+            <span className="mt-2 inline-flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
               ✓ Image file selected
             </span>
           )}
@@ -323,7 +336,7 @@ export default function LogoBrandingManager({
                   className="h-9 w-9 rounded-lg object-contain bg-slate-50 p-0.5 ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700"
                 />
               ) : (
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-teal-700 text-sm font-bold text-white shadow-xs">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-[#0084f0] to-[#00183c] text-sm font-bold text-white shadow-xs">
                   {displayBusinessName.slice(0, 1).toUpperCase()}
                 </div>
               )}
@@ -332,7 +345,7 @@ export default function LogoBrandingManager({
                   {logoUrl ? (isDataUri ? 'Uploaded Image' : 'Custom Image URL') : 'Monogram Fallback'}
                 </span>
                 <span className="block truncate text-[10px] text-slate-500 dark:text-slate-400">
-                  {logoUrl ? 'Active on receipts & header' : 'Upload an image above to activate'}
+                  {logoUrl ? 'Active on receipts & sidebar' : 'Upload an image above to activate'}
                 </span>
               </div>
             </div>
@@ -397,7 +410,7 @@ export default function LogoBrandingManager({
                     : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                 }`}
               >
-                Header Branding
+                Navigation Preview
               </button>
             </div>
           </div>
@@ -416,7 +429,7 @@ export default function LogoBrandingManager({
             <div className="space-y-2">
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <svg className="h-4 w-4 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="h-4 w-4 text-[#0070e0] dark:text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                   </svg>
                   Customer Receipt / Tax Invoice Watermark
@@ -432,7 +445,7 @@ export default function LogoBrandingManager({
                       onClick={() => setWatermarkOpacity(op)}
                       className={`rounded px-1.5 py-0.5 text-[10px] font-semibold transition ${
                         watermarkOpacity === op
-                          ? 'bg-teal-600 text-white'
+                          ? 'bg-[#0070e0] text-white shadow-xs'
                           : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300'
                       }`}
                     >
@@ -587,7 +600,7 @@ export default function LogoBrandingManager({
               </div>
 
               <div className="flex items-center gap-2 rounded-xl bg-slate-100/80 p-2 text-[11px] text-slate-600 dark:bg-slate-800/80 dark:text-slate-400">
-                <span className="text-teal-600 dark:text-teal-400 font-bold">ℹ Note:</span>
+                <span className="text-[#0070e0] dark:text-sky-400 font-bold">ℹ Note:</span>
                 Receipt watermark is automatically printed in grayscale at 8% opacity across all customer thermal printouts, POS slips, and generated PDF invoices.
               </div>
             </div>
@@ -598,7 +611,7 @@ export default function LogoBrandingManager({
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <svg className="h-4 w-4 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="h-4 w-4 text-[#0070e0] dark:text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
                   </svg>
                   App Header &amp; Sidebar Branding
@@ -634,17 +647,6 @@ export default function LogoBrandingManager({
                 >
                   {/* Brand Pill */}
                   <div className="flex items-center gap-2.5">
-                    {logoUrl ? (
-                      <img
-                        src={logoUrl}
-                        alt="Header brand logo"
-                        className="h-6 w-6 rounded-md object-cover ring-1 ring-slate-200 dark:ring-slate-700 shadow-xs"
-                      />
-                    ) : (
-                      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-teal-500 to-teal-700 text-[10px] font-bold text-white shadow-xs">
-                        {displayBusinessName.slice(0, 1).toUpperCase()}
-                      </span>
-                    )}
                     <span className="text-xs font-bold tracking-tight">
                       {displayBusinessName}
                     </span>
@@ -658,7 +660,7 @@ export default function LogoBrandingManager({
                   <div className="flex items-center gap-1.5 opacity-60">
                     <div className="h-6 w-6 rounded-lg bg-slate-200 dark:bg-slate-800" />
                     <div className="h-6 w-6 rounded-lg bg-slate-200 dark:bg-slate-800" />
-                    <div className="h-6 w-6 rounded-full bg-teal-600/20 text-[9px] flex items-center justify-center font-bold text-teal-700 dark:text-teal-300">
+                    <div className="h-6 w-6 rounded-full bg-sky-500/15 text-[9px] flex items-center justify-center font-bold text-sky-700 dark:text-sky-300">
                       AD
                     </div>
                   </div>
@@ -680,10 +682,10 @@ export default function LogoBrandingManager({
                     <img
                       src={logoUrl}
                       alt="Sidebar brand logo"
-                      className="h-10 w-10 rounded-xl object-cover shadow-sm ring-2 ring-teal-500/20"
+                      className="h-10 w-10 rounded-xl object-contain bg-white dark:bg-slate-950 p-0.5 shadow-sm ring-2 ring-sky-500/20"
                     />
                   ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 text-sm font-bold text-white shadow-sm">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0084f0] to-[#00183c] text-sm font-bold text-white shadow-sm">
                       {displayBusinessName.slice(0, 1).toUpperCase()}
                     </div>
                   )}
@@ -699,8 +701,8 @@ export default function LogoBrandingManager({
               </div>
 
               <div className="flex items-center gap-2 rounded-xl bg-slate-100/80 p-2 text-[11px] text-slate-600 dark:bg-slate-800/80 dark:text-slate-400">
-                <span className="text-teal-600 dark:text-teal-400 font-bold">ℹ Brand Identity:</span>
-                Your logo instantly brands the top desktop header bar, sidebar, and mobile drawer across all POS registers.
+                <span className="text-[#0070e0] dark:text-sky-400 font-bold">ℹ Brand Identity:</span>
+                Your business logo brands the sidebar, mobile drawer, receipts, and invoice watermarks.
               </div>
             </div>
           )}

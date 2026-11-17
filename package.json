@@ -10,7 +10,24 @@
     "dev:worker": "npm --prefix apps/pdf-worker run dev",
     "dev:web": "npm --prefix apps/web run dev",
     "test:api": "npm --prefix apps/api test",
-    "build": "npm --prefix apps/api run build && npm --prefix apps/pdf-worker run build && npm --prefix apps/web run build",
-    "seed": "npx tsx scripts/seed.ts"
+    "build": "node scripts/build.cjs",
+    "seed": "npx tsx scripts/seed.ts",
+    "dev:all": "concurrently --names api,worker,web --prefix-colors cyan,yellow,green \"npm run dev:api\" \"npm run dev:worker\" \"npm run dev:web\"",
+    "docker:rebuild": "docker compose build --no-cache",
+    "docker:start": "docker compose up -d",
+    "docker:stop": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:prepare": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-compose-env.ps1",
+    "docker:update": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-docker.ps1",
+    "docker:update:nocache": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-docker.ps1 -NoCache",
+    "test:pdf": "npm --prefix apps/pdf-worker run test",
+    "test:web:typecheck": "npm --prefix apps/web run typecheck",
+    "test:all": "npm run test:api && npm run test:pdf",
+    "db:migrate": "node scripts/migrate/run-migrations.cjs",
+    "db:backup:mongo": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/backup/mongo-backup.ps1",
+    "db:backup:pg": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/backup/pg-backup.ps1"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.7"
   }
 }

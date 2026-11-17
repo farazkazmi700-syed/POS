@@ -2,11 +2,12 @@ import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsEnum, IsNumber, IsObject, IsOptional, IsString,
-  Length, Max, Min, ValidateNested,
+  Length, Max, Min, ValidateNested, Matches, IsInt,
 } from 'class-validator';
 import { TaxClass } from '../../../common/enums';
 
 export class CreateProductDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @Matches(/^[\x20-\x7E]{1,80}$/) barcode?: string;
   @ApiProperty() @IsString() @Length(1, 160) name: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 64) sku?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() category?: string;
@@ -36,10 +37,11 @@ export class BulkCreateProductsDto {
 const toBool = ({ value }: { value: unknown }) => value === true || value === 'true';
 
 export class QueryProductDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @Matches(/^[\x20-\x7E]{1,80}$/) barcode?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() q?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() category?: string;
   @ApiPropertyOptional() @IsOptional() @Transform(toBool) @IsBoolean() lowStock?: boolean;
   @ApiPropertyOptional() @IsOptional() @Transform(toBool) @IsBoolean() includeInactive?: boolean;
-  @ApiPropertyOptional({ default: 1 }) @IsOptional() @Type(() => Number) @IsNumber() @Min(1) page?: number;
-  @ApiPropertyOptional({ default: 30 }) @IsOptional() @Type(() => Number) @IsNumber() @Min(1) @Max(200) limit?: number;
+  @ApiPropertyOptional({ default: 1 }) @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
+  @ApiPropertyOptional({ default: 30 }) @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(200) limit?: number;
 }

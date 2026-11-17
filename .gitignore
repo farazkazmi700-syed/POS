@@ -37,3 +37,12 @@ storage/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+tmp/
+
+# Local backups (operational data)
+backups/
+
+# Editor config
+.vscode/
+.kilo/

@@ -247,3 +247,50 @@ export function IconClock(props: IconProps) {
     </svg>
   );
 }
+export function IconUser(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  );
+}
+
+export function IconUsers(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.294M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+    </svg>
+  );
+}
+
+export function IconKey(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778-7.778 5.5 5.5 0 017.778 7.778L21 21" />
+    </svg>
+  );
+}
+
+export function IconLock(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+    </svg>
+  );
+}
+
+export function IconCheck(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+export function IconAlert(props: IconProps) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.859-3.213l-.314-1.532A2.32 2.32 0 0020.193 9c0-1.275-.98-2.36-2.312-2.684l-1.658-.4a2.32 2.32 0 00-2.597.2l-.322 1.058c-.218.71-.332 1.485-.332 2.23v2.757c0 .745.114 1.476.332 2.186l.322 1.058a2.32 2.32 0 002.597.2l1.658.4a2.32 2.32 0 002.312-.28c.333-.317.535-.944.535-1.857V9c0-.913-.2-.883-.535-1.857a2.32 2.32 0 00-2.597-.2l-.322-1.058c-.218-.71-.332-1.476-.332-2.228V5.5c0-1.134-.899-2.052-2.034-2.167a2 2 0 00-1.794.146l-1.658.401c-.588.146-.987.646-1.075 1.26l-.035.243c-.047.244-.074.496-.074.751v10.002c0 .254.027.505.074.749l.035.243c.088.614.487 1.113 1.075 1.261l1.658-.401a2 2 0 001.794-.146c1.135-.114 2.034-1.033 2.034-2.167V9a2.32 2.32 0 00-2.312-2.684l-1.658-.4a2.32 2.32 0 00-2.597.2l-.322 1.058c-.218.71-.332 1.485-.332 2.23v2.757c0 .745.114 1.476.332 2.186l.322 1.058a2.32 2.32 0 002.597.2l1.658.4a2.32 2.32 0 002.312-.28c.333-.317.535-.944.535-1.857V9c0-.913-.2-.883-.535-1.857a2.32 2.32 0 00-2.597-.2l-.322-1.058c-.218-.71-.332-1.476-.332-2.228V5.5c0-1.134-.899-2.052-2.034-2.167a2 2 0 00-1.794.146l-1.658.401c-.588.146-.987.646-1.075 1.26l-.035.243c-.047.244-.074.496-.074.751v10.002c0 .254.027.505.074.749l.035.243c.088.614.487 1.113 1.075 1.261l1.658-.401a2 2 0 001.794-.146c1.135-.114 2.034-1.033 2.034-2.167V9z" />
+    </svg>
+  );
+}

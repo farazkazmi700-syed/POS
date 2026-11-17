@@ -1,25 +1,29 @@
 import type { Product, TaxClass } from '@pos/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
-import { productApi, type ProductInput } from '../api';
+import { useRef, useState, type FormEvent } from 'react';
+import { productApi, stockApi, type ProductInput } from '../api';
 import Modal from '../components/Modal';
+import PageHeading from '../components/PageHeading';
 import { useDebounce } from '../hooks/useDebounce';
 import { useTenant } from '../hooks/useTenant';
 import { errorMessage } from '../utils/errors';
 import { formatMoney } from '../utils/money';
 
 interface FormState {
+  barcode: string;
   name: string; sku: string; category: string; unit: string; price: string; costPrice: string;
   stockQty: string; lowStockThreshold: string; trackStock: boolean; taxClass: TaxClass;
   attrs: { key: string; value: string }[];
 }
 
 const empty: FormState = {
+  barcode: '',
   name: '', sku: '', category: '', unit: 'pcs', price: '', costPrice: '', stockQty: '0',
   lowStockThreshold: '5', trackStock: true, taxClass: 'standard', attrs: [],
 };
 
 const fromProduct = (p: Product): FormState => ({
+  barcode: p.barcode ?? '',
   name: p.name, sku: p.sku ?? '', category: p.category ?? '', unit: p.unit, price: String(p.price),
   costPrice: String(p.costPrice), stockQty: String(p.stockQty), lowStockThreshold: String(p.lowStockThreshold),
   trackStock: p.trackStock, taxClass: p.taxClass,
@@ -35,6 +39,7 @@ function parseAttr(v: string): string | number | boolean {
 
 function toInput(f: FormState): ProductInput {
   return {
+    barcode: f.barcode.trim() || undefined,
     name: f.name.trim(),
     sku: f.sku.trim() || undefined,
     category: f.category.trim() || undefined,
@@ -54,6 +59,9 @@ export default function Products() {
   const { currency } = useTenant();
   const [search, setSearch] = useState('');
   const [lowOnly, setLowOnly] = useState(false);
+  const [adjustment, setAdjustment] = useState({ productId: '', delta: '', reason: '' });
+  const adjustmentKey = useRef({ payload: '', key: '' });
+  const adjust = useMutation({ mutationFn: () => { const payload = JSON.stringify(adjustment); if (adjustmentKey.current.payload !== payload) adjustmentKey.current = { payload, key: crypto.randomUUID() }; return stockApi.adjust({ productId: adjustment.productId, delta: Number(adjustment.delta), reason: adjustment.reason, idempotencyKey: adjustmentKey.current.key }); }, onSuccess: () => { setAdjustment({ productId: '', delta: '', reason: '' }); queryClient.invalidateQueries({ queryKey: ['products'] }); } });
   const q = useDebounce(search);
   const [editing, setEditing] = useState<{ id?: string; form: FormState } | null>(null);
 
@@ -64,7 +72,7 @@ export default function Products() {
 
   const save = useMutation({
     mutationFn: (v: { id?: string; form: FormState }) =>
-      v.id ? productApi.update(v.id, toInput(v.form)) : productApi.create(toInput(v.form)),
+      v.id ? productApi.update(v.id, { ...toInput(v.form), stockQty: undefined }) : productApi.create(toInput(v.form)),
     onSuccess: () => { setEditing(null); queryClient.invalidateQueries({ queryKey: ['products'] }); },
   });
   const remove = useMutation({
@@ -81,13 +89,8 @@ export default function Products() {
   return (
     <div className="space-y-4">
       {/* ─────────────── Controls Header ─────────────── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Products & Inventory</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {productsList.length} items in catalog
-          </p>
-        </div>
+      <div className="page-header">
+        <PageHeading eyebrow="Catalog" title="Products & inventory" description={`${productsList.length} products. Manage pricing, stock levels, and availability.`} />
 
         <div className="flex flex-wrap items-center gap-2.5">
           <input
@@ -115,6 +118,7 @@ export default function Products() {
       </div>
 
       {/* ─────────────── Desktop Table (hidden on mobile) ─────────────── */}
+      <details className="card"><summary className="cursor-pointer text-sm font-semibold">Audited stock adjustment</summary><p className="mt-2 text-xs text-slate-500">Use a positive quantity to receive stock or a negative quantity to remove stock. Every adjustment requires a reason.</p><form className="mt-3 grid gap-3 sm:grid-cols-2" onSubmit={(event) => { event.preventDefault(); if (!adjust.isPending) adjust.mutate(); }}><select className="input" aria-label="Product to adjust" required value={adjustment.productId} onChange={(event) => setAdjustment({ ...adjustment, productId: event.target.value })}><option value="">Select product</option>{productsList.map((product) => <option key={product._id} value={product._id}>{product.name} · {product.stockQty} {product.unit}</option>)}</select><input className="input" type="number" step="0.001" aria-label="Stock quantity change" placeholder="Quantity change, e.g. -2 or 10" required value={adjustment.delta} onChange={(event) => setAdjustment({ ...adjustment, delta: event.target.value })} /><input className="input" aria-label="Stock adjustment reason" placeholder="Reason for adjustment" minLength={3} maxLength={300} required value={adjustment.reason} onChange={(event) => setAdjustment({ ...adjustment, reason: event.target.value })} /><button className="btn-primary" disabled={adjust.isPending}>{adjust.isPending ? 'Applying…' : 'Apply adjustment'}</button></form>{adjust.isError && <p role="alert" className="mt-2 text-sm text-red-600">{errorMessage(adjust.error)}</p>}{adjust.isSuccess && <p role="status" className="mt-2 text-sm text-emerald-700">Adjustment recorded.</p>}</details>
       <div className="card overflow-x-auto !p-0 hidden md:block">
         <table className="w-full">
           <thead className="border-b border-slate-200 bg-slate-50 dark:border-teal-950 dark:bg-slate-800/40">
@@ -292,6 +296,8 @@ export default function Products() {
                 />
               </div>
               <div>
+                <label className="label">Barcode</label>
+                <input className="input mb-3" maxLength={80} value={editing.form.barcode} onChange={(event) => setField('barcode', event.target.value)} />
                 <label className="label">Category</label>
                 <input
                   className="input"
@@ -361,13 +367,14 @@ export default function Products() {
                 {editing.form.trackStock && (
                   <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-200 dark:border-teal-900/40">
                     <div>
-                      <label className="label">Stock on Hand</label>
+                      <label className="label">{editing.id ? 'Current stock (use adjustment to change)' : 'Opening stock'}</label>
                       <input
                         className="input"
                         type="number"
                         min={0}
                         step="any"
                         value={editing.form.stockQty}
+                        readOnly={!!editing.id}
                         onChange={(e) => setField('stockQty', e.target.value)}
                       />
                     </div>

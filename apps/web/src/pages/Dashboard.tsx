@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import PageHeading from '../components/PageHeading';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { orderApi } from '../api';
@@ -21,13 +22,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-5">
       {/* ─────────────── Dashboard Header ─────────────── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Business Overview</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Real-time analytics & performance metrics for {tenant?.name ?? 'your business'}
-          </p>
-        </div>
+      <div className="page-header">
+        <PageHeading eyebrow="Overview" title="Business dashboard" description={`Sales, revenue, and product performance for ${tenant?.name ?? 'your business'}.`} />
 
         <div className="flex items-center gap-2">
           {/* Quick Period Buttons */}

@@ -1,0 +1,91 @@
+{
+  "mode": "staging",
+  "startedAt": "2026-11-15T11:07:04.812Z",
+  "sourceDatabase": "pos",
+  "consistency": "Live two-pass verification; not an approved cutover snapshot",
+  "collections": [
+    {
+      "collection": "adminaudits",
+      "sourceRecords": 45,
+      "targetRecords": 45
+    },
+    {
+      "collection": "auditevents",
+      "sourceRecords": 415,
+      "targetRecords": 415
+    },
+    {
+      "collection": "branches",
+      "sourceRecords": 0,
+      "targetRecords": 0
+    },
+    {
+      "collection": "checkoutrequests",
+      "sourceRecords": 6,
+      "targetRecords": 6
+    },
+    {
+      "collection": "customers",
+      "sourceRecords": 4,
+      "targetRecords": 4
+    },
+    {
+      "collection": "installmentplans",
+      "sourceRecords": 5,
+      "targetRecords": 5
+    },
+    {
+      "collection": "installmentproducts",
+      "sourceRecords": 0,
+      "targetRecords": 0
+    },
+    {
+      "collection": "installmentsales",
+      "sourceRecords": 0,
+      "targetRecords": 0
+    },
+    {
+      "collection": "invoicecounters",
+      "sourceRecords": 2,
+      "targetRecords": 2
+    },
+    {
+      "collection": "orders",
+      "sourceRecords": 23,
+      "targetRecords": 23
+    },
+    {
+      "collection": "products",
+      "sourceRecords": 9,
+      "targetRecords": 9
+    },
+    {
+      "collection": "recoverychallenges",
+      "sourceRecords": 0,
+      "targetRecords": 0
+    },
+    {
+      "collection": "stockadjustments",
+      "sourceRecords": 0,
+      "targetRecords": 0
+    },
+    {
+      "collection": "subscriptionplans",
+      "sourceRecords": 2,
+      "targetRecords": 2
+    },
+    {
+      "collection": "tenants",
+      "sourceRecords": 3,
+      "targetRecords": 3
+    },
+    {
+      "collection": "users",
+      "sourceRecords": 5,
+      "targetRecords": 5
+    }
+  ],
+  "targetDatabaseCount": 4,
+  "verifiedRecords": 519,
+  "completedAt": "2026-11-15T11:07:07.085Z"
+}

@@ -1,10 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { authApi } from '../api';
+import { authApi, recoveryApi } from '../api';
 import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../store/auth';
 import { errorMessage } from '../utils/errors';
+import './Login.css';
 
 type LoginStep = 'credentials' | 'pin' | 'reset-request' | 'reset';
 
@@ -17,15 +18,27 @@ export default function Login() {
   const [pin, setPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [resetCode, setResetCode] = useState('');
+  const [resetChallenge, setResetChallenge] = useState('');
   const [challengeToken, setChallengeToken] = useState('');
   const [pinRequiresChange, setPinRequiresChange] = useState(false);
   const [notice, setNotice] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
+  const previousStep = useRef(step);
+  useEffect(() => {
+    if (previousStep.current === step) return;
+    previousStep.current = step;
+    const inputId = step === 'pin' ? 'login-pin' : step === 'reset' ? 'reset-code' : step === 'credentials' && email ? 'login-password' : 'login-email';
+    document.getElementById(inputId)?.focus({ preventScroll: true });
+  }, [step, email]);
   const login = useMutation({
     mutationFn: authApi.login,
     onSuccess: (res) => {
       if ('requiresPin' in res) {
         setChallengeToken(res.challengeToken);
         setPinRequiresChange(res.pinRequiresChange);
+        setPassword('');
+        setShowPassword(false);
         setStep('pin');
       } else {
         setSession(res);
@@ -38,11 +51,11 @@ export default function Login() {
     onSuccess: (res) => { setSession(res); navigate('/'); },
   });
   const requestReset = useMutation({
-    mutationFn: () => authApi.requestPinReset(email),
-    onSuccess: (res) => { setNotice(res.message); setStep('reset'); },
+    mutationFn: () => recoveryApi.request({ email: email.trim(), purpose: 'pin', channel: 'email' }),
+    onSuccess: (res) => { setResetChallenge(res.challengeId); setNotice(res.message); setStep('reset'); },
   });
   const resetPin = useMutation({
-    mutationFn: () => authApi.resetPin({ email, code: resetCode, newPin }),
+    mutationFn: () => recoveryApi.confirm({ challengeId: resetChallenge, code: resetCode, newSecret: newPin }),
     onSuccess: (res) => { setNotice(res.message); setStep('credentials'); setPassword(''); setPin(''); setNewPin(''); setResetCode(''); },
   });
 
@@ -50,114 +63,107 @@ export default function Login() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (step === 'credentials') login.mutate({ email, password });
+    if (login.isPending || completePin.isPending || requestReset.isPending || resetPin.isPending) return;
+    if (step === 'credentials') { setNotice(''); login.mutate({ email: email.trim(), password }); }
     if (step === 'pin') completePin.mutate();
     if (step === 'reset-request') requestReset.mutate();
     if (step === 'reset') resetPin.mutate();
   };
-  const error = login.error ?? completePin.error ?? requestReset.error ?? resetPin.error;
-  const title = step === 'credentials' ? 'Sign in'
-    : step === 'pin' ? 'Admin PIN'
-      : step === 'reset-request' ? 'Reset admin PIN' : 'Enter reset code';
+  const error = step === 'credentials' ? login.error : step === 'pin' ? completePin.error : step === 'reset-request' ? requestReset.error : resetPin.error;
+  const pending = login.isPending || completePin.isPending || requestReset.isPending || resetPin.isPending;
+  const changeStep = (next: LoginStep) => {
+    login.reset(); completePin.reset(); requestReset.reset(); resetPin.reset();
+    setNotice(''); setPin(''); setNewPin(''); setResetCode('');
+    setCapsLock(false);
+    setStep(next);
+  };
 
   return (
-    <div className="box-border flex min-h-screen items-center justify-center p-3 sm:p-5">
+    <main className="sign-in-page">
+      <div className="sign-in-artwork"><img src="/smart-pos-storefront-banner.png" width="1672" height="941" alt="Kazmion Smart POS Solution for Your Business. Manage sales, inventory, customers, and business analytics in one place." fetchPriority="high" /></div>
       <div
-        className="relative flex min-h-[calc(100vh-1.5rem)] w-full items-center justify-center overflow-hidden rounded-2xl border border-white/60 bg-cover bg-center bg-no-repeat p-3 shadow-[0_18px_56px_rgba(15,23,42,0.2)] sm:min-h-[calc(100vh-2.5rem)] sm:rounded-[28px] sm:p-5"
-        style={{
-          backgroundImage: "linear-gradient(115deg, rgba(5, 18, 28, 0.28), rgba(3, 47, 53, 0.38)), url('/pos-sign-in.jpg')",
-          backgroundPosition: 'center top',
-        }}
+        className="sign-in-content"
       >
-      <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6">
+      <div className="sign-in-toolbar"><span>YOUR BUSINESS. CONNECTED.</span>
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-md overflow-hidden rounded-[26px] border border-teal-50/80 bg-[#f6faf9]/95 shadow-[0_28px_90px_rgba(5,25,35,0.32)] backdrop-blur-2xl md:max-w-5xl md:rounded-[28px] dark:border-teal-900/70 dark:bg-[#0b1820]/95">
-        <div className="grid md:grid-cols-[1.1fr_0.9fr]">
-          <div className="hidden bg-[#071b24]/75 p-8 text-white backdrop-blur-[2px] md:flex md:flex-col md:justify-between lg:p-10">
-            <div>
-              <span className="inline-flex rounded-full border border-teal-100/30 bg-teal-200/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-teal-50">
-                Premium POS
-              </span>
-              <h1 className="mt-6 text-3xl font-semibold leading-tight">Run your business with confidence.</h1>
-              <p className="mt-3 max-w-sm text-sm text-slate-100/90">
-                Manage sales, inventory, customer accounts, and payments from one streamlined dashboard.
-              </p>
-            </div>
-            <div className="space-y-3 text-sm text-slate-100/90">
-              <div className="flex items-center gap-3">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-200/20 text-base text-teal-50">✓</span>
-                Real-time sales visibility
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-200/20 text-base text-teal-50">✓</span>
-                Faster invoice and installment workflows
-              </div>
-            </div>
-          </div>
+      <section className="sign-in-card" aria-labelledby="sign-in-title">
+        <div className="grid grid-cols-1">
 
-          <form onSubmit={submit} className="space-y-5 bg-[#f6faf9]/95 p-6 sm:p-8 md:border-l md:border-[#d4e5e2] md:p-10 dark:bg-[#0b1820]/95 dark:md:border-teal-950">
-            <div>
-              <p className="text-xs font-semibold uppercase text-teal-800 dark:text-teal-300">Welcome back</p>
-              <h2 className="mt-2 text-3xl font-semibold leading-tight text-[#102a32] dark:text-slate-50">{title}</h2>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                {step === 'credentials' ? 'Welcome back to your POS.'
-                  : step === 'pin' ? 'Enter your 4-digit admin PIN to continue.'
-                    : step === 'reset-request' ? 'We will send a code to your verified recovery email.'
-                      : 'Enter the emailed code and choose a new 4-digit PIN.'}
-              </p>
+          <form onSubmit={submit} className="sign-in-form" aria-busy={pending} aria-describedby="sign-in-description">
+            {/* Brand header */}
+            <div className="sign-in-heading">
+              <div className="sign-in-brand">Kazmi<span>On</span><small>POINT OF SALE SYSTEM</small></div>
+              {step !== 'credentials' && <p className="sign-in-eyebrow">{step === 'pin' ? 'STEP 2 OF 2 · SECURITY CHECK' : 'ACCOUNT RECOVERY'}</p>}
+              <h1 id="sign-in-title">{step === 'credentials' ? 'Log in to your account' : step === 'pin' ? 'One more step.' : step === 'reset-request' ? 'Reset your PIN.' : 'Check your email.'}</h1>
+              <p id="sign-in-description" className="sign-in-description">{step === 'credentials' ? 'Sign in to manage your business.' : step === 'pin' ? 'Enter your admin PIN to access your workspace.' : step === 'reset-request' ? 'We’ll send a PIN reset code to your verified recovery email.' : 'Enter your recovery code and choose a new PIN.'}</p>
             </div>
 
-            {step !== 'pin' && <div>
-              <label className="label">Account email</label>
-              <input className="input border-[#c8dad7] bg-white focus:border-teal-700 focus:shadow-[0_0_0_4px_rgba(13,148,136,0.14)] dark:border-slate-700 dark:bg-slate-900 dark:focus:border-teal-400 dark:focus:shadow-[0_0_0_4px_rgba(45,212,191,0.14)]" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>}
+            {step === 'pin' && <ol className="sign-in-steps" aria-label="Sign-in progress"><li><span aria-hidden="true">✓</span>Account verified</li><li aria-current="step"><span aria-hidden="true">2</span>Security PIN</li></ol>}
 
-            {step === 'credentials' && <div>
-              <label className="label">Password</label>
-              <input className="input border-[#c8dad7] bg-white focus:border-teal-700 focus:shadow-[0_0_0_4px_rgba(13,148,136,0.14)] dark:border-slate-700 dark:bg-slate-900 dark:focus:border-teal-400 dark:focus:shadow-[0_0_0_4px_rgba(45,212,191,0.14)]" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-            </div>}
+            {step === 'pin' && <div className="sign-in-account"><span><small>Signing in as</small><strong>{email}</strong></span><button type="button" disabled={pending} onClick={() => { changeStep('credentials'); setChallengeToken(''); }}>Change</button></div>}
 
-            {step === 'pin' && <>
-              {pinRequiresChange && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Your initial PIN is 0000. Create a private PIN to continue.</p>}
-              <div><label className="label">4-digit PIN</label>
-                <input className="input" type="password" inputMode="numeric" autoComplete="one-time-code" maxLength={4} pattern="[0-9]{4}" required value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} /></div>
-              {pinRequiresChange && <div><label className="label">New 4-digit PIN</label>
-                <input className="input" type="password" inputMode="numeric" autoComplete="new-password" maxLength={4} pattern="[0-9]{4}" required value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))} /></div>}
-            </>}
-
-            {step === 'reset' && <>
-              <div><label className="label">6-digit email code</label>
-                <input className="input" inputMode="numeric" maxLength={6} pattern="[0-9]{6}" required value={resetCode} onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))} /></div>
-              <div><label className="label">New 4-digit PIN</label>
-                <input className="input" type="password" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" required value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))} /></div>
-            </>}
-
-            {error && <p className="text-sm font-medium text-red-600">{errorMessage(error)}</p>}
-            {notice && <p className="text-sm font-medium text-emerald-700">{notice}</p>}
-
-            <button className="w-full rounded-xl bg-[#0e7779] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(14,119,121,0.25)] transition hover:bg-[#096568] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#087f80] dark:hover:bg-[#0b9290]" disabled={login.isPending || completePin.isPending || requestReset.isPending || resetPin.isPending}>
-              {login.isPending ? 'Signing in…' : completePin.isPending ? 'Verifying PIN…' : requestReset.isPending ? 'Sending code…' : resetPin.isPending ? 'Resetting PIN…' : step === 'credentials' ? 'Sign in' : step === 'pin' ? (pinRequiresChange ? 'Set PIN and continue' : 'Verify PIN') : step === 'reset-request' ? 'Send reset code' : 'Reset PIN'}
-            </button>
-
-            {step === 'credentials' && (
-              <div className="space-y-2.5 pt-1 text-sm">
-                <div className="flex items-center justify-between text-xs sm:text-sm">
-                  <button type="button" className="font-medium text-teal-800 hover:underline dark:text-teal-300" onClick={() => { setNotice(''); setStep('reset-request'); }}>Forgot PIN?</button>
-                  <Link to="/developer" className="font-medium text-teal-800 hover:underline dark:text-teal-300">Developer Portal &rarr;</Link>
-                </div>
-                <div className="text-center pt-2 border-t border-slate-200/60 dark:border-teal-950/60">
-                  <span className="text-xs text-slate-500">New store or shop? </span>
-                  <Link to="/register" className="text-xs font-bold text-teal-700 hover:underline dark:text-teal-400">Register business</Link>
-                </div>
+            {/* Username or Email */}
+            {step !== 'pin' && (
+              <div>
+                <label className="label" htmlFor="login-email">Email address</label>
+                <input id="login-email" className="input" type="email" autoComplete="username" autoCapitalize="none" spellCheck={false} enterKeyHint={step === 'credentials' ? 'next' : 'go'} placeholder="you@business.com" required disabled={pending} value={email} onChange={(e) => { setEmail(e.target.value); login.reset(); }} />
               </div>
             )}
-            {step !== 'credentials' && <button type="button" className="w-full text-sm text-slate-600 hover:underline dark:text-slate-300" onClick={() => { setStep('credentials'); setChallengeToken(''); setNotice(''); setPin(''); setNewPin(''); setResetCode(''); }}>Back to sign in</button>}
+
+            {/* Password (credentials step) */}
+            {step === 'credentials' && (
+              <div>
+                <label className="label" htmlFor="login-password">Password</label>
+                <div className="sign-in-password"><input id="login-password" className="input" autoComplete="current-password" enterKeyHint="go" aria-describedby={capsLock ? 'caps-lock-hint' : undefined} onKeyDown={(e) => setCapsLock(e.getModifierState('CapsLock'))} onKeyUp={(e) => setCapsLock(e.getModifierState('CapsLock'))} onBlur={() => setCapsLock(false)} placeholder="Enter your password" disabled={pending} type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => { setPassword(e.target.value); login.reset(); }} />
+                <button type="button" disabled={pending} onClick={() => setShowPassword(!showPassword)} aria-pressed={showPassword} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" />{showPassword && <path d="m3 3 18 18" />}</svg>
+                </button>
+                </div>
+                {capsLock && <p id="caps-lock-hint" className="sign-in-field-hint" role="status">Caps Lock is on.</p>}
+              </div>
+            )}
+
+            {/* PIN step */}
+            {step === 'pin' && (
+              <>
+                {pinRequiresChange && <p className="sign-in-pin-notice">Your initial PIN is 0000. Create a private PIN to continue.</p>}
+              <div><label className="label" htmlFor="login-pin">4-digit PIN</label>
+                <input id="login-pin" className="input" type="password" inputMode="numeric" autoComplete="off" maxLength={4} pattern="[0-9]{4}" disabled={pending} required value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} /></div>
+              {pinRequiresChange && <div><label className="label" htmlFor="initial-new-pin">New 4-digit PIN</label>
+                <input id="initial-new-pin" className="input" type="password" inputMode="numeric" autoComplete="new-password" maxLength={4} pattern="[0-9]{4}" disabled={pending} required value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))} /></div>}
+              </>
+            )}
+
+            {/* Reset step */}
+            {step === 'reset' && (
+              <>
+                <div><label className="label" htmlFor="reset-code">6-digit email code</label>
+                <input id="reset-code" className="input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" disabled={pending} required value={resetCode} onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))} /></div>
+              <div><label className="label" htmlFor="reset-new-pin">New 4-digit PIN</label>
+                <input id="reset-new-pin" className="input" type="password" inputMode="numeric" autoComplete="new-password" maxLength={4} pattern="[0-9]{4}" disabled={pending} required value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))} /></div>
+              </>
+            )}
+
+            {error && <p className="sign-in-error" role="alert">{errorMessage(error)}</p>}
+            {notice && <p className="sign-in-notice" role="status">{notice}</p>}
+
+            <button className="sign-in-submit" disabled={pending}>
+              {pending && <span className="sign-in-spinner" aria-hidden="true" />}{login.isPending ? 'Signing in…' : completePin.isPending ? 'Verifying PIN…' : requestReset.isPending ? 'Sending code…' : resetPin.isPending ? 'Resetting PIN…' : step === 'credentials' ? 'Sign in to workspace' : step === 'pin' ? (pinRequiresChange ? 'Set PIN and continue' : 'Verify PIN') : step === 'reset-request' ? 'Send reset code' : 'Reset PIN'}{!pending && <span aria-hidden="true"> →</span>}
+            </button>
+
+            {step === 'pin' && <div className="sign-in-recovery"><span>Trouble with your admin PIN?</span><button type="button" disabled={pending} onClick={() => changeStep('reset-request')}>Reset PIN</button></div>}
+            {step === 'credentials' && <Link className="sign-in-back" to="/recover">Forgot password? Recover your account</Link>}
+
+            {step !== 'credentials' && <button type="button" disabled={pending} className="sign-in-back" onClick={() => { changeStep('credentials'); setChallengeToken(''); }}>← Back to sign in</button>}
+
+            {/* Footer */}
+            <p className="sign-in-security"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" /></svg>Secure access to your business workspace</p>
           </form>
         </div>
+      </section>
       </div>
-      </div>
-    </div>
+    </main>
   );
 }

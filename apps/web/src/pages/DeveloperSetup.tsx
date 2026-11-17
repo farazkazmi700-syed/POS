@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { authApi } from '../api';
+import PageHeading from '../components/PageHeading';
 
 export default function DeveloperSetup({ onBack }: { onBack: () => void }) {
   const [email, setEmail] = useState('');
@@ -16,8 +17,7 @@ export default function DeveloperSetup({ onBack }: { onBack: () => void }) {
     <div className="flex min-h-screen items-center justify-center p-4">
       <form onSubmit={submit} className="card w-full max-w-md space-y-4 p-6">
         <header>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Kazmi POS</p>
-          <h1 className="mt-1 text-2xl font-semibold">One-time Developer setup</h1>
+          <PageHeading eyebrow="KazmiOn developer" title="Set up secure access" description="Use your configured email and setup token to generate a developer PIN." />
         </header>
         {setup.data ? (
           <div className="space-y-3" role="status">

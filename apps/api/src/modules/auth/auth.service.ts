@@ -9,21 +9,25 @@ import { randomBytes, randomInt, randomUUID } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { Model } from 'mongoose';
 import { Role } from '../../common/enums';
+import { AuthUser } from '../../common/auth-user';
+import { permittedActions } from '../../common/action-permissions';
+import { BranchService } from '../branch/branch.module';
 import { oid } from '../../common/object-id';
 import {
-  HARDCODED_DEVELOPER_PIN, isValidDeveloperPin, hasTenantAccess, isConfiguredDeveloper,
-  isDeveloperSetupAuthorized, isPublicBusinessRegistrationClosed,
+  hasTenantAccess, isConfiguredDeveloper, isDeveloperSetupAuthorized, isPublicBusinessRegistrationClosed,
+  isValidDeveloperPin,
 } from '../../common/security-access';
 import { TenantService } from '../tenant/tenant.service';
 import {
-  CompletePinLoginDto, CreateStaffDto, DeveloperLoginDto, DeveloperPinSetupDto, LoginDto, PinResetDto, PinResetRequestDto, RegisterDto,
+  CompletePinLoginDto, CreateStaffDto, DeveloperLoginDto, DeveloperSetupPinDto, LoginDto, PinResetDto, PinResetRequestDto, RegisterDto,
   UpdateProfileDto, VerifyEmailCodeDto, VerifyRecoveryDto,
 } from './dto/auth.dto';
 import { EmailService } from './email.service';
+import { PasswordHashingService } from './password-hashing.service';
+import { PasswordRecoveryService, validatePasswordPolicy } from './password-recovery.service';
+import { RecoveryService } from './recovery.service';
 import { isDeveloperRegistrationAllowed } from './registration-access';
 import { User, UserDocument } from './schemas/user.schema';
-
-export { HARDCODED_DEVELOPER_PIN };
 
 @Injectable()
 export class AuthService {
@@ -35,10 +39,15 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly email: EmailService,
+    private readonly recovery: RecoveryService,
+    private readonly passwordHashing: PasswordHashingService,
+    private readonly passwordRecovery: PasswordRecoveryService,
+    private readonly branches: BranchService,
   ) {}
 
   /** Creates a new business (tenant) together with its owner account. */
   async register(dto: RegisterDto) {
+    validatePasswordPolicy(dto.password);
     if (isPublicBusinessRegistrationClosed(Boolean(await this.users.exists({ superAdmin: true })))) {
       throw new ForbiddenException('Business creation is managed through the Super Admin dashboard');
     }
@@ -60,7 +69,7 @@ export class AuthService {
     try {
       const user = await this.users.create({
         tenantId: tenant._id, name: dto.ownerName, email,
-        passwordHash: await bcrypt.hash(dto.password, 12), pinHash: await bcrypt.hash('0000', 12),
+        passwordHash: await this.passwordHashing.hashPassword(dto.password), pinHash: await bcrypt.hash('0000', 12),
         pinRequiresChange: true, role: Role.Owner,
       });
       return { registered: true };
@@ -75,124 +84,86 @@ export class AuthService {
     const user = await this.users
       .findOne({ email, isActive: true })
         .select('+passwordHash +pinHash +pinChallengeId +pinLockedUntil +pinFailedAttempts');
-    if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
+    if (!user || !user.passwordHash || !(await this.passwordHashing.verifyPassword(dto.password, user.passwordHash))) {
       throw new UnauthorizedException('Invalid email or password');
+    }
+    // Transparent legacy-bcrypt-to-Argon2id upgrade after a successful verify.
+    if (this.passwordHashing.needsUpgrade(user.passwordHash)) {
+      await this.users.updateOne({ _id: user._id }, { $set: { passwordHash: await this.passwordHashing.hashPassword(dto.password) } });
     }
     if (user.role === Role.Owner && isConfiguredDeveloper(user.email, this.config.get<string>('PLATFORM_DEVELOPER_EMAIL'))) {
       throw new UnauthorizedException('Use the Developer sign-in route');
     }
     await this.assertTenantAccess(user);
-    if (user.role === Role.Owner || user.role === Role.Admin) {
+    if (user.role === Role.Owner || user.role === Role.Admin || user.pinEnabled) {
       return this.beginPinChallenge(user);
     }
     return this.issueTokens(user);
   }
 
   async developerLogin(dto: DeveloperLoginDto) {
-    const pin = (dto.pin || '').trim();
-    if (pin !== HARDCODED_DEVELOPER_PIN) {
-      throw new UnauthorizedException('Invalid Developer PIN');
+    // The developer signs in with their own email + 8-digit PIN.
+    // The configured platform email may also be used when no explicit email is provisioned.
+    const configuredEmail = this.config.get<string>('PLATFORM_DEVELOPER_EMAIL');
+    if (!configuredEmail) {
+      throw new UnauthorizedException('Developer access is not configured');
     }
-
-    const configuredEmail = (
-      dto.email?.trim() ||
-      this.config.get<string>('PLATFORM_DEVELOPER_EMAIL') ||
-      'developer@pos.local'
-    ).toLowerCase();
-
-    let user = await this.users.findOne({
-      email: configuredEmail,
-      role: Role.Owner,
-      superAdmin: { $ne: true },
-    }).select('+developerPinHash +developerPinVersion');
-
-    if (!user) {
+    const candidates: string[] = [];
+    if (dto.email?.trim()) candidates.push(dto.email.trim().toLowerCase());
+    candidates.push(configuredEmail.trim().toLowerCase());
+    let user: UserDocument | null = null;
+    for (const email of [...new Set(candidates)]) {
       user = await this.users.findOne({
+        email,
         role: Role.Owner,
         superAdmin: { $ne: true },
-        developerPinHash: { $exists: true },
-      }).select('+developerPinHash +developerPinVersion');
+        isActive: true,
+      }).select('+developerPinHash +pinLockedUntil +pinFailedAttempts +developerSessionVersion');
+      if (user?.developerPinHash) break;
+      user = null;
     }
-
     if (!user) {
-      let tenant = await this.tenants.findByName('Developer Console');
-      if (!tenant) {
-        tenant = await this.tenants.create({
-          name: 'Developer Console', currency: 'PKR',
-          featureFlags: { pos: false, inventory: false, reports: false, customers: false, installments: false, barcodes: false },
-          navigationVisibility: {
-            dashboard: false, pos: false, products: false, customers: false,
-            installments: false, orders: false, settings: false, barcodeGenerator: false, barcodeScanner: false,
-          },
-        });
-      }
-      try {
-        user = await this.users.create({
-          tenantId: tenant._id,
-          name: 'Developer',
-          email: configuredEmail,
-          passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), 12),
-          developerPinHash: await bcrypt.hash(HARDCODED_DEVELOPER_PIN, 12),
-          developerPinVersion: 1,
-          pinRequiresChange: false,
-          role: Role.Owner,
-          superAdmin: false,
-          isActive: true,
-        });
-      } catch (err) {
-        user = await this.users.findOne({ email: configuredEmail }).select('+developerPinHash +developerPinVersion');
-        if (!user) throw err;
-      }
-    } else {
-      user.isActive = true;
-      if (!user.developerPinHash || !(await bcrypt.compare(HARDCODED_DEVELOPER_PIN, user.developerPinHash))) {
-        user.developerPinHash = await bcrypt.hash(HARDCODED_DEVELOPER_PIN, 12);
-        user.developerPinVersion = (user.developerPinVersion || 0) + 1;
-        await user.save();
-      }
+      throw new UnauthorizedException('Developer account not found');
     }
-
+    if (user.pinLockedUntil && user.pinLockedUntil.getTime() > Date.now()) throw new HttpException('Developer access temporarily locked', HttpStatus.TOO_MANY_REQUESTS);
+    const pinHash = user.developerPinHash;
+    const pinValid = isValidDeveloperPin(dto.pin) && !!pinHash && await bcrypt.compare(dto.pin, pinHash);
+    if (!pinValid) {
+      const failed = (user.pinFailedAttempts ?? 0) + 1;
+      await this.users.updateOne({ _id: user._id }, { $inc: { pinFailedAttempts: 1 }, ...(failed >= 5 ? { $set: { pinLockedUntil: new Date(Date.now() + 15 * 60_000) } } : {}) });
+      throw new UnauthorizedException('Invalid developer PIN');
+    }
     await this.assertTenantAccess(user);
+    await this.users.updateOne({ _id: user._id }, { $set: { pinFailedAttempts: 0, pinLockedUntil: null } });
     return this.issueTokens(user, true);
   }
 
-  async setupDeveloperPin(dto: DeveloperPinSetupDto) {
+  /** One-time developer PIN setup. Authorized via the configured developer email + setup token. */
+  async setupPin(dto: DeveloperSetupPinDto) {
     const configuredEmail = this.config.get<string>('PLATFORM_DEVELOPER_EMAIL');
     const configuredToken = this.config.get<string>('PLATFORM_DEVELOPER_SETUP_TOKEN');
     if (!isDeveloperSetupAuthorized(dto.email, configuredEmail, dto.setupToken, configuredToken)) {
-      throw new UnauthorizedException('Developer setup is not authorized');
+      throw new UnauthorizedException('Developer setup not authorized');
     }
-
     const email = dto.email.trim().toLowerCase();
-    if (await this.users.exists({ email })) throw new ConflictException('Developer PIN has already been initialized');
-
-    const pin = HARDCODED_DEVELOPER_PIN;
-    const tenant = await this.tenants.create({
-      name: 'Developer Console', currency: 'PKR',
-      featureFlags: { pos: false, inventory: false, reports: false, customers: false, installments: false, barcodes: false },
-      navigationVisibility: {
-        dashboard: false, pos: false, products: false, customers: false,
-        installments: false, orders: false, settings: false, barcodeGenerator: false, barcodeScanner: false,
-      },
+    let user = await this.users.findOne({
+      email,
+      role: Role.Owner,
+      superAdmin: { $ne: true },
+      isActive: true,
     });
-    try {
-      await this.users.create({
-        tenantId: tenant._id,
-        name: 'Developer',
-        email,
-        passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), 12),
-        developerPinHash: await bcrypt.hash(pin, 12),
-        developerPinVersion: 1,
-        pinRequiresChange: false,
-        role: Role.Owner,
-        superAdmin: false,
-      });
-    } catch (error) {
-      await this.tenants.delete(tenant.id);
-      if ((error as { code?: number }).code === 11000) throw new ConflictException('Developer PIN has already been initialized');
-      throw error;
+    if (!user) {
+      const tenant = await this.tenants.create({ name: 'Developer Console', featureFlags: { pos: false, inventory: false, reports: false, customers: false, installments: false, barcodes: false } });
+      try { user = await this.users.create({ tenantId: tenant._id, name: 'Platform Developer', email, passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), 12), role: Role.Owner, isActive: true }); }
+      catch (error) { await this.tenants.delete(tenant.id); throw error; }
     }
-
+    const pin = String(randomInt(10_000_000, 100_000_000));
+    user.developerPinHash = await bcrypt.hash(pin, 12);
+    await this.users.updateOne({ _id: user._id }, { $inc: { developerSessionVersion: 1 } });
+    user.pinRequiresChange = false;
+    user.pinFailedAttempts = 0;
+    user.pinLockedUntil = null;
+    await user.save();
     return { email, pin };
   }
 
@@ -211,7 +182,7 @@ export class AuthService {
 
       const user = await this.users.findOne({ _id: payload.sub, isActive: true })
         .select('+pinHash +pinChallengeId +pinLockedUntil +pinFailedAttempts');
-    if (!user || (user.role !== Role.Owner && user.role !== Role.Admin) || user.pinChallengeId !== payload.jti || !user.pinHash) {
+    if (!user || (user.role !== Role.Owner && user.role !== Role.Admin && !user.pinEnabled) || user.pinChallengeId !== payload.jti || !user.pinHash) {
       throw new UnauthorizedException('Invalid PIN challenge');
     }
     await this.assertTenantAccess(user);
@@ -258,82 +229,27 @@ export class AuthService {
   }
 
   async requestPinReset(dto: PinResetRequestDto) {
-    const genericResponse = { message: 'If the account has a verified email, a PIN reset code has been sent.' };
-    const user = await this.users.findOne({
-      email: dto.email.toLowerCase(), isActive: true, role: { $in: [Role.Owner, Role.Admin] },
-    }).select('+pinResetCodeHash +pinResetExpiresAt +pinResetAttempts');
-    if (!user || !user.emailVerified || !user.emailVerifiedAt || !user.recoveryEmail) return genericResponse;
-
-    const code = this.newEmailCode();
-    user.pinResetCodeHash = await bcrypt.hash(code, 10);
-    user.pinResetExpiresAt = new Date(Date.now() + 10 * 60_000);
-    user.pinResetAttempts = 0;
-    await user.save();
-    try {
-      await this.email.sendSecurityCode(user.recoveryEmail, code, 'PIN reset');
-    } catch (error) {
-      this.logger.error(`PIN reset email delivery failed: ${(error as Error).message}`);
-      await this.users.updateOne({ _id: user._id }, { $unset: { pinResetCodeHash: 1, pinResetExpiresAt: 1 } });
-    }
-    return genericResponse;
+    return this.recovery.request({ email: dto.email, purpose: 'pin', channel: 'email' });
   }
 
   async resetPin(dto: PinResetDto) {
-    const user = await this.users.findOne({
-      email: dto.email.toLowerCase(), isActive: true, role: { $in: [Role.Owner, Role.Admin] },
-    }).select('+pinResetCodeHash +pinResetExpiresAt +pinResetAttempts');
-    if (!user || !user.emailVerified || !user.emailVerifiedAt || !user.recoveryEmail
-      || !user.pinResetCodeHash || !user.pinResetExpiresAt || user.pinResetExpiresAt.getTime() <= Date.now()
-      || (user.pinResetAttempts ?? 0) >= 5) {
-      throw new BadRequestException('Invalid or expired PIN reset code');
-    }
-    if (!(await bcrypt.compare(dto.code, user.pinResetCodeHash))) {
-      user.pinResetAttempts = (user.pinResetAttempts ?? 0) + 1;
-      if (user.pinResetAttempts >= 5) {
-        user.pinResetCodeHash = undefined;
-        user.pinResetExpiresAt = undefined;
-      }
-      await user.save();
-      throw new BadRequestException('Invalid or expired PIN reset code');
-    }
-    if (dto.newPin === '0000') throw new BadRequestException('Choose a PIN other than the default 0000');
-
-    const updated = await this.users.findOneAndUpdate(
-      {
-        _id: user._id,
-        pinResetCodeHash: user.pinResetCodeHash,
-        pinResetExpiresAt: { $gt: new Date() },
-        pinResetAttempts: { $lt: 5 },
-      },
-      {
-        $set: {
-          pinHash: await bcrypt.hash(dto.newPin, 12),
-          pinRequiresChange: false,
-          pinFailedAttempts: 0,
-          pinLockedUntil: null,
-        },
-        $inc: { pinVersion: 1 },
-        $unset: { pinChallengeId: 1, pinResetCodeHash: 1, pinResetExpiresAt: 1 },
-      },
-      { new: true },
-    );
-    if (!updated) throw new BadRequestException('Invalid or expired PIN reset code');
-    return { message: 'PIN reset successfully. Sign in with your new PIN.' };
+    return this.recovery.confirmLegacyPin(dto.email, dto.code, dto.newPin);
   }
 
   async refresh(refreshToken: string) {
     try {
       const payload = await this.jwt.verifyAsync<{
-        sub: string; pinVerified?: boolean; pinVersion?: number; authSource?: string; developerPinVersion?: number;
+        sub: string; pinVerified?: boolean; pinVersion?: number; authSource?: string; developerSessionVersion?: number; sessionVersion?: number;
       }>(refreshToken, {
         secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       });
       const user = await this.users.findOne({ _id: payload.sub, isActive: true })
-        .select('+pinHash +pinChallengeId +developerPinHash +developerPinVersion');
+        .select('+pinHash +pinChallengeId +developerSessionVersion');
       if (!user) throw new Error('inactive');
+      if ((payload.sessionVersion ?? 0) !== (user.sessionVersion ?? 0)) throw new Error('Session revoked');
       if (payload.authSource === 'developer') {
-        if (user.role !== Role.Owner || user.superAdmin === true || !user.developerPinHash
-          || payload.developerPinVersion !== user.developerPinVersion
+        if (user.role !== Role.Owner || user.superAdmin === true
+          || payload.developerSessionVersion !== user.developerSessionVersion
           || !isConfiguredDeveloper(user.email, this.config.get<string>('PLATFORM_DEVELOPER_EMAIL'))) {
           throw new Error('developer account changed');
         }
@@ -341,7 +257,7 @@ export class AuthService {
         return this.issueTokens(user, true);
       }
       await this.assertTenantAccess(user);
-      if ((user.role === Role.Owner || user.role === Role.Admin)
+      if ((user.role === Role.Owner || user.role === Role.Admin || user.pinEnabled)
         && (payload.pinVerified !== true || payload.pinVersion !== (user.pinVersion ?? 0))) {
         return this.beginPinChallenge(user);
       }
@@ -351,30 +267,104 @@ export class AuthService {
     }
   }
 
-  async createStaff(tenantId: string, dto: CreateStaffDto) {
+  async createStaff(tenantId: string, dto: CreateStaffDto, actor?: AuthUser) {
+    validatePasswordPolicy(dto.password);
+    this.assertGrantableRights(dto.moduleRights, actor);
+    if (dto.branchIds) {
+      if (!actor || (actor.role !== Role.Owner && dto.branchIds.some((id) => !actor.branchIds?.includes(id)))) throw new ForbiddenException('Branch grant is outside your scope');
+      await Promise.all(dto.branchIds.map((id) => this.branches.validate(tenantId, id)));
+    }
     const email = dto.email.toLowerCase();
     if (await this.users.exists({ email })) throw new ConflictException('Email already registered');
     const user = await this.users.create({
       tenantId: oid(tenantId), name: dto.name, email,
-      passwordHash: await bcrypt.hash(dto.password, 12),
+      passwordHash: await this.passwordHashing.hashPassword(dto.password),
       ...(dto.role === Role.Admin ? { pinHash: await bcrypt.hash('0000', 12), pinRequiresChange: true } : {}),
       role: dto.role,
-      ...(Array.isArray(dto.moduleRights) ? { moduleRights: dto.moduleRights } : {}),
+      moduleRights: dto.moduleRights ?? [],
+      branchIds: (dto.branchIds ?? []).map(oid),
+      ...(actor?.role === Role.Admin ? { permissions: [...permittedActions(actor)] } : {}),
     });
     return this.publicUser(user);
   }
 
-  async updateStaffRights(actorTenantId: string, staffId: string, moduleRights: string[]) {
+  async updateStaffRights(actorTenantId: string, staffId: string, moduleRights: string[], actor?: AuthUser, permissions?: string[], branchIds?: string[]) {
     const staff = await this.users.findOne({ _id: staffId, tenantId: oid(actorTenantId), role: { $ne: Role.Owner } });
     if (!staff) throw new NotFoundException('Staff member not found');
-    staff.moduleRights = moduleRights;
+    if (actor?.role === Role.Admin && staff.role === Role.Admin && staff.id !== actor.userId) throw new ForbiddenException('Only the business owner can manage another admin account');
+    if (actor?.role === Role.Admin && staff.branchIds?.some((id) => !actor.branchIds?.includes(String(id)))) throw new ForbiddenException('Staff account is outside your branch scope');
+    // Preserve existing grants outside an admin's own scope; reject only new grants.
+    this.assertGrantableRights(moduleRights, actor, staff.moduleRights);
+    staff.moduleRights = [...new Set(moduleRights)];
+    if (permissions) {
+      if (!actor || permissions.some((permission) => !permittedActions(actor).includes(permission))) throw new ForbiddenException('You cannot grant actions outside your own permissions');
+      staff.permissions = [...new Set(permissions)];
+    }
+    if (branchIds) {
+      if (!actor || (actor.role !== Role.Owner && branchIds.some((id) => !actor.branchIds?.includes(id)))) throw new ForbiddenException('You cannot grant access to an unassigned branch');
+      await Promise.all(branchIds.map((id) => this.branches.validate(actorTenantId, id)));
+      staff.branchIds = [...new Set(branchIds)].map(oid);
+    }
     await staff.save();
     return this.publicUser(staff);
   }
 
-  async listStaff(tenantId: string) {
-    const users = await this.users.find({ tenantId: oid(tenantId) }).sort({ createdAt: 1 });
+  async listStaff(tenantId: string, actor?: AuthUser) {
+    const users = await this.users.find({ tenantId: oid(tenantId), ...(actor?.role === Role.Admin && actor.branchIds?.length ? { $or: [{ branchIds: { $in: actor.branchIds.map(oid) } }, { _id: oid(actor.userId) }] } : {}) }).sort({ createdAt: 1 });
     return users.map((u) => this.publicUser(u));
+  }
+
+  async updateStaffStatus(actor: AuthUser, staffId: string, isActive: boolean) {
+    if (actor.userId === staffId) throw new BadRequestException('You cannot disable your own account');
+    const target = await this.users.findOne({ _id: staffId, tenantId: oid(actor.tenantId) });
+    if (!target || target.role === Role.Owner) throw new NotFoundException('Staff member not found');
+    if (actor.role === Role.Admin && target.role === Role.Admin) throw new ForbiddenException('Only the owner can manage another admin account');
+    if (actor.role === Role.Admin && target.branchIds?.some((id) => !actor.branchIds?.includes(String(id)))) throw new ForbiddenException('Staff account is outside your branch scope');
+    const staff = await this.users.findOneAndUpdate({ _id: staffId, tenantId: oid(actor.tenantId), role: { $ne: Role.Owner }, superAdmin: { $ne: true } }, { $set: { isActive }, $inc: { sessionVersion: 1 } }, { new: true });
+    if (!staff) throw new NotFoundException('Staff member not found');
+    return this.publicUser(staff);
+  }
+
+  async revokeSessions(userId: string) {
+    await this.users.updateOne({ _id: userId }, { $inc: { sessionVersion: 1, developerSessionVersion: 1 } });
+    return { revoked: true };
+  }
+
+  /** Authenticated self-service password change (requires current password). */
+  async changePassword(actor: AuthUser, currentPassword: string, newPassword: string) {
+    const user = await this.users.findOne({ _id: actor.userId, isActive: true }).select('+passwordHash');
+    if (!user || !user.passwordHash || !(await this.passwordHashing.verifyPassword(currentPassword, user.passwordHash))) {
+      throw new UnauthorizedException('Your current password is incorrect.');
+    }
+    validatePasswordPolicy(newPassword);
+    const passwordHash = await this.passwordHashing.hashPassword(newPassword);
+    await this.users.updateOne(
+      { _id: user._id },
+      {
+        $set: { passwordHash, passwordRequiresChange: false },
+        $inc: { sessionVersion: 1, developerSessionVersion: 1, pinVersion: 1 },
+        $unset: { pinChallengeId: 1 },
+      },
+    );
+    return { message: 'Password changed. Other sessions have been signed out.' };
+  }
+
+  /** Whether the signed-in account must establish a new password (admin reset enrollment). */
+  async passwordChangeRequired(userId: string): Promise<boolean> {
+    const user = await this.users.findOne({ _id: userId }).select('+enrollmentExpiresAt');
+    if (!user?.passwordRequiresChange) return false;
+    if (user.enrollmentExpiresAt && user.enrollmentExpiresAt.getTime() <= Date.now()) {
+      await this.users.updateOne({ _id: user._id }, { $set: { isActive: false } });
+      return false;
+    }
+    return true;
+  }
+
+  private assertGrantableRights(rights: string[] | undefined, actor?: AuthUser, existing: string[] = []) {
+    if (actor?.role === Role.Admin && actor.moduleRights !== undefined
+      && (!rights || rights.some((right) => !actor.moduleRights!.includes(right) && !existing.includes(right)))) {
+      throw new ForbiddenException('You can only grant module rights assigned to your own account');
+    }
   }
 
   async me(userId: string, isDeveloperSession = false) {
@@ -401,8 +391,11 @@ export class AuthService {
     }
     if (dto.phone !== undefined) {
       const phone = dto.phone ? dto.phone.trim() : null;
-      user.phone = phone;
-      user.phoneVerified = false;
+      if (phone !== user.phone) {
+        user.phone = phone;
+        user.phoneVerified = false;
+        user.phoneVerifiedAt = null;
+      }
     }
 
     await user.save();
@@ -435,10 +428,7 @@ export class AuthService {
     }
 
     if (dto.type === 'phone') {
-      if (!user.phone || user.phone.trim().length < 7) {
-        throw new BadRequestException('Add a valid phone number before verification.');
-      }
-      user.phoneVerified = true;
+      return this.recovery.requestPhone(userId);
     }
 
     await user.save();
@@ -476,9 +466,11 @@ export class AuthService {
       email: user.email, phone: user.phone ?? undefined,
       recoveryEmail: user.recoveryEmail ?? undefined,
       emailVerified: Boolean(user.emailVerified && user.emailVerifiedAt),
-      phoneVerified: user.phoneVerified ?? false,
+      phoneVerified: Boolean(user.phoneVerified && user.phoneVerifiedAt),
       role: user.role, isActive: user.isActive, isSuperAdmin: user.superAdmin === true,
       moduleRights: Array.isArray(user.moduleRights) ? user.moduleRights : undefined,
+      permissions: permittedActions(user),
+      branchIds: user.branchIds?.map(String) ?? [],
       isDeveloper: isDeveloperSession && user.role === Role.Owner && isConfiguredDeveloper(
         user.email,
         this.config.get<string>('PLATFORM_DEVELOPER_EMAIL'),
@@ -503,12 +495,12 @@ export class AuthService {
   }
 
   private async issueTokens(user: UserDocument, developerSession = false) {
-    const base = { sub: user.id, tenantId: user.tenantId.toString() };
-    const pinVerified = !developerSession && (user.role === Role.Owner || user.role === Role.Admin);
+    const base = { sub: user.id, tenantId: user.tenantId.toString(), sessionVersion: user.sessionVersion ?? 0 };
+    const pinVerified = !developerSession && (user.role === Role.Owner || user.role === Role.Admin || user.pinEnabled);
     const accessToken = await this.jwt.signAsync(
       {
         ...base, role: user.role, email: user.email, name: user.name,
-        ...(developerSession ? { authSource: 'developer', developerPinVersion: user.developerPinVersion ?? 0 } : {}),
+        ...(developerSession ? { authSource: 'developer', developerSessionVersion: user.developerSessionVersion ?? 0 } : {}),
         ...(pinVerified ? { pinVerified: true, pinVersion: user.pinVersion ?? 0 } : {}),
       },
       {
@@ -518,7 +510,7 @@ export class AuthService {
     );
     const refreshToken = await this.jwt.signAsync({
       ...base,
-      ...(developerSession ? { authSource: 'developer', developerPinVersion: user.developerPinVersion ?? 0 } : {}),
+      ...(developerSession ? { authSource: 'developer', developerSessionVersion: user.developerSessionVersion ?? 0 } : {}),
       ...(pinVerified
         ? { pinVerified: true, pinVersion: user.pinVersion ?? 0 }
         : {}),
@@ -538,6 +530,7 @@ export class AuthService {
     if (!tenant || !hasTenantAccess(tenant.status, hasGlobalAccess)) {
       throw new UnauthorizedException('Business is suspended or unavailable');
     }
+    if (!hasGlobalAccess && tenant.licenseExpiresAt && tenant.licenseExpiresAt.getTime() <= Date.now()) throw new UnauthorizedException('Business license has expired');
   }
 
   private newEmailCode(): string {

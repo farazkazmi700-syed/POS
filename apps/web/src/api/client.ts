@@ -7,6 +7,8 @@ export const api = axios.create({ baseURL: '/api' });
 api.interceptors.request.use((config) => {
   const token = useAuth.getState().accessToken;
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  const branchId = useAuth.getState().activeBranchId;
+  if (branchId) config.headers['X-Branch-Id'] = branchId;
   return config;
 });
 
@@ -30,7 +32,7 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
-    const isAuthCall = original?.url?.startsWith('/auth/');
+    const isAuthCall = /^\/auth\/(?:login(?:\/pin)?|developer\/(?:login|setup-pin)|register|refresh|pin\/reset(?:\/request)?)$/.test(original?.url ?? '');
     if (error.response?.status === 401 && original && !original._retry && !isAuthCall && useAuth.getState().refreshToken) {
       original._retry = true;
       refreshing ??= refreshAccessToken().finally(() => { refreshing = null; });

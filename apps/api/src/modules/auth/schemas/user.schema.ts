@@ -15,10 +15,15 @@ export class User {
   @Prop({ type: Date, select: false }) emailVerificationExpiresAt?: Date;
   @Prop({ default: 0, select: false }) emailVerificationAttempts: number;
   @Prop({ default: false }) phoneVerified: boolean;
+  @Prop({ type: Date, default: null }) phoneVerifiedAt: Date | null;
+  @Prop({ type: Date, select: false }) securityCodeRequestedAt?: Date;
+  @Prop({ default: false }) pinEnabled: boolean;
   @Prop({ required: true, select: false }) passwordHash: string;
-  @Prop({ type: String, select: false }) developerPinHash?: string;
-  @Prop({ default: 0, select: false }) developerPinVersion: number;
+  /** Invalidates developer-only access and refresh tokens when incremented. */
+  @Prop({ default: 0, select: false }) developerSessionVersion: number;
   @Prop({ type: String, select: false }) pinHash?: string;
+  @Prop({ type: String, select: false }) developerPinHash?: string;
+  @Prop({ default: 0 }) sessionVersion: number;
   @Prop({ default: false }) pinRequiresChange: boolean;
   @Prop({ default: 0 }) pinVersion: number;
   @Prop({ default: 0, select: false }) pinFailedAttempts: number;
@@ -28,14 +33,32 @@ export class User {
   @Prop({ type: Date, select: false }) pinResetExpiresAt?: Date;
   @Prop({ default: 0, select: false }) pinResetAttempts: number;
   @Prop({ required: true, enum: Role }) role: Role;
-  /** Module rights granted by the business admin; empty/absent = all modules for the role. */
+  /** An empty array denies module access; legacy absent rights follow role defaults. */
   @Prop({ type: [String], default: undefined }) moduleRights?: string[];
+  @Prop({ type: [String], default: undefined }) permissions?: string[];
+  @Prop({ type: [Types.ObjectId], default: [] }) branchIds: Types.ObjectId[];
   @Prop({ default: false }) superAdmin: boolean;
   @Prop({ default: true }) isActive: boolean;
+  /** Forces a new password at next sign-in after an admin reset. */
+  @Prop({ type: Date, default: null, select: false }) enrollmentExpiresAt?: Date | null;
+  @Prop({ default: false }) passwordRequiresChange: boolean;
 }
 
 export type UserDocument = HydratedDocument<User>;
 export const UserSchema = SchemaFactory.createForClass(User);
+export const RecoveryCodeSchemaDefinition = {
+  userId: { type: Types.ObjectId, required: true, index: true },
+  codeHash: { type: String, required: true },
+  consumedAt: { type: Date, default: null },
+  createdAt: { type: Date, default: Date.now },
+} as const;
+export const PasswordResetTokenSchemaDefinition = {
+  userId: { type: Types.ObjectId, required: true, index: true },
+  tokenHash: { type: String, required: true, index: true },
+  expiresAt: { type: Date, required: true },
+  consumedAt: { type: Date, default: null },
+  createdAt: { type: Date, default: Date.now },
+} as const;
 UserSchema.index({ superAdmin: 1 }, {
   unique: true,
   partialFilterExpression: { superAdmin: true },

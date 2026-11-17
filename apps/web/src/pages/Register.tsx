@@ -3,9 +3,10 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api';
 import ThemeToggle from '../components/ThemeToggle';
+import PageHeading from '../components/PageHeading';
 import { errorMessage } from '../utils/errors';
 
-const DOMAINS = ['retail', 'restaurant', 'pharmacy', 'salon', 'custom'];
+const DOMAINS = ['retail', 'supermarket', 'grocery', 'pharmacy', 'electronics', 'restaurant', 'salon', 'custom'];
 
 export default function Register() {
   const navigate = useNavigate();
@@ -48,11 +49,7 @@ export default function Register() {
 
       <form onSubmit={submit} className="card w-full max-w-3xl space-y-5 p-4 sm:p-6 md:p-8">
         <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-600 dark:text-teal-400">Get started</p>
-            <h1 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">Create your business</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Developer-authorized registration. The first business account will be Owner and can add staff afterwards.</p>
-          </div>
+          <PageHeading eyebrow="Business onboarding" title="Create your business" description="Register your workspace with developer authorization. Your owner account can then invite staff and manage access." />
           <div className="inline-flex rounded-full bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-700 dark:bg-teal-500/10 dark:text-teal-400">
             Secure onboarding
           </div>

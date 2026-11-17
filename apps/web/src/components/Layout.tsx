@@ -23,6 +23,8 @@ import {
   IconBarcodeScanner,
   IconSuperAdmin,
   IconDeveloper,
+  IconHelp,
+  IconBackup,
   IconMenu,
   IconClose,
 } from './Icons';
@@ -103,10 +105,12 @@ export default function Layout() {
   }, [stockAlerts.data]);
 
   const links = TENANT_NAVIGATION_ITEMS.filter((item) =>
-    (!item.managerOnly || isManager) && tenant?.navigationVisibility?.[item.key] !== false
+    (!item.managerOnly || isManager) && (item.key === 'help' || item.key === 'backup' || tenant?.navigationVisibility?.[item.key] !== false)
       && (!('feature' in item) || tenant?.featureFlags?.[item.feature] !== false)
+      // Backup exports stay on the business owner account; help is universal.
+      && (item.key !== 'backup' || user?.role === 'owner')
       // Module rights: owner sees everything; admin/staff are limited to their granted modules.
-      && (user?.role === 'owner' || !user?.moduleRights || user.moduleRights.includes(item.key)),
+      && (item.key === 'help' || item.key === 'backup' || user?.role === 'owner' || !user?.moduleRights || user.moduleRights.includes(item.key)),
   );
 
   const getNavIcon = (key: string) => {
@@ -129,6 +133,10 @@ export default function Layout() {
         return <IconBarcodeGenerator className="h-5 w-5 shrink-0" />;
       case 'barcode-scanner':
         return <IconBarcodeScanner className="h-5 w-5 shrink-0" />;
+      case 'help':
+        return <IconHelp className="h-5 w-5 shrink-0" />;
+      case 'backup':
+        return <IconBackup className="h-5 w-5 shrink-0" />;
       default:
         return null;
     }

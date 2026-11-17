@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FeatureKey, ManagedBusiness } from '@pos/shared-types';
 import { superAdminApi } from '../api';
+import PageHeading from '../components/PageHeading';
+import ThemeToggle from '../components/ThemeToggle';
+import { useAuth } from '../store/auth';
+import { Link } from 'react-router-dom';
 
 const featureKeys: FeatureKey[] = ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'];
 const featureNames: Record<FeatureKey, string> = {
@@ -35,13 +39,10 @@ export default function SuperAdmin() {
   }
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-700">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Kazmi POS</p>
-          <h1 className="mt-1 text-2xl font-semibold">Super Admin</h1>
-        </div>
-        <p className="text-sm text-slate-500">Global business and feature controls</p>
+    <div className="platform-workspace mx-auto max-w-[1440px] space-y-8 px-4 py-6 sm:px-8">
+      <header className="page-header">
+        <PageHeading eyebrow="Platform administration" title="Super admin" description="Manage business access, feature entitlements, and platform activity." />
+        <div className="flex flex-wrap items-center gap-2"><Link className="btn-secondary" to="/recover">Account security</Link><ThemeToggle /><button type="button" className="btn-secondary" onClick={() => { client.clear(); useAuth.getState().logout(); }}>Sign out</button></div>
       </header>
 
       {message && <p role="status" className="text-sm text-slate-600 dark:text-slate-300">{message}</p>}

@@ -1,3 +1,4 @@
+import { toMinor as decimalMinor, percentCharge } from './money';
 export class PlanInputError extends Error {}
 
 export interface PlanInput {
@@ -22,15 +23,20 @@ export interface PlanResult {
   schedule: PlanScheduleRow[];
 }
 
-const toMinor = (n: number) => Math.round(n * 100);
+const toMinor = (n: number) => { try { return decimalMinor(n); } catch (error) { throw new PlanInputError((error as Error).message); } };
 const toMajor = (n: number) => n / 100;
 
 /**
- * Installment price = cash price + markup% (on the whole cash price).
+ * Installment price = cash price + markup% on the balance after down payment.
  * financed = installment price - down payment, split over `months`.
  * The monthly amount is rounded UP to a whole currency unit (easier to collect);
  * the last instalment absorbs the difference so the schedule always adds up exactly.
  * To use a different pricing rule, change this function only.
+ *
+ * `downPayment` is meant to be the amount actually received at the sale. If the customer
+ * has paid nothing yet (`downPayment: 0`) no interest is charged at all: the cash price is
+ * financed without markup and the full balance is split over `months`. Interest only starts
+ * once a down payment is received.
  */
 export function calculatePlan(i: PlanInput): PlanResult {
   if (!Number.isInteger(i.months) || i.months < 1 || i.months > 60) {
@@ -44,9 +50,12 @@ export function calculatePlan(i: PlanInput): PlanResult {
   if (cash <= 0) throw new PlanInputError('The cart total must be above zero');
   if (down >= cash) throw new PlanInputError('Down payment must be less than the cash price');
 
-  const markup = Math.round((cash * i.markupPercent) / 100);
+  // No down payment received yet => nothing is financed, so no interest either.
+  toMinor(i.markupPercent);
+  const markup = down > 0 ? percentCharge(cash - down, i.markupPercent) : 0;
   const total = cash + markup;
   const financed = total - down;
+  if (!Number.isSafeInteger(total)) throw new PlanInputError('Total exceeds supported precision');
 
   let base: number;
   let last: number;
@@ -77,6 +86,7 @@ export function calculatePlan(i: PlanInput): PlanResult {
 
 /** Adds calendar months to a YYYY-MM-DD date, clamping to the end of shorter months (31 Jan + 1 = 28/29 Feb). */
 export function addMonths(date: string, months: number): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(`${date}T00:00:00Z`)) || new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) throw new PlanInputError('Invalid calendar date');
   const [y, m, d] = date.split('-').map(Number);
   const target = new Date(Date.UTC(y, m - 1 + months, 1));
   const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();

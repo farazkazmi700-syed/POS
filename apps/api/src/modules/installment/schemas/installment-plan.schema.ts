@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import { branchScoped } from '../../../common/branch-scope';
 import { PaymentMode, PlanStatus } from '../../../common/enums';
 import { Guarantor, GuarantorSchema } from '../../customer/schemas/customer.schema';
 
@@ -8,6 +9,11 @@ export class PlanItem {
   @Prop({ required: true }) name: string;
   @Prop({ required: true }) qty: number;
   @Prop() serialNo?: string;
+  @Prop() unitPrice?: number;
+  @Prop() discountAmount?: number;
+  @Prop() taxAmount?: number;
+  @Prop() lineTotal?: number;
+
 }
 const PlanItemSchema = SchemaFactory.createForClass(PlanItem);
 
@@ -70,5 +76,6 @@ export class InstallmentPlan {
 
 export type InstallmentPlanDocument = HydratedDocument<InstallmentPlan>;
 export const InstallmentPlanSchema = SchemaFactory.createForClass(InstallmentPlan);
+InstallmentPlanSchema.plugin(branchScoped);
 InstallmentPlanSchema.index({ tenantId: 1, status: 1, createdAt: -1 });
 InstallmentPlanSchema.index({ tenantId: 1, orderId: 1 }, { unique: true });

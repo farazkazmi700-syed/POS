@@ -1,6 +1,7 @@
 import type { Customer } from '@pos/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
+import PageHeading from '../components/PageHeading';
 import { Link } from 'react-router-dom';
 import { customerApi, type CustomerInput } from '../api';
 import Modal from '../components/Modal';
@@ -92,13 +93,8 @@ export default function Customers() {
   return (
     <div className="space-y-4">
       {/* ─────────────── Controls Header ─────────────── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Customers & Accounts</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {customersList.length} registered customers
-          </p>
-        </div>
+      <div className="page-header">
+        <PageHeading eyebrow="Relationships" title="Customers & accounts" description={`${customersList.length} customers. Keep contact details and account records organized.`} />
 
         <div className="flex flex-wrap items-center gap-2.5">
           <input

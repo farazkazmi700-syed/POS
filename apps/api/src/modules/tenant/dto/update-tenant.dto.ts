@@ -1,9 +1,9 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsArray, IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Length, Max, MaxLength, Min, ValidateNested,
+  IsArray, IsBoolean, IsEnum, IsIn, IsNumber, IsOptional, IsString, Length, Max, MaxLength, Min, ValidateNested,
 } from 'class-validator';
-import { ChargeType, DomainType } from '../../../common/enums';
+import { ChargeType, DomainType, InvoicePaperSize } from '../../../common/enums';
 
 export class ChargeRuleDto {
   @IsString() @MaxLength(60) label: string;
@@ -16,6 +16,17 @@ export class TaxProfileDto {
   @IsNumber() @Min(0) @Max(100) reducedGstPercent: number;
   @IsNumber() @Min(0) @Max(100) serviceChargePercent: number;
   @IsArray() @ValidateNested({ each: true }) @Type(() => ChargeRuleDto) otherCharges: ChargeRuleDto[];
+}
+
+export class InvoicePrintSettingsDto {
+  @IsOptional() @IsEnum(InvoicePaperSize) paperSize?: 'A4' | 'A5' | 'A6' | 'Receipt' | '80mm' | '58mm' | 'custom';
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 1 }) @Min(40) @Max(420) widthMm?: number;
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 1 }) @Min(40) @Max(1000) heightMm?: number;
+  @IsOptional() @IsString() @MaxLength(80) stamp?: string;
+  @IsOptional() @IsString() @MaxLength(80) watermark?: string;
+  @IsOptional() @IsString() @MaxLength(250) footerText?: string;
+  @IsOptional() @IsBoolean() logoWatermark?: boolean;
+  @IsOptional() @IsEnum(['portrait', 'landscape']) orientation?: 'portrait' | 'landscape';
 }
 
 export class NavigationVisibilityDto {
@@ -41,4 +52,5 @@ export class UpdateTenantDto {
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) @Max(100) installmentMarkupPercent?: number;
   @ApiPropertyOptional({ type: TaxProfileDto }) @IsOptional() @ValidateNested() @Type(() => TaxProfileDto) taxProfile?: TaxProfileDto;
   @ApiPropertyOptional({ type: NavigationVisibilityDto }) @IsOptional() @ValidateNested() @Type(() => NavigationVisibilityDto) navigationVisibility?: NavigationVisibilityDto;
+  @ApiPropertyOptional({ type: InvoicePrintSettingsDto }) @IsOptional() @ValidateNested() @Type(() => InvoicePrintSettingsDto) invoicePrintSettings?: InvoicePrintSettingsDto;
 }

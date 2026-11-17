@@ -3,14 +3,14 @@ import { addMonths, allocatePayment, calculatePlan, nextDueOf, overdueOf, PlanIn
 const base = { cashTotal: 60000, downPayment: 10000, months: 6, markupPercent: 10, firstDueDate: '2026-11-10' };
 
 describe('calculatePlan', () => {
-  it('adds markup to the cash price, subtracts the down payment, splits over the months', () => {
+  it('subtracts the down payment before applying markup and splitting payments', () => {
     const p = calculatePlan(base);
-    expect(p.markupAmount).toBe(6000);
-    expect(p.totalPayable).toBe(66000);
-    expect(p.financedAmount).toBe(56000);
-    expect(p.monthlyAmount).toBe(9334); // rounded up to a whole rupee
+    expect(p.markupAmount).toBe(5000);
+    expect(p.totalPayable).toBe(65000);
+    expect(p.financedAmount).toBe(55000);
+    expect(p.monthlyAmount).toBe(9167); // rounded up to a whole rupee
     expect(p.schedule).toHaveLength(6);
-    expect(p.schedule[5].amount).toBe(9330); // last instalment absorbs the difference
+    expect(p.schedule[5].amount).toBe(9165); // last instalment absorbs the difference
   });
 
   it('schedule always adds up to the financed amount', () => {
@@ -26,6 +26,21 @@ describe('calculatePlan', () => {
     const p = calculatePlan({ ...base, downPayment: 0, markupPercent: 0, months: 3 });
     expect(p.financedAmount).toBe(60000);
     expect(p.monthlyAmount).toBe(20000);
+  });
+
+  it('charges no interest until a down payment is received, and splits the rest', () => {
+    const noDown = calculatePlan({ ...base, downPayment: 0 });
+    expect(noDown.markupAmount).toBe(0);
+    expect(noDown.totalPayable).toBe(60000);
+    expect(noDown.financedAmount).toBe(60000);
+    expect(noDown.schedule.reduce((a, r) => a + r.amount, 0)).toBe(60000);
+
+    // A token down payment switches interest on: markup applies only to what is left after it.
+    const withDown = calculatePlan({ ...base, downPayment: 0.01 });
+    expect(withDown.markupAmount).toBe(6000); // 10% of 59,999.99
+    expect(withDown.financedAmount).toBe(60000 + 6000 - 0.01);
+    const sum = Math.round(withDown.schedule.reduce((a, r) => a + Math.round(r.amount * 100), 0));
+    expect(sum).toBe(Math.round(withDown.financedAmount * 100));
   });
 
   it('due dates keep the day of month and clamp to short months', () => {

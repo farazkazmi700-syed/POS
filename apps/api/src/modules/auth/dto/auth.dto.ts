@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsEmail, IsEnum, IsIn, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsEmail, IsEnum, IsIn, IsMongoId, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from 'class-validator';
+import { ACTIONS } from '../../../common/action-permissions';
 import { DomainType, Role } from '../../../common/enums';
 
 export class RegisterDto {
@@ -25,9 +26,9 @@ export class DeveloperLoginDto {
   @ApiProperty({ example: '52909063' }) @IsString() @Matches(/^\d{8}$/, { message: 'PIN must be an 8-digit code' }) pin: string;
 }
 
-export class DeveloperPinSetupDto {
+export class DeveloperSetupPinDto {
   @ApiProperty() @IsEmail() email: string;
-  @ApiProperty() @IsString() @MinLength(32) @MaxLength(256) setupToken: string;
+  @ApiProperty() @IsString() @MinLength(32) setupToken: string;
 }
 
 export class CompletePinLoginDto {
@@ -65,18 +66,54 @@ export class VerifyRecoveryDto {
 }
 
 export class CreateStaffDto {
+  @IsOptional() @IsArray() @ArrayMaxSize(100) @IsMongoId({ each: true }) branchIds?: string[];
   @ApiProperty() @IsString() @Length(2, 80) name: string;
   @ApiProperty() @IsEmail() email: string;
   @ApiProperty() @IsString() @MinLength(8) @MaxLength(72) password: string;
-  @ApiProperty({ enum: [Role.Admin, Role.Cashier] }) @IsEnum(Role) role: Role.Admin | Role.Cashier;
+  @ApiProperty({ enum: [Role.Admin, Role.Cashier] }) @IsIn([Role.Admin, Role.Cashier]) role: Role.Admin | Role.Cashier;
   /** Modules this account may access; omit for full access per role. */
   @ApiPropertyOptional({ type: [String], enum: ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcode-generator', 'barcode-scanner'] })
-  @IsOptional() @IsArray() @ArrayMaxSize(7) @IsIn(['pos', 'products', 'dashboard', 'orders', 'settings', 'installments', 'customers', 'barcode-generator', 'barcode-scanner'], { each: true })
+  @IsOptional() @IsArray() @ArrayMaxSize(9) @IsIn(['pos', 'products', 'dashboard', 'orders', 'settings', 'installments', 'customers', 'barcode-generator', 'barcode-scanner'], { each: true })
   moduleRights?: string[];
 }
 
 export class UpdateStaffRightsDto {
+  @IsOptional() @IsArray() @ArrayMaxSize(100) @IsMongoId({ each: true }) branchIds?: string[];
+  @IsOptional() @IsArray() @ArrayMaxSize(24) @IsIn(ACTIONS, { each: true }) permissions?: string[];
   @ApiProperty({ type: [String], enum: ['pos', 'products', 'dashboard', 'orders', 'settings', 'installments', 'customers', 'barcode-generator', 'barcode-scanner'] })
   @IsArray() @ArrayMaxSize(9) @IsIn(['pos', 'products', 'dashboard', 'orders', 'settings', 'installments', 'customers', 'barcode-generator', 'barcode-scanner'], { each: true })
   moduleRights: string[];
+}
+
+export class UpdateStaffStatusDto {
+  @ApiProperty() @IsBoolean() isActive: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Hybrid password recovery (online email token + offline recovery codes)
+// ---------------------------------------------------------------------------
+export class ForgotPasswordDto {
+  @ApiProperty() @IsEmail() email: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty() @IsString() @MinLength(20) @MaxLength(120) token: string;
+  @ApiProperty() @IsString() @MinLength(12) @MaxLength(128) newPassword: string;
+}
+
+export class RecoverOfflineDto {
+  @ApiProperty() @IsEmail() email: string;
+  @ApiProperty() @IsString() @MinLength(20) @MaxLength(80) recoveryCode: string;
+  @ApiProperty() @IsString() @MinLength(12) @MaxLength(128) newPassword: string;
+}
+
+export class ChangePasswordDto {
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(128) currentPassword: string;
+  @ApiProperty() @IsString() @MinLength(12) @MaxLength(128) newPassword: string;
+}
+
+export class AdminResetStaffDto {
+  @ApiProperty() @IsMongoId() staffId: string;
+  /** The administrator's own current password (reauthentication). */
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(128) adminPassword: string;
 }

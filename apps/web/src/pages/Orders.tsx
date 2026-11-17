@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import PageHeading from '../components/PageHeading';
 import { invoiceApi, orderApi } from '../api';
 import { useTenant } from '../hooks/useTenant';
 import { useAuth } from '../store/auth';
@@ -13,6 +14,7 @@ export default function Orders() {
   const canManage = role !== 'cashier';
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'voided'>('all');
+  const refund = useMutation({ mutationFn: ({ id, reason }: { id: string; reason: string }) => orderApi.refund(id, reason), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['orders'] }); queryClient.invalidateQueries({ queryKey: ['products'] }); } });
   const limit = 15;
 
   const list = useQuery({
@@ -42,13 +44,8 @@ export default function Orders() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Orders & Invoices</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Total sales recorded: {list.data?.total ?? 0} orders
-          </p>
-        </div>
+      <div className="page-header">
+        <PageHeading eyebrow="Sales activity" title="Orders & invoices" description={`${list.data?.total ?? 0} orders. Review transactions and download customer invoices.`} />
 
         {/* Filter Pills */}
         <div className="flex items-center gap-1.5 self-start sm:self-auto rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
@@ -70,6 +67,8 @@ export default function Orders() {
       </div>
 
       {voidOrder.isError && <p className="text-sm text-red-600">{errorMessage(voidOrder.error)}</p>}
+      {refund.isError && <p role="alert" className="text-sm text-red-600">{errorMessage(refund.error)}</p>}
+      {canManage && <div className="card"><label className="label" htmlFor="refund-order">Full-order refund</label><div className="flex flex-wrap gap-2"><select id="refund-order" className="input flex-1" defaultValue="" onChange={(event) => { const id = event.target.value; if (!id) return; const reason = window.prompt('Reason for the full refund (at least 3 characters). Stock will be restored once.'); if (reason && reason.trim().length >= 3) refund.mutate({ id, reason }); event.target.value = ''; }} disabled={refund.isPending}><option value="">Choose a completed cash/card/wallet sale…</option>{rawOrders.filter((order) => order.status === 'completed' && order.paymentMode !== 'installment').map((order) => <option key={order._id} value={order._id}>{order.invoiceNo} · {formatMoney(order.grandTotal, currency)}</option>)}</select><p className="text-xs text-slate-500">Installment agreements require a separate settlement.</p></div></div>}
       {openPdf.isError && <p className="text-sm text-red-600">{errorMessage(openPdf.error)}</p>}
       {downloadPdf.isError && <p className="text-sm text-red-600">{errorMessage(downloadPdf.error)}</p>}
 

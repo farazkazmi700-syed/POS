@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize, ArrayMinSize, IsArray, IsDefined, IsEnum, IsMongoId, IsNumber, IsOptional, IsString, Max, MaxLength, Min,
-  ValidateIf, ValidateNested,
+  ValidateIf, ValidateNested, IsUUID, IsIn, MinLength,
 } from 'class-validator';
 import { PaymentMode } from '../../../common/enums';
 import { InstallmentTermsDto } from '../../installment/dto/installment.dto';
@@ -26,7 +26,14 @@ export class CustomerDto {
   @IsOptional() @IsString() @MaxLength(32) phone?: string;
 }
 
+export class TenderDto {
+  @IsIn(['cash', 'card', 'wallet']) mode: 'cash' | 'card' | 'wallet';
+  @IsNumber({ maxDecimalPlaces: 2 }) @Min(0.01) amount: number;
+}
+
 export class CreateOrderDto extends PreviewOrderDto {
+  @ApiPropertyOptional() @IsOptional() @IsUUID() idempotencyKey?: string;
+  @ApiPropertyOptional({ type: [TenderDto] }) @IsOptional() @IsArray() @ArrayMinSize(2) @ArrayMaxSize(3) @ValidateNested({ each: true }) @Type(() => TenderDto) payments?: TenderDto[];
   @ApiProperty({ enum: PaymentMode }) @IsEnum(PaymentMode) paymentMode: PaymentMode;
   @ApiPropertyOptional({ type: CustomerDto }) @IsOptional() @ValidateNested() @Type(() => CustomerDto) customer?: CustomerDto;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(300) note?: string;
@@ -34,6 +41,10 @@ export class CreateOrderDto extends PreviewOrderDto {
   @ValidateIf((o: CreateOrderDto) => o.paymentMode === PaymentMode.Installment)
   @IsDefined() @ValidateNested() @Type(() => InstallmentTermsDto)
   installment?: InstallmentTermsDto;
+}
+
+export class RefundOrderDto {
+  @ApiProperty() @IsString() @MinLength(3) @MaxLength(300) reason: string;
 }
 
 export class ListOrdersDto {

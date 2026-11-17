@@ -8,6 +8,7 @@
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "paths": { "bwip-js": ["./node_modules/bwip-js/dist/bwip-js-node.d.ts"] },
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./src",

@@ -16,10 +16,19 @@ interface CartState {
   setSerial: (productId: string, serialNo: string) => void;
   remove: (productId: string) => void;
   clear: () => void;
+  held: { id: string; label: string; items: CartItem[] }[];
+  hold: () => void;
+  resume: (id: string) => void;
 }
 
 export const useCart = create<CartState>()((set) => ({
   items: [],
+  held: [],
+  hold: () => set((state) => state.items.length ? { held: [...state.held, { id: crypto.randomUUID(), label: `Sale ${state.held.length + 1}`, items: structuredClone(state.items) }], items: [] } : state),
+  resume: (id) => set((state) => {
+    const saved = state.held.find((sale) => sale.id === id);
+    return saved && state.items.length === 0 ? { items: saved.items, held: state.held.filter((sale) => sale.id !== id) } : state;
+  }),
   add: (product) =>
     set((s) => {
       const existing = s.items.find((i) => i.product._id === product._id);

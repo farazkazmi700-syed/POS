@@ -27,7 +27,11 @@ export class TenantService {
   }
 
   async update(id: string, dto: UpdateTenantDto): Promise<TenantDocument> {
-    const tenant = await this.model.findByIdAndUpdate(id, { $set: dto }, { new: true, runValidators: true });
+    const { navigationVisibility, invoicePrintSettings, ...fields } = dto;
+    const nested: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(navigationVisibility ?? {})) nested[`navigationVisibility.${key}`] = value;
+    for (const [key, value] of Object.entries(invoicePrintSettings ?? {})) nested[`invoicePrintSettings.${key}`] = value;
+    const tenant = await this.model.findByIdAndUpdate(id, { $set: { ...fields, ...nested } }, { new: true, runValidators: true });
     if (!tenant) throw new NotFoundException('Tenant not found');
     return tenant;
   }

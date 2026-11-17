@@ -1,0 +1,14 @@
+{
+  "name": "@pos/database-migration",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Isolated migration tooling; never imported by application runtime",
+  "scripts": {
+    "test": "node --test *.test.cjs",
+    "stage": "node stage-postgresql.cjs"
+  },
+  "dependencies": {
+    "mongodb": "7.7.0",
+    "pg": "8.23.1"
+  }
+}

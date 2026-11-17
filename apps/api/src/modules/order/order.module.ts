@@ -8,11 +8,13 @@ import { OrderController } from './order.controller';
 import { OrderService } from './order.service';
 import { InvoiceCounter, InvoiceCounterSchema } from './schemas/invoice-counter.schema';
 import { Order, OrderSchema } from './schemas/order.schema';
+import { CheckoutRequest, CheckoutRequestSchema } from './schemas/checkout-request.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Order.name, schema: OrderSchema },
+      { name: CheckoutRequest.name, schema: CheckoutRequestSchema },
       { name: InvoiceCounter.name, schema: InvoiceCounterSchema },
     ]),
     ProductModule, TenantModule, InvoiceModule, InstallmentModule,

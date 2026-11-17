@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 import { TaxClass } from '../../../common/enums';
+import { branchScoped } from '../../../common/branch-scope';
 
 @Schema({ timestamps: true })
 export class Product {
@@ -20,10 +21,14 @@ export class Product {
   @Prop({ type: Object, default: {} }) attributes: Record<string, string | number | boolean>;
   @Prop() imageUrl?: string;
   @Prop({ default: true }) isActive: boolean;
+  @Prop({ type: [String], default: [], select: false }) restoredSaleEvents: string[];
+  @Prop({ type: [String], default: [], select: false }) stockAdjustmentEvents: string[];
+  @Prop() barcode?: string;
 }
 
 export type ProductDocument = HydratedDocument<Product>;
 export const ProductSchema = SchemaFactory.createForClass(Product);
+ProductSchema.plugin(branchScoped);
 
 // SKU must be unique inside a tenant, but is optional.
 ProductSchema.index(
@@ -31,3 +36,4 @@ ProductSchema.index(
   { unique: true, partialFilterExpression: { sku: { $type: 'string' } } },
 );
 ProductSchema.index({ tenantId: 1, name: 1 });
+ProductSchema.index({ tenantId: 1, branchId: 1, barcode: 1 }, { unique: true, partialFilterExpression: { barcode: { $type: 'string' } } });

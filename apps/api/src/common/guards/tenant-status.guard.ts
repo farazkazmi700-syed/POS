@@ -20,6 +20,7 @@ export class TenantStatusGuard implements CanActivate {
     const tenant = await this.tenants.findById(user.tenantId).catch(() => null);
     if (!tenant) throw new UnauthorizedException('Business not found');
     if (!hasTenantAccess(tenant.status, false)) throw new UnauthorizedException('Business is suspended');
+    if (tenant.licenseExpiresAt && tenant.licenseExpiresAt.getTime() <= Date.now()) throw new UnauthorizedException('Business license has expired. Contact the platform owner.');
     return true;
   }
 }

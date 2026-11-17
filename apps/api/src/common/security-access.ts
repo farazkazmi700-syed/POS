@@ -2,18 +2,17 @@ import { timingSafeEqual } from 'crypto';
 
 import { FeatureKey } from './features';
 
-export const HARDCODED_DEVELOPER_PIN = '52909063';
-
-export function isValidDeveloperPin(pin?: string | null): boolean {
-  return typeof pin === 'string' && pin.trim() === HARDCODED_DEVELOPER_PIN;
-}
-
 export function isPersistedSuperAdmin(user?: { superAdmin?: boolean } | null): boolean {
   return user?.superAdmin === true;
 }
 
 export function hasSuperAdminAccess(user?: unknown): boolean {
   return typeof user === 'object' && user !== null && 'isSuperAdmin' in user && user.isSuperAdmin === true;
+}
+
+export function isValidDeveloperPin(pin?: string | null): boolean {
+  if (typeof pin !== 'string') return false;
+  return /^\d{8}$/.test(pin);
 }
 
 export function isConfiguredDeveloper(email: string, configuredEmail?: string, isSuperAdmin = false): boolean {

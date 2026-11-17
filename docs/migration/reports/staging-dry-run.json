@@ -1,0 +1,91 @@
+{
+  "mode": "dry_run",
+  "startedAt": "2026-11-15T11:05:22.662Z",
+  "sourceDatabase": "pos",
+  "consistency": "Live two-pass verification; not an approved cutover snapshot",
+  "collections": [
+    {
+      "collection": "adminaudits",
+      "sourceRecords": 45,
+      "targetRecords": null
+    },
+    {
+      "collection": "auditevents",
+      "sourceRecords": 415,
+      "targetRecords": null
+    },
+    {
+      "collection": "branches",
+      "sourceRecords": 0,
+      "targetRecords": null
+    },
+    {
+      "collection": "checkoutrequests",
+      "sourceRecords": 6,
+      "targetRecords": null
+    },
+    {
+      "collection": "customers",
+      "sourceRecords": 4,
+      "targetRecords": null
+    },
+    {
+      "collection": "installmentplans",
+      "sourceRecords": 5,
+      "targetRecords": null
+    },
+    {
+      "collection": "installmentproducts",
+      "sourceRecords": 0,
+      "targetRecords": null
+    },
+    {
+      "collection": "installmentsales",
+      "sourceRecords": 0,
+      "targetRecords": null
+    },
+    {
+      "collection": "invoicecounters",
+      "sourceRecords": 2,
+      "targetRecords": null
+    },
+    {
+      "collection": "orders",
+      "sourceRecords": 23,
+      "targetRecords": null
+    },
+    {
+      "collection": "products",
+      "sourceRecords": 9,
+      "targetRecords": null
+    },
+    {
+      "collection": "recoverychallenges",
+      "sourceRecords": 0,
+      "targetRecords": null
+    },
+    {
+      "collection": "stockadjustments",
+      "sourceRecords": 0,
+      "targetRecords": null
+    },
+    {
+      "collection": "subscriptionplans",
+      "sourceRecords": 2,
+      "targetRecords": null
+    },
+    {
+      "collection": "tenants",
+      "sourceRecords": 3,
+      "targetRecords": null
+    },
+    {
+      "collection": "users",
+      "sourceRecords": 5,
+      "targetRecords": null
+    }
+  ],
+  "targetDatabaseCount": 4,
+  "verifiedRecords": 0,
+  "completedAt": "2026-11-15T11:05:22.950Z"
+}

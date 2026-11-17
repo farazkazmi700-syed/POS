@@ -12,6 +12,10 @@ TypeScript POS where any business (retail, restaurant, pharmacy, salon, ...) can
 
 See [Project structure and repository conventions](docs/project-structure.md) for directory ownership, generated files and verification commands.
 
+PostgreSQL migration: the API and PDF worker support PostgreSQL-authoritative
+invoice status and PDF metadata. Sales, inventory and authentication still use
+MongoDB. See [hybrid invoice setup and activation gates](docs/migration/09-hybrid-invoices.md).
+
 ## How a sale flows
 
 ```

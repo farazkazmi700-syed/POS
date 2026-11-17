@@ -9,4 +9,9 @@ export interface AuthUser {
   isDeveloper: boolean;
   email: string;
   name: string;
+  moduleRights?: string[];
+  permissions?: string[];
+  branchIds?: string[];
+  branchId?: string;
+  defaultBranchId?: string;
 }

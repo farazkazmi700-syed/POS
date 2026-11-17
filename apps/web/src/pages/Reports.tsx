@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import PageHeading from '../components/PageHeading';
 import { useState } from 'react';
 import { reportApi } from '../api';
 import { useTenant } from '../hooks/useTenant';
@@ -119,11 +120,8 @@ export default function Reports() {
         </div>
       )}
 
-      <div className="no-print flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Sales & Revenue Reports</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Export audited sales figures and payment summaries</p>
-        </div>
+      <div className="page-header no-print">
+        <PageHeading eyebrow="Analytics" title="Sales & revenue" description="Explore sales performance, compare periods, and export payment summaries." />
         <div className="flex items-center gap-2">
           <button className="btn-secondary flex-1 sm:flex-none text-xs" disabled={!r} onClick={exportCsv}>Export CSV</button>
           <button className="btn-secondary flex-1 sm:flex-none text-xs" disabled={!r} onClick={() => window.print()}>Print</button>

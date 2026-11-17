@@ -1,0 +1,2291 @@
+{
+  "observedAt": "2026-11-15T10:54:55.811Z",
+  "consistency": "Live read; not a point-in-time snapshot or cutover reconciliation",
+  "database": "pos",
+  "databases": [
+    "admin",
+    "config",
+    "local",
+    "pos"
+  ],
+  "collections": [
+    {
+      "name": "adminaudits",
+      "count": 45,
+      "fields": [
+        {
+          "_id": {
+            "field": "__v",
+            "type": "int"
+          },
+          "count": 45
+        },
+        {
+          "_id": {
+            "field": "_id",
+            "type": "objectId"
+          },
+          "count": 45
+        },
+        {
+          "_id": {
+            "field": "action",
+            "type": "string"
+          },
+          "count": 45
+        },
+        {
+          "_id": {
+            "field": "actorEmail",
+            "type": "string"
+          },
+          "count": 45
+        },
+        {
+          "_id": {
+            "field": "actorId",
+            "type": "objectId"
+          },
+          "count": 45
+        },
+        {
+          "_id": {
+            "field": "createdAt",
+            "type": "date"
+          },
+          "count": 45
+        },
+        {
+          "_id": {
+            "field": "details",
+            "type": "object"
+          },
+          "count": 45
+        },
+        {
+          "_id": {
+            "field": "entityId",
+            "type": "string"
+          },
+          "count": 45
+        },
+        {
+          "_id": {
+            "field": "entityType",
+            "type": "string"
+          },
+          "count": 45
+        },
+        {
+          "_id": {
+            "field": "updatedAt",
+            "type": "date"
+          },
+          "count": 45
+        }
+      ],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "actorId_1",
+          "key": {
+            "actorId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "action_1",
+          "key": {
+            "action": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "entityType_1",
+          "key": {
+            "entityType": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "entityId_1",
+          "key": {
+            "entityId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "createdAt_-1",
+          "key": {
+            "createdAt": -1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        }
+      ]
+    },
+    {
+      "name": "auditevents",
+      "count": 413,
+      "fields": [
+        {
+          "_id": {
+            "field": "__v",
+            "type": "int"
+          },
+          "count": 413
+        },
+        {
+          "_id": {
+            "field": "_id",
+            "type": "objectId"
+          },
+          "count": 413
+        },
+        {
+          "_id": {
+            "field": "action",
+            "type": "string"
+          },
+          "count": 413
+        },
+        {
+          "_id": {
+            "field": "actorId",
+            "type": "string"
+          },
+          "count": 413
+        },
+        {
+          "_id": {
+            "field": "createdAt",
+            "type": "date"
+          },
+          "count": 413
+        },
+        {
+          "_id": {
+            "field": "details",
+            "type": "object"
+          },
+          "count": 413
+        },
+        {
+          "_id": {
+            "field": "resource",
+            "type": "string"
+          },
+          "count": 413
+        },
+        {
+          "_id": {
+            "field": "tenantId",
+            "type": "objectId"
+          },
+          "count": 413
+        }
+      ],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1",
+          "key": {
+            "tenantId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_createdAt_-1",
+          "key": {
+            "tenantId": 1,
+            "createdAt": -1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        }
+      ]
+    },
+    {
+      "name": "branches",
+      "count": 0,
+      "fields": [],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1",
+          "key": {
+            "tenantId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_code_1",
+          "key": {
+            "tenantId": 1,
+            "code": 1
+          },
+          "unique": true,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        }
+      ]
+    },
+    {
+      "name": "checkoutrequests",
+      "count": 6,
+      "fields": [
+        {
+          "_id": {
+            "field": "__v",
+            "type": "int"
+          },
+          "count": 6
+        },
+        {
+          "_id": {
+            "field": "_id",
+            "type": "objectId"
+          },
+          "count": 6
+        },
+        {
+          "_id": {
+            "field": "createdAt",
+            "type": "date"
+          },
+          "count": 6
+        },
+        {
+          "_id": {
+            "field": "hash",
+            "type": "string"
+          },
+          "count": 6
+        },
+        {
+          "_id": {
+            "field": "key",
+            "type": "string"
+          },
+          "count": 6
+        },
+        {
+          "_id": {
+            "field": "result",
+            "type": "object"
+          },
+          "count": 6
+        },
+        {
+          "_id": {
+            "field": "tenantId",
+            "type": "objectId"
+          },
+          "count": 6
+        },
+        {
+          "_id": {
+            "field": "updatedAt",
+            "type": "date"
+          },
+          "count": 6
+        }
+      ],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "branchId_1",
+          "key": {
+            "branchId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_key_1",
+          "key": {
+            "tenantId": 1,
+            "key": 1
+          },
+          "unique": true,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        }
+      ]
+    },
+    {
+      "name": "customers",
+      "count": 4,
+      "fields": [
+        {
+          "_id": {
+            "field": "__v",
+            "type": "int"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "_id",
+            "type": "objectId"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "address",
+            "type": "string"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "cnic",
+            "type": "string"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "createdAt",
+            "type": "date"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "guarantor",
+            "type": "object"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "name",
+            "type": "string"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "phone",
+            "type": "string"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "tenantId",
+            "type": "objectId"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "updatedAt",
+            "type": "date"
+          },
+          "count": 4
+        }
+      ],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1",
+          "key": {
+            "tenantId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_name_1",
+          "key": {
+            "tenantId": 1,
+            "name": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_phone_1",
+          "key": {
+            "tenantId": 1,
+            "phone": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "branchId_1",
+          "key": {
+            "branchId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        }
+      ]
+    },
+    {
+      "name": "installmentplans",
+      "count": 5,
+      "fields": [
+        {
+          "_id": {
+            "field": "__v",
+            "type": "int"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "_id",
+            "type": "objectId"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "balance",
+            "type": "double"
+          },
+          "count": 1
+        },
+        {
+          "_id": {
+            "field": "balance",
+            "type": "int"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "cashTotal",
+            "type": "int"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "createdAt",
+            "type": "date"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "createdByName",
+            "type": "string"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "customerAddress",
+            "type": "string"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "customerCnic",
+            "type": "string"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "customerId",
+            "type": "objectId"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "customerName",
+            "type": "string"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "customerPhone",
+            "type": "string"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "downPayment",
+            "type": "int"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "financedAmount",
+            "type": "double"
+          },
+          "count": 1
+        },
+        {
+          "_id": {
+            "field": "financedAmount",
+            "type": "int"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "firstDueDate",
+            "type": "string"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "guarantor",
+            "type": "object"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "invoiceNo",
+            "type": "string"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "items",
+            "type": "array"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "markupAmount",
+            "type": "double"
+          },
+          "count": 1
+        },
+        {
+          "_id": {
+            "field": "markupAmount",
+            "type": "int"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "markupPercent",
+            "type": "double"
+          },
+          "count": 1
+        },
+        {
+          "_id": {
+            "field": "markupPercent",
+            "type": "int"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "monthlyAmount",
+            "type": "int"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "months",
+            "type": "int"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "orderId",
+            "type": "objectId"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "paidTotal",
+            "type": "int"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "payments",
+            "type": "array"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "schedule",
+            "type": "array"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "status",
+            "type": "string"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "tenantId",
+            "type": "objectId"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "totalPayable",
+            "type": "double"
+          },
+          "count": 1
+        },
+        {
+          "_id": {
+            "field": "totalPayable",
+            "type": "int"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "updatedAt",
+            "type": "date"
+          },
+          "count": 5
+        }
+      ],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1",
+          "key": {
+            "tenantId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "customerId_1",
+          "key": {
+            "customerId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_status_1_createdAt_-1",
+          "key": {
+            "tenantId": 1,
+            "status": 1,
+            "createdAt": -1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_orderId_1",
+          "key": {
+            "tenantId": 1,
+            "orderId": 1
+          },
+          "unique": true,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "branchId_1",
+          "key": {
+            "branchId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        }
+      ]
+    },
+    {
+      "name": "installmentproducts",
+      "count": 0,
+      "fields": [],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1",
+          "key": {
+            "tenantId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "installmentProductId_1",
+          "key": {
+            "installmentProductId": 1
+          },
+          "unique": true,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "branchId_1",
+          "key": {
+            "branchId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_name_1",
+          "key": {
+            "tenantId": 1,
+            "name": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_status_1",
+          "key": {
+            "tenantId": 1,
+            "status": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        }
+      ]
+    },
+    {
+      "name": "installmentsales",
+      "count": 0,
+      "fields": [],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1",
+          "key": {
+            "tenantId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "installmentSaleId_1",
+          "key": {
+            "installmentSaleId": 1
+          },
+          "unique": true,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "customerId_1",
+          "key": {
+            "customerId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "installmentProductId_1",
+          "key": {
+            "installmentProductId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "branchId_1",
+          "key": {
+            "branchId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_customerId_1_saleStatus_1",
+          "key": {
+            "tenantId": 1,
+            "customerId": 1,
+            "saleStatus": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_installmentProductId_1",
+          "key": {
+            "tenantId": 1,
+            "installmentProductId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        }
+      ]
+    },
+    {
+      "name": "invoicecounters",
+      "count": 2,
+      "fields": [
+        {
+          "_id": {
+            "field": "__v",
+            "type": "int"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "_id",
+            "type": "objectId"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "lastNumber",
+            "type": "int"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "tenantId",
+            "type": "objectId"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "year",
+            "type": "int"
+          },
+          "count": 2
+        }
+      ],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_year_1",
+          "key": {
+            "tenantId": 1,
+            "year": 1
+          },
+          "unique": true,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        }
+      ]
+    },
+    {
+      "name": "orders",
+      "count": 23,
+      "fields": [
+        {
+          "_id": {
+            "field": "__v",
+            "type": "int"
+          },
+          "count": 23
+        },
+        {
+          "_id": {
+            "field": "_id",
+            "type": "objectId"
+          },
+          "count": 23
+        },
+        {
+          "_id": {
+            "field": "cashierId",
+            "type": "objectId"
+          },
+          "count": 23
+        },
+        {
+          "_id": {
+            "field": "cashierName",
+            "type": "string"
+          },
+          "count": 23
+        },
+        {
+          "_id": {
+            "field": "charges",
+            "type": "array"
+          },
+          "count": 23
+        },
+        {
+          "_id": {
+            "field": "chargesTotal",
+            "type": "double"
+          },
+          "count": 12
+        },
+        {
+          "_id": {
+            "field": "chargesTotal",
+            "type": "int"
+          },
+          "count": 11
+        },
+        {
+          "_id": {
+            "field": "createdAt",
+            "type": "date"
+          },
+          "count": 23
+        },
+        {
+          "_id": {
+            "field": "customer",
+            "type": "object"
+          },
+          "count": 10
+        },
+        {
+          "_id": {
+            "field": "discountTotal",
+            "type": "double"
+          },
+          "count": 1
+        },
+        {
+          "_id": {
+            "field": "discountTotal",
+            "type": "int"
+          },
+          "count": 22
+        },
+        {
+          "_id": {
+            "field": "grandTotal",
+            "type": "double"
+          },
+          "count": 10
+        },
+        {
+          "_id": {
+            "field": "grandTotal",
+            "type": "int"
+          },
+          "count": 13
+        },
+        {
+          "_id": {
+            "field": "idempotencyKey",
+            "type": "string"
+          },
+          "count": 6
+        },
+        {
+          "_id": {
+            "field": "invoiceNo",
+            "type": "string"
+          },
+          "count": 23
+        },
+        {
+          "_id": {
+            "field": "invoicePdfPath",
+            "type": "string"
+          },
+          "count": 22
+        },
+        {
+          "_id": {
+            "field": "invoiceStatus",
+            "type": "string"
+          },
+          "count": 23
+        },
+        {
+          "_id": {
+            "field": "items",
+            "type": "array"
+          },
+          "count": 23
+        },
+        {
+          "_id": {
+            "field": "paymentMode",
+            "type": "string"
+          },
+          "count": 23
+        },
+        {
+          "_id": {
+            "field": "status",
+            "type": "string"
+          },
+          "count": 23
+        },
+        {
+          "_id": {
+            "field": "subtotal",
+            "type": "int"
+          },
+          "count": 23
+        },
+        {
+          "_id": {
+            "field": "taxBreakdown",
+            "type": "array"
+          },
+          "count": 23
+        },
+        {
+          "_id": {
+            "field": "taxTotal",
+            "type": "double"
+          },
+          "count": 7
+        },
+        {
+          "_id": {
+            "field": "taxTotal",
+            "type": "int"
+          },
+          "count": 16
+        },
+        {
+          "_id": {
+            "field": "taxableTotal",
+            "type": "double"
+          },
+          "count": 1
+        },
+        {
+          "_id": {
+            "field": "taxableTotal",
+            "type": "int"
+          },
+          "count": 22
+        },
+        {
+          "_id": {
+            "field": "tenantId",
+            "type": "objectId"
+          },
+          "count": 23
+        },
+        {
+          "_id": {
+            "field": "updatedAt",
+            "type": "date"
+          },
+          "count": 23
+        },
+        {
+          "_id": {
+            "field": "voidedAt",
+            "type": "date"
+          },
+          "count": 3
+        }
+      ],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_createdAt_-1",
+          "key": {
+            "tenantId": 1,
+            "createdAt": -1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_invoiceNo_1",
+          "key": {
+            "tenantId": 1,
+            "invoiceNo": 1
+          },
+          "unique": true,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "branchId_1",
+          "key": {
+            "branchId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_idempotencyKey_1",
+          "key": {
+            "tenantId": 1,
+            "idempotencyKey": 1
+          },
+          "unique": true,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": true
+        }
+      ]
+    },
+    {
+      "name": "products",
+      "count": 9,
+      "fields": [
+        {
+          "_id": {
+            "field": "__v",
+            "type": "int"
+          },
+          "count": 9
+        },
+        {
+          "_id": {
+            "field": "_id",
+            "type": "objectId"
+          },
+          "count": 9
+        },
+        {
+          "_id": {
+            "field": "attributes",
+            "type": "object"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "barcode",
+            "type": "string"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "category",
+            "type": "string"
+          },
+          "count": 8
+        },
+        {
+          "_id": {
+            "field": "costPrice",
+            "type": "int"
+          },
+          "count": 9
+        },
+        {
+          "_id": {
+            "field": "createdAt",
+            "type": "date"
+          },
+          "count": 9
+        },
+        {
+          "_id": {
+            "field": "isActive",
+            "type": "bool"
+          },
+          "count": 9
+        },
+        {
+          "_id": {
+            "field": "lowStockThreshold",
+            "type": "int"
+          },
+          "count": 9
+        },
+        {
+          "_id": {
+            "field": "name",
+            "type": "string"
+          },
+          "count": 9
+        },
+        {
+          "_id": {
+            "field": "price",
+            "type": "double"
+          },
+          "count": 1
+        },
+        {
+          "_id": {
+            "field": "price",
+            "type": "int"
+          },
+          "count": 8
+        },
+        {
+          "_id": {
+            "field": "restoredSaleEvents",
+            "type": "array"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "sku",
+            "type": "string"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "stockAdjustmentEvents",
+            "type": "array"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "stockQty",
+            "type": "int"
+          },
+          "count": 9
+        },
+        {
+          "_id": {
+            "field": "taxClass",
+            "type": "string"
+          },
+          "count": 9
+        },
+        {
+          "_id": {
+            "field": "tenantId",
+            "type": "objectId"
+          },
+          "count": 9
+        },
+        {
+          "_id": {
+            "field": "trackStock",
+            "type": "bool"
+          },
+          "count": 9
+        },
+        {
+          "_id": {
+            "field": "unit",
+            "type": "string"
+          },
+          "count": 9
+        },
+        {
+          "_id": {
+            "field": "updatedAt",
+            "type": "date"
+          },
+          "count": 9
+        }
+      ],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1",
+          "key": {
+            "tenantId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_sku_1",
+          "key": {
+            "tenantId": 1,
+            "sku": 1
+          },
+          "unique": true,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": true
+        },
+        {
+          "name": "tenantId_1_name_1",
+          "key": {
+            "tenantId": 1,
+            "name": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "branchId_1",
+          "key": {
+            "branchId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_branchId_1_barcode_1",
+          "key": {
+            "tenantId": 1,
+            "branchId": 1,
+            "barcode": 1
+          },
+          "unique": true,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": true
+        }
+      ]
+    },
+    {
+      "name": "recoverychallenges",
+      "count": 0,
+      "fields": [],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "challengeId_1",
+          "key": {
+            "challengeId": 1
+          },
+          "unique": true,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "expiresAt_1",
+          "key": {
+            "expiresAt": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": 0,
+          "partial": false
+        }
+      ]
+    },
+    {
+      "name": "stockadjustments",
+      "count": 0,
+      "fields": [],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "branchId_1",
+          "key": {
+            "branchId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1_idempotencyKey_1",
+          "key": {
+            "tenantId": 1,
+            "idempotencyKey": 1
+          },
+          "unique": true,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        }
+      ]
+    },
+    {
+      "name": "subscriptionplans",
+      "count": 2,
+      "fields": [
+        {
+          "_id": {
+            "field": "__v",
+            "type": "int"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "_id",
+            "type": "objectId"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "billingInterval",
+            "type": "string"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "createdAt",
+            "type": "date"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "description",
+            "type": "string"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "features",
+            "type": "object"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "isActive",
+            "type": "bool"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "name",
+            "type": "string"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "price",
+            "type": "int"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "updatedAt",
+            "type": "date"
+          },
+          "count": 2
+        }
+      ],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "name_1",
+          "key": {
+            "name": 1
+          },
+          "unique": true,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "isActive_1",
+          "key": {
+            "isActive": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        }
+      ]
+    },
+    {
+      "name": "tenants",
+      "count": 3,
+      "fields": [
+        {
+          "_id": {
+            "field": "__v",
+            "type": "int"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "_id",
+            "type": "objectId"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "address",
+            "type": "string"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "createdAt",
+            "type": "date"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "currency",
+            "type": "string"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "domainType",
+            "type": "string"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "featureFlags",
+            "type": "object"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "installmentMarkupPercent",
+            "type": "int"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "invoicePrefix",
+            "type": "string"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "logoUrl",
+            "type": "string"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "name",
+            "type": "string"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "navigationVisibility",
+            "type": "object"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "status",
+            "type": "string"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "subscriptionPlanId",
+            "type": "objectId"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "taxProfile",
+            "type": "object"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "taxRegNo",
+            "type": "string"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "updatedAt",
+            "type": "date"
+          },
+          "count": 3
+        }
+      ],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "status_1",
+          "key": {
+            "status": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        }
+      ]
+    },
+    {
+      "name": "users",
+      "count": 5,
+      "fields": [
+        {
+          "_id": {
+            "field": "__v",
+            "type": "int"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "_id",
+            "type": "objectId"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "branchIds",
+            "type": "array"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "createdAt",
+            "type": "date"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "developerPinHash",
+            "type": "string"
+          },
+          "count": 1
+        },
+        {
+          "_id": {
+            "field": "developerPinVersion",
+            "type": "int"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "developerSessionVersion",
+            "type": "int"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "email",
+            "type": "string"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "emailVerificationAttempts",
+            "type": "int"
+          },
+          "count": 3
+        },
+        {
+          "_id": {
+            "field": "emailVerified",
+            "type": "bool"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "emailVerifiedAt",
+            "type": "null"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "isActive",
+            "type": "bool"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "name",
+            "type": "string"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "passwordHash",
+            "type": "string"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "phone",
+            "type": "null"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "phone",
+            "type": "string"
+          },
+          "count": 1
+        },
+        {
+          "_id": {
+            "field": "phoneVerified",
+            "type": "bool"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "pinEnabled",
+            "type": "bool"
+          },
+          "count": 1
+        },
+        {
+          "_id": {
+            "field": "pinFailedAttempts",
+            "type": "int"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "pinHash",
+            "type": "string"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "pinLockedUntil",
+            "type": "null"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "pinRequiresChange",
+            "type": "bool"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "pinResetAttempts",
+            "type": "int"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "pinVersion",
+            "type": "int"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "recoveryEmail",
+            "type": "null"
+          },
+          "count": 2
+        },
+        {
+          "_id": {
+            "field": "recoveryEmail",
+            "type": "string"
+          },
+          "count": 1
+        },
+        {
+          "_id": {
+            "field": "role",
+            "type": "string"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "sessionVersion",
+            "type": "int"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "superAdmin",
+            "type": "bool"
+          },
+          "count": 4
+        },
+        {
+          "_id": {
+            "field": "tenantId",
+            "type": "objectId"
+          },
+          "count": 5
+        },
+        {
+          "_id": {
+            "field": "updatedAt",
+            "type": "date"
+          },
+          "count": 5
+        }
+      ],
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "tenantId_1",
+          "key": {
+            "tenantId": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "email_1",
+          "key": {
+            "email": 1
+          },
+          "unique": true,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "phone_1",
+          "key": {
+            "phone": 1
+          },
+          "unique": false,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": false
+        },
+        {
+          "name": "superAdmin_1",
+          "key": {
+            "superAdmin": 1
+          },
+          "unique": true,
+          "sparse": false,
+          "expiresAfterSeconds": null,
+          "partial": true
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "from": "orders",
+      "field": "cashierId",
+      "to": "users",
+      "checked": 23,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "orders",
+      "field": "items.productId",
+      "to": "products",
+      "checked": 24,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "installmentplans",
+      "field": "orderId",
+      "to": "orders",
+      "checked": 5,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "installmentplans",
+      "field": "customerId",
+      "to": "customers",
+      "checked": 5,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "installmentsales",
+      "field": "customerId",
+      "to": "customers",
+      "checked": 0,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "installmentsales",
+      "field": "installmentProductId",
+      "to": "installmentproducts",
+      "checked": 0,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "stockadjustments",
+      "field": "productId",
+      "to": "products",
+      "checked": 0,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "tenants",
+      "field": "subscriptionPlanId",
+      "to": "subscriptionplans",
+      "checked": 3,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "tenants",
+      "field": "defaultBranchId",
+      "to": "branches",
+      "checked": 0,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "users",
+      "field": "branchIds",
+      "to": "branches",
+      "checked": 0,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "adminaudits",
+      "field": "actorId",
+      "to": "users",
+      "checked": 45,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "recoverychallenges",
+      "field": "userId",
+      "to": "users",
+      "checked": 0,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "auditevents",
+      "field": "tenantId",
+      "to": "tenants",
+      "checked": 413,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "checkoutrequests",
+      "field": "tenantId",
+      "to": "tenants",
+      "checked": 6,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "customers",
+      "field": "tenantId",
+      "to": "tenants",
+      "checked": 4,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "installmentplans",
+      "field": "tenantId",
+      "to": "tenants",
+      "checked": 5,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "invoicecounters",
+      "field": "tenantId",
+      "to": "tenants",
+      "checked": 2,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "orders",
+      "field": "tenantId",
+      "to": "tenants",
+      "checked": 23,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "products",
+      "field": "tenantId",
+      "to": "tenants",
+      "checked": 9,
+      "missing": 0,
+      "crossTenant": 0
+    },
+    {
+      "from": "users",
+      "field": "tenantId",
+      "to": "tenants",
+      "checked": 5,
+      "missing": 0,
+      "crossTenant": 0
+    }
+  ]
+}

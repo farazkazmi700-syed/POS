@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 import { InvoiceStatus, OrderStatus, PaymentMode } from '../../../common/enums';
+import { branchScoped } from '../../../common/branch-scope';
 
 @Schema({ _id: false })
 export class OrderItem {
@@ -48,6 +49,9 @@ export class Order {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true }) cashierId: Types.ObjectId;
   @Prop({ required: true }) cashierName: string;
   @Prop({ required: true }) invoiceNo: string;
+  @Prop() idempotencyKey?: string;
+  @Prop({ type: [{ _id: false, mode: String, amount: Number }], default: undefined }) payments?: { mode: string; amount: number }[];
+  @Prop({ type: Object }) refund?: { reason: string; amount: number; approvedBy: string; refundedAt: Date };
   @Prop({ type: [OrderItemSchema], required: true }) items: OrderItem[];
   @Prop({ required: true }) subtotal: number;
   @Prop({ required: true }) discountTotal: number;
@@ -69,5 +73,7 @@ export class Order {
 
 export type OrderDocument = HydratedDocument<Order>;
 export const OrderSchema = SchemaFactory.createForClass(Order);
+OrderSchema.plugin(branchScoped);
 OrderSchema.index({ tenantId: 1, createdAt: -1 });
 OrderSchema.index({ tenantId: 1, invoiceNo: 1 }, { unique: true });
+OrderSchema.index({ tenantId: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } });

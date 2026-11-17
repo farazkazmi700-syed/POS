@@ -1,0 +1,3 @@
+export default function ProductFooter() {
+  return <footer className="product-footer"><span>Developed by KazmiOn · © {new Date().getFullYear()}</span><a href="https://wa.me/923316276187" target="_blank" rel="noopener noreferrer" aria-label="Contact KazmiOn on WhatsApp at 03316276187"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M20 11.5a8.5 8.5 0 0 1-12.8 7.3L3 20l1.2-4.2A8.5 8.5 0 1 1 20 11.5Z"/><path d="M8 7c-2 3 3 8 6 7l1-2-3-1-1 1-2-2 1-1-1-2Z"/></svg>Contact: 03316276187</a><a href="mailto:info.kazmion@gmail.com">info.kazmion@gmail.com</a></footer>;
+}

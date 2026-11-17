@@ -1,18 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useTheme } from '../store/theme';
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('pos-theme');
-    if (saved === 'light' || saved === 'dark') return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  });
-
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.toggle('dark', theme === 'dark');
-    root.setAttribute('data-theme', theme);
-    localStorage.setItem('pos-theme', theme);
-  }, [theme]);
+  const { theme, setTheme } = useTheme();
 
   const next = theme === 'dark' ? 'light' : 'dark';
 
@@ -21,7 +10,7 @@ export default function ThemeToggle() {
       type="button"
       aria-label={`Switch to ${next} theme`}
       title={`Switch to ${next} theme`}
-      onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+      onClick={() => setTheme(next)}
       className="header-icon-btn"
     >
       {theme === 'dark' ? (

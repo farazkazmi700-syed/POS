@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import { branchScoped } from '../../../common/branch-scope';
 
 @Schema({ _id: false })
 export class Guarantor {
@@ -24,5 +25,6 @@ export class Customer {
 
 export type CustomerDocument = HydratedDocument<Customer>;
 export const CustomerSchema = SchemaFactory.createForClass(Customer);
+CustomerSchema.plugin(branchScoped);
 CustomerSchema.index({ tenantId: 1, name: 1 });
 CustomerSchema.index({ tenantId: 1, phone: 1 });

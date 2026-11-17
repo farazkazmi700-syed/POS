@@ -1,10 +1,11 @@
 import type { Order, PaymentMode, Product } from '@pos/shared-types';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { installmentApi, orderApi, productApi } from '../api';
+import { barcodeApi, installmentApi, orderApi, productApi } from '../api';
 import InstallmentPanel, { emptyInstallmentForm, type InstallmentForm } from '../components/InstallmentPanel';
 import ReceiptStatus from '../components/ReceiptStatus';
+import PageHeading from '../components/PageHeading';
 import { useDebounce } from '../hooks/useDebounce';
 import { useTenant } from '../hooks/useTenant';
 import { useAuth } from '../store/auth';
@@ -12,7 +13,7 @@ import { useCart } from '../store/cart';
 import { errorMessage } from '../utils/errors';
 import { formatMoney } from '../utils/money';
 
-const PAYMENTS: PaymentMode[] = ['cash', 'card', 'wallet'];
+const PAYMENTS: PaymentMode[] = ['cash', 'card', 'wallet', 'mixed'];
 type Done = Order & { installmentPlanId?: string };
 
 export default function POS() {
@@ -21,12 +22,35 @@ export default function POS() {
   const role = useAuth((s) => s.user?.role);
   const cart = useCart();
   const [search, setSearch] = useState('');
+  const [scanCode, setScanCode] = useState('');
+  const [scanNotice, setScanNotice] = useState('');
+  const scanInput = useRef<HTMLInputElement>(null);
+  const branch = useAuth((s) => s.activeBranchId);
+  const scanBranch = useRef(branch);
+  scanBranch.current = branch;
+  const billingScan = useMutation({
+    mutationFn: async (value: string) => {
+      const requestedBranch = branch;
+      const requestedUser = useAuth.getState().user?._id;
+      const product = await barcodeApi.lookup(value.trim());
+      if (scanBranch.current !== requestedBranch || useAuth.getState().user?._id !== requestedUser) throw new Error('Workspace changed. Scan the product again.');
+      const current = useCart.getState();
+      const quantity = current.items.find((item) => item.product._id === product._id)?.qty ?? 0;
+      if (product.trackStock && product.stockQty < quantity + 1) throw new Error('Not enough stock to add another unit.');
+      current.add(product);
+      return product;
+    },
+    onSuccess: (product) => { setScanNotice(`${product.name} added to billing.`); setScanCode(''); setSearch(''); scanInput.current?.focus(); },
+    onError: () => { setScanNotice(''); scanInput.current?.focus(); scanInput.current?.select(); },
+  });
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [mobileTab, setMobileTab] = useState<'products' | 'cart'>('products');
   const q = useDebounce(search);
   const [payment, setPayment] = useState<PaymentMode>('cash');
   const [inst, setInst] = useState<InstallmentForm>(emptyInstallmentForm);
   const [customerName, setCustomerName] = useState('');
+  const [cashPart, setCashPart] = useState('');
+  const checkoutRequest = useRef<{ payload: string; key: string } | null>(null);
   const [done, setDone] = useState<Done | null>(null);
   const money = (n: number) => formatMoney(n, currency);
   const installmentEnabled = tenant?.navigationVisibility?.installments !== false
@@ -90,8 +114,13 @@ export default function POS() {
   });
 
   const checkout = useMutation({
-    mutationFn: () => orderApi.create({
+    mutationFn: () => {
+      const payload = JSON.stringify({ items: orderItems, effectivePayment, customerName, inst, cashPart });
+      if (checkoutRequest.current?.payload !== payload) checkoutRequest.current = { payload, key: crypto.randomUUID() };
+      return orderApi.create({
       items: orderItems,
+      idempotencyKey: checkoutRequest.current.key,
+      payments: effectivePayment === 'mixed' ? [{ mode: 'cash', amount: Number(cashPart) }, { mode: 'card', amount: Math.round(((totals?.grandTotal ?? 0) - Number(cashPart)) * 100) / 100 }] : undefined,
       paymentMode: effectivePayment,
       customer: !isInstallment && customerName.trim() ? { name: customerName.trim() } : undefined,
       installment: isInstallment && inst.customer ? {
@@ -102,10 +131,12 @@ export default function POS() {
         markupPercent: markup,
         firstDueDate: inst.firstDueDate || undefined,
       } : undefined,
-    }),
+    }); },
     onSuccess: (order) => {
       setDone(order as Done);
       cart.clear();
+      checkoutRequest.current = null;
+      setCashPart('');
       setCustomerName('');
       setInst(emptyInstallmentForm);
       setPayment('cash');
@@ -118,7 +149,7 @@ export default function POS() {
   });
 
   const outOfStock = (p: Product) => p.trackStock && p.stockQty <= 0;
-  const quoteReady = !isInstallment || (!!inst.customer && !!quote.data && !quote.isError);
+  const quoteReady = (!isInstallment || (!!inst.customer && !!quote.data && !quote.isError)) && (effectivePayment !== 'mixed' || (Number(cashPart) > 0 && Number(cashPart) < (totals?.grandTotal ?? 0)));
   const chargeLabel = !totals ? 'Calculating…'
     : isInstallment ? (quote.data && !quote.isError ? `Start installment · ${money(quote.data.downPayment)} now` : 'Complete installment terms')
     : `Charge ${money(totals.grandTotal)}`;
@@ -130,6 +161,9 @@ export default function POS() {
 
   return (
     <div className="space-y-4">
+      <header className="page-header"><PageHeading eyebrow="Sales terminal" title="Point of sale" description="Find products, build an order, and complete checkout." /><span className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-500 dark:border-slate-700">{cart.items.reduce((sum, item) => sum + item.qty, 0)} items in current sale</span></header>
+      <div className="flex flex-wrap items-center gap-2"><button type="button" className="btn-secondary" disabled={!cart.items.length || checkout.isPending} onClick={() => { cart.hold(); setInst(emptyInstallmentForm); setCustomerName(''); setPayment('cash'); }}>Hold current sale</button>{cart.held.map((sale) => <button type="button" className="btn-secondary" key={sale.id} disabled={!!cart.items.length || checkout.isPending} onClick={() => cart.resume(sale.id)}>Resume {sale.label} · {sale.items.length} items</button>)}</div>
+      {effectivePayment === 'mixed' && <div className="card grid gap-3 sm:grid-cols-2"><label className="label">Cash amount<input className="input mt-1" type="number" min="0.01" max={Math.max(0, (totals?.grandTotal ?? 0) - 0.01)} step="0.01" value={cashPart} onChange={(event) => setCashPart(event.target.value)} /></label><p className="text-sm">Card remainder: {money(Math.max(0, (totals?.grandTotal ?? 0) - Number(cashPart || 0)))}</p></div>}
       {/* ─────────────── Mobile View Segmented Switch ─────────────── */}
       <div className="flex items-center rounded-xl bg-slate-200/70 p-1 dark:bg-slate-800/80 lg:hidden shadow-inner">
         <button
@@ -176,10 +210,11 @@ export default function POS() {
           <div className="relative">
             <input
               className="input pr-10"
-              placeholder="Search products by name or SKU…"
+              placeholder="Search products or scan a barcode and press Enter"
               value={search}
               autoFocus
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(event) => { if (event.key === 'Enter' && tenant?.featureFlags?.barcodes !== false && search.trim()) { event.preventDefault(); if (!billingScan.isPending) billingScan.mutate(search); } }}
             />
             {search && (
               <button
@@ -193,6 +228,12 @@ export default function POS() {
             )}
           </div>
 
+          {tenant?.featureFlags?.barcodes !== false && <form className="card space-y-2" onSubmit={(event) => { event.preventDefault(); if (!billingScan.isPending && scanCode.trim()) { setScanNotice(''); billingScan.mutate(scanCode); } }}>
+            <label className="label" htmlFor="billing-barcode">Scan barcode for billing</label>
+            <div className="flex flex-wrap gap-2"><input ref={scanInput} id="billing-barcode" className="input min-w-0 flex-1" placeholder="Scan barcode or SKU, then press Enter" value={scanCode} maxLength={80} required autoComplete="off" onChange={(event) => setScanCode(event.target.value)} /><button className="btn-primary" disabled={billingScan.isPending} type="submit">{billingScan.isPending ? 'Adding…' : 'Add to bill'}</button></div>
+            {billingScan.error && <p role="alert" className="text-sm text-red-600">{errorMessage(billingScan.error)}</p>}
+            {scanNotice && <p role="status" className="text-sm">{scanNotice}</p>}
+          </form>}
           {/* Category Filter Chips */}
           {categories.length > 0 && (
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 no-scrollbar">

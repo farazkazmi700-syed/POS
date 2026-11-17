@@ -184,3 +184,57 @@
 .dev-workspace .dev-toast { border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px 16px; box-shadow: var(--dev-shadow); }
 .dev-workspace .dev-toast-dismiss { padding: 4px; border-radius: 6px; color: var(--text-soft); }
 .dev-workspace .dev-toast-dismiss:hover { background: var(--panel-muted); color: var(--text); }
+/* Module Rights Controller — toolbar, chips */
+.dev-workspace .dev-rights-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 16px 0 10px; padding: 0 var(--dev-space); }
+.dev-workspace .dev-rights-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.dev-workspace .dev-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--panel-border); background: var(--panel); color: var(--text-soft); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
+.dev-workspace .dev-chip:hover { border-color: var(--accent); color: var(--text); }
+.dev-workspace .dev-chip-active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
+/* Rights grid */
+.dev-workspace .dev-rights-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); margin: 8px 0 4px; }
+.dev-workspace .dev-right-cell { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--dev-control-radius); border: 1px solid var(--panel-border); background: var(--bg); cursor: pointer; transition: all .15s; font-size: 12.5px; color: var(--text-soft); }
+.dev-workspace .dev-right-cell:hover { border-color: var(--accent); color: var(--text); background: var(--panel-muted); }
+.dev-workspace .dev-right-cell-enabled { border-color: var(--accent); background: rgba(0,132,240,.08); color: var(--accent-strong); }
+.dev-workspace .dev-right-cell-disabled { opacity: .5; border-color: var(--panel-border); }
+.dev-workspace .dev-right-cell input { appearance: none; width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--panel-border); background: var(--bg); cursor: pointer; position: relative; }
+.dev-workspace .dev-right-cell input:checked { background: var(--accent); border-color: var(--accent); }
+.dev-workspace .dev-right-cell input:checked::after { content: '✓'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 10px; font-weight: 800; color: #fff; }
+/* Account card */
+.dev-workspace .dev-account-card { border: 1px solid var(--panel-border); border-radius: var(--dev-radius); background: var(--panel); padding: 16px 18px; margin-bottom: 12px; box-shadow: var(--dev-shadow); transition: box-shadow .15s, border-color .15s; }
+.dev-workspace .dev-account-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.06); border-color: var(--panel-border); }
+.dev-workspace .dev-account-card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--panel-border); }
+.dev-workspace .dev-account-info { min-width: 0; }
+.dev-workspace .dev-account-name { font-weight: 700; color: var(--text); font-size: 15px; margin: 0 0 2px; }
+.dev-workspace .dev-account-email { font-size: 12.5px; color: var(--text-soft); margin: 0; word-break: break-all; }
+.dev-workspace .dev-account-meta { font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px; }
+
+/* Role badge */
+.dev-workspace .dev-role-badge { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .04em; }
+.dev-workspace .dev-role-owner { background: rgba(16,185,129,.12); color: #15803d; border: 1px solid rgba(16,185,129,.2); }
+.dev-workspace .dev-role-admin { background: rgba(0,132,240,.12); color: #0070e0; border: 1px solid rgba(0,132,240,.2); }
+.dev-workspace .dev-role-staff { background: rgba(245,158,11,.12); color: #b45309; border: 1px solid rgba(245,158,11,.2); }
+.dev-workspace .dev-role-cashier { background: rgba(139,92,246,.12); color: #7c3aed; border: 1px solid rgba(139,92,246,.2); }
+
+/* Status chip */
+.dev-workspace .dev-status-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.dev-workspace .dev-status-active { background: rgba(16,185,129,.10); color: #15803d; border: 1px solid rgba(16,185,129,.2); }
+.dev-workspace .dev-status-inactive { background: rgba(148,163,184,.10); color: #64748b; border: 1px solid rgba(148,163,184,.2); }
+/* Rights list in account card */
+.dev-workspace .dev-account-rights { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); margin-top: 8px; }
+
+/* Empty state */
+.dev-workspace .dev-rights-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 24px; text-align: center; border: 1px dashed var(--panel-border); border-radius: var(--dev-radius); background: rgba(0,0,0,.015); }
+.dev-workspace .dev-rights-empty svg { color: var(--text-muted); opacity: .4; }
+.dev-workspace .dev-rights-empty h3 { font-size: 16px; font-weight: 700; color: var(--text); margin: 0; }
+.dev-workspace .dev-rights-empty p { font-size: 13px; color: var(--text-soft); margin: 0; line-height: 1.6; }
+
+/* Account actions bar */
+.dev-workspace .dev-account-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--panel-border); }
+
+/* Section header with count */
+.dev-workspace .dev-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 24px 0 12px; padding: 0 var(--dev-space); }
+.dev-workspace .dev-section-head h2 { font-size: clamp(17px, 1.2vw, 20px); font-weight: 700; letter-spacing: -.02em; color: var(--text); margin: 0; }
+.dev-workspace .dev-section-head .dev-count { font-size: 12.5px; color: var(--text-soft); background: var(--panel-soft); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--panel-border); }
+.dev-workspace .dev-query-state { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; margin-bottom: 16px; color: var(--text); }
+.dev-workspace .dev-query-state p { margin: 4px 0 0; color: var(--text-soft); }
+.dev-workspace button:focus-visible, .dev-workspace select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }

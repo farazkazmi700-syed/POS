@@ -6,12 +6,13 @@ import { RequiresFeature } from '../../common/decorators/feature.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
-import { CreateOrderDto, ListOrdersDto, PreviewOrderDto, SummaryQueryDto } from './dto/order.dto';
+import { CreateOrderDto, ListOrdersDto, PreviewOrderDto, RefundOrderDto, SummaryQueryDto } from './dto/order.dto';
 import { OrderService } from './order.service';
 
 @ApiTags('orders')
 @ApiBearerAuth()
 @Controller('orders')
+@RequiresFeature('pos')
 export class OrderController {
   constructor(private readonly orders: OrderService) {}
 
@@ -29,7 +30,7 @@ export class OrderController {
 
   @Get()
   list(@CurrentUser() user: AuthUser, @Query() q: ListOrdersDto) {
-    return this.orders.list(user.tenantId, q.page, q.limit);
+    return this.orders.list(user.tenantId, q.page, q.limit, user.role === Role.Cashier ? user.userId : undefined);
   }
 
   // must be declared before ':id'
@@ -42,7 +43,7 @@ export class OrderController {
 
   @Get(':id')
   findOne(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
-    return this.orders.findOne(user.tenantId, id);
+    return this.orders.findOne(user.tenantId, id, user.role === Role.Cashier ? user.userId : undefined);
   }
 
   @Post(':id/void')
@@ -50,4 +51,7 @@ export class OrderController {
   void(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
     return this.orders.voidOrder(user.tenantId, id);
   }
+
+  @Post(':id/refund') @Roles(Role.Owner, Role.Admin)
+  refund(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: RefundOrderDto) { return this.orders.refund(user, id, dto.reason); }
 }

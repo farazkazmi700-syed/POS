@@ -1,5 +1,5 @@
 import {
-  HARDCODED_DEVELOPER_PIN, isValidDeveloperPin,
+  isValidDeveloperPin,
   canUseDeveloperRoute, hasAnyFeatureAccess, hasDeveloperAccess, hasFeatureAccess, hasSuperAdminAccess, hasTenantAccess, isPersistedSuperAdmin,
   isConfiguredDeveloper, isDeveloperSetupAuthorized, isPublicBusinessRegistrationClosed,
 } from './security-access';
@@ -61,11 +61,10 @@ describe('authorization policy helpers', () => {
     expect(canUseDeveloperRoute(false, false)).toBe(true);
   });
 
-  it('provides and validates hardcoded developer PIN 52909063', () => {
-    expect(HARDCODED_DEVELOPER_PIN).toBe('52909063');
-    expect(isValidDeveloperPin('52909063')).toBe(true);
-    expect(isValidDeveloperPin(' 52909063 ')).toBe(true);
-    expect(isValidDeveloperPin('12345678')).toBe(false);
+  it('validates developer PIN format without embedding an authentication credential', () => {
+    expect(isValidDeveloperPin('12345678')).toBe(true);
+    expect(isValidDeveloperPin(' 12345678 ')).toBe(false);
+    expect(isValidDeveloperPin('0000')).toBe(false);
     expect(isValidDeveloperPin('')).toBe(false);
     expect(isValidDeveloperPin(null)).toBe(false);
     expect(isValidDeveloperPin(undefined)).toBe(false);

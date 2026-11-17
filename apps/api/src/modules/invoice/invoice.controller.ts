@@ -9,10 +9,12 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
 import { InvoiceService } from './invoice.service';
+import { RequiresFeature } from '../../common/decorators/feature.decorator';
 
 @ApiTags('invoices')
 @ApiBearerAuth()
 @Controller('orders/:id/invoice')
+@RequiresFeature('pos')
 export class InvoiceController {
   constructor(private readonly invoices: InvoiceService) {}
 

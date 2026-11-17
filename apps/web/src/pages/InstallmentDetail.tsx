@@ -67,11 +67,11 @@ export default function InstallmentDetail() {
       <div className="no-print space-y-5">
         <div className="flex flex-wrap items-center gap-3">
           <Link to="/installments" className="text-sm text-teal-600 hover:underline dark:text-teal-400">← Installments</Link>
-          <h1 className="text-xl font-semibold">{p.customerName}</h1>
+          <h1 className="page-title">{p.customerName}</h1>
           <span className="text-sm text-slate-500">{p.invoiceNo}</span>
           {p.status === 'completed' ? <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Completed</span>
             : p.overdueAmount > 0 ? <span className="rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Overdue {money(p.overdueAmount)}</span> : null}
-          <button className="btn-secondary ml-auto" onClick={() => startPrint({ kind: 'agreement' })}>Print agreement</button>
+          <button className="btn-secondary ml-auto" onClick={() => startPrint({ kind: 'agreement' })}>Print invoice / agreement</button>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -198,8 +198,8 @@ export default function InstallmentDetail() {
 
       {/* ---------- paper output ---------- */}
       <div className="print-only">
-        {job?.kind === 'agreement' && tenant && <Agreement plan={p} business={tenant.name} address={tenant.address} taxRegNo={tenant.taxRegNo} money={money} />}
-        {job?.kind === 'receipt' && tenant && <Receipt plan={p} payment={job.payment} balanceAfter={job.balanceAfter} business={tenant.name} address={tenant.address} money={money} />}
+        {job?.kind === 'agreement' && tenant && <Agreement plan={p} business={tenant.name} address={tenant.address} taxRegNo={tenant.taxRegNo} logoUrl={tenant.logoUrl || '/kazmion-logo.jpg'} money={money} />}
+        {job?.kind === 'receipt' && tenant && <Receipt plan={p} payment={job.payment} balanceAfter={job.balanceAfter} business={tenant.name} address={tenant.address} logoUrl={tenant.logoUrl || '/kazmion-logo.jpg'} money={money} />}
       </div>
     </>
   );
@@ -221,63 +221,105 @@ function Box({ label, value, strong }: { label: string; value: string; strong?: 
 
 const cell = { border: '1px solid #999', padding: '4px 8px', fontSize: 12 } as const;
 
-function Agreement({ plan: p, business, address, taxRegNo, money }: { plan: InstallmentPlan; business: string; address?: string; taxRegNo?: string; money: (n: number) => string }) {
+function Agreement({ plan: p, business, address, taxRegNo, logoUrl, money }: { plan: InstallmentPlan; business: string; address?: string; taxRegNo?: string; logoUrl?: string; money: (n: number) => string }) {
+  const table = { borderCollapse: 'collapse', width: '100%', marginBottom: 14 } as const;
+  const headCell = { ...cell, background: '#eee', textAlign: 'left' as const };
+  const remainingFor = (amount: number, paid: number) => Math.max(0, amount - paid);
+
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif', fontSize: 13, color: '#000', padding: 24 }}>
-      <h1 style={{ textAlign: 'center', fontSize: 22, margin: 0 }}>INSTALLMENT SALE AGREEMENT</h1>
-      <p style={{ textAlign: 'center', margin: '4px 0 16px' }}>{business}{address ? ` · ${address}` : ''}{taxRegNo ? ` · NTN ${taxRegNo}` : ''}</p>
-      <p>Date: <b>{fmtDate(todayYmd())}</b> &nbsp; Invoice: <b>{p.invoiceNo}</b></p>
+    <div style={{ fontFamily: 'Arial, sans-serif', fontSize: 12, lineHeight: 1.4, color: '#000', padding: 24, position: 'relative' }}>
+      {logoUrl && (
+        <div style={{ position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%) rotate(-20deg)', opacity: 0.07, pointerEvents: 'none' }}>
+          <img src={logoUrl} alt="" style={{ width: 380, height: 380, objectFit: 'contain', filter: 'grayscale(100%)' }} />
+        </div>
+      )}
+      <div style={{ position: 'relative' }}>
+        {logoUrl && <div style={{ textAlign: 'center', marginBottom: 8 }}><img src={logoUrl} alt="" style={{ maxHeight: 50, maxWidth: 160, objectFit: 'contain' }} /></div>}
+        <h1 style={{ textAlign: 'center', fontSize: 22, margin: 0 }}>INSTALLMENT INVOICE &amp; AGREEMENT</h1>
+        <p style={{ textAlign: 'center', margin: '4px 0 16px' }}>{business}{address ? ` · ${address}` : ''}{taxRegNo ? ` · NTN ${taxRegNo}` : ''}</p>
 
-      <h3>Buyer</h3>
-      <p>Name: <b>{p.customerName}</b> &nbsp; Phone: {p.customerPhone}<br />CNIC: {p.customerCnic ?? '____________________'}<br />Address: {p.customerAddress ?? '________________________________________'}</p>
-      <h3>Guarantor</h3>
-      <p>Name: <b>{p.guarantor?.name ?? '____________________'}</b> &nbsp; Phone: {p.guarantor?.phone ?? '______________'}<br />CNIC: {p.guarantor?.cnic ?? '____________________'}<br />Address: {p.guarantor?.address ?? '________________________________________'}</p>
+        <table style={table}><tbody>
+          <tr><td style={cell}>Invoice / plan no.</td><td style={cell}><b>{p.invoiceNo}</b></td><td style={cell}>Plan date</td><td style={cell}>{fmtDate(p.createdAt)}</td></tr>
+          <tr><td style={cell}>Plan status</td><td style={cell}>{p.status.toUpperCase()}</td><td style={cell}>Created by</td><td style={cell}>{p.createdByName}</td></tr>
+        </tbody></table>
 
-      <h3>Goods sold</h3>
-      <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-        <thead><tr><th style={cell}>Item</th><th style={cell}>Qty</th><th style={cell}>IMEI / serial no.</th></tr></thead>
-        <tbody>{p.items.map((i, k) => <tr key={k}><td style={cell}>{i.name}</td><td style={cell}>{i.qty}</td><td style={cell}>{i.serialNo ?? ''}</td></tr>)}</tbody>
-      </table>
+        <h3>Customer &amp; guarantor</h3>
+        <table style={table}><tbody>
+          <tr><td style={cell}>Customer</td><td style={cell}><b>{p.customerName}</b></td><td style={cell}>Phone</td><td style={cell}>{p.customerPhone || '—'}</td></tr>
+          <tr><td style={cell}>CNIC</td><td style={cell}>{p.customerCnic || '—'}</td><td style={cell}>Address</td><td style={cell}>{p.customerAddress || '—'}</td></tr>
+          <tr><td style={cell}>Guarantor</td><td style={cell}>{p.guarantor?.name || '—'}</td><td style={cell}>Phone / CNIC</td><td style={cell}>{[p.guarantor?.phone, p.guarantor?.cnic].filter(Boolean).join(' · ') || '—'}</td></tr>
+          <tr><td style={cell}>Guarantor address</td><td style={cell} colSpan={3}>{p.guarantor?.address || '—'}</td></tr>
+        </tbody></table>
 
-      <h3>Price and payment</h3>
-      <table style={{ borderCollapse: 'collapse', width: '60%' }}>
-        <tbody>
-          {[['Cash price', money(p.cashTotal)], [`Markup (${p.markupPercent}%)`, money(p.markupAmount)], ['Installment price', money(p.totalPayable)],
-            ['Down payment received', money(p.downPayment)], ['Balance to be paid', money(p.financedAmount)], ['Number of installments', String(p.months)],
-          ].map(([k, v]) => <tr key={k}><td style={cell}>{k}</td><td style={{ ...cell, textAlign: 'right' }}>{v}</td></tr>)}
-        </tbody>
-      </table>
+        <h3>Goods / items</h3>
+        <table style={table}>
+          <thead><tr><th style={headCell}>Item</th><th style={headCell}>Qty</th><th style={headCell}>IMEI / serial no.</th><th style={{ ...headCell, textAlign: 'right' }}>Unit price</th><th style={{ ...headCell, textAlign: 'right' }}>Discount</th><th style={{ ...headCell, textAlign: 'right' }}>Tax</th><th style={{ ...headCell, textAlign: 'right' }}>Line total</th></tr></thead>
+          <tbody>{p.items.map((i, k) => <tr key={k}><td style={cell}>{i.name}</td><td style={cell}>{i.qty}</td><td style={cell}>{i.serialNo || '—'}</td><td style={{ ...cell, textAlign: 'right' }}>{i.unitPrice != null ? money(i.unitPrice) : '—'}</td><td style={{ ...cell, textAlign: 'right' }}>{i.discountAmount != null ? money(i.discountAmount) : '—'}</td><td style={{ ...cell, textAlign: 'right' }}>{i.taxAmount != null ? money(i.taxAmount) : '—'}</td><td style={{ ...cell, textAlign: 'right' }}>{i.lineTotal != null ? money(i.lineTotal) : '—'}</td></tr>)}</tbody>
+        </table>
 
-      <h3>Installment schedule</h3>
-      <table style={{ borderCollapse: 'collapse', width: '60%' }}>
-        <thead><tr><th style={cell}>#</th><th style={cell}>Due date</th><th style={cell}>Amount</th></tr></thead>
-        <tbody>{p.schedule.map((s) => <tr key={s.no}><td style={cell}>{s.no}</td><td style={cell}>{fmtDate(s.dueDate)}</td><td style={{ ...cell, textAlign: 'right' }}>{money(s.amount)}</td></tr>)}</tbody>
-      </table>
+        <h3>Plan price &amp; current account</h3>
+        <table style={table}><tbody>
+          {[
+            ['Cash price', money(p.cashTotal)],
+            [`Markup (${p.markupPercent}%)`, money(p.markupAmount)],
+            ['Total installment price', money(p.totalPayable)],
+            ['Down payment received at sale', money(p.downPayment)],
+            ['Amount financed at start', money(p.financedAmount)],
+            ['Total paid to date (including down payment)', money(p.paidTotal)],
+            ['Remaining amount due', money(p.balance)],
+            ['Installment amount', money(p.monthlyAmount)],
+            ['Number of installments', String(p.months)],
+            ['First due date', fmtDate(p.firstDueDate)],
+          ].map(([label, amount]) => <tr key={label}><td style={cell}>{label}</td><td style={{ ...cell, textAlign: 'right', fontWeight: label === 'Remaining amount due' ? 'bold' : 'normal' }}>{amount}</td></tr>)}
+        </tbody></table>
 
-      <p style={{ marginTop: 16 }}>The buyer confirms receiving the goods listed above and agrees to pay the installments on the dates shown. The guarantor confirms that they stand guarantee for these payments.</p>
-      <p>Other terms (late payment, default, returns): ____________________________________________<br />______________________________________________________________________________</p>
+        <h3>Installment schedule</h3>
+        <table style={table}>
+          <thead><tr><th style={headCell}>#</th><th style={headCell}>Due date</th><th style={{ ...headCell, textAlign: 'right' }}>Amount due</th><th style={{ ...headCell, textAlign: 'right' }}>Paid</th><th style={{ ...headCell, textAlign: 'right' }}>Remaining</th><th style={headCell}>Status</th></tr></thead>
+          <tbody>{p.schedule.map((s) => <tr key={s.no}><td style={cell}>{s.no}</td><td style={cell}>{fmtDate(s.dueDate)}</td><td style={{ ...cell, textAlign: 'right' }}>{money(s.amount)}</td><td style={{ ...cell, textAlign: 'right' }}>{money(s.paidAmount)}</td><td style={{ ...cell, textAlign: 'right' }}>{money(remainingFor(s.amount, s.paidAmount))}</td><td style={cell}>{s.status.toUpperCase()}</td></tr>)}</tbody>
+        </table>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 48, fontSize: 12 }}>
-        {['Buyer', 'Guarantor', 'Seller', 'Witness'].map((r) => <div key={r} style={{ width: '22%', borderTop: '1px solid #000', paddingTop: 4, textAlign: 'center' }}>{r}</div>)}
+        <h3>Payments received</h3>
+        <table style={table}>
+          <thead><tr><th style={headCell}>Receipt no.</th><th style={headCell}>Date</th><th style={headCell}>Method</th><th style={{ ...headCell, textAlign: 'right' }}>Amount paid</th><th style={headCell}>Received by / note</th></tr></thead>
+          <tbody>
+            {p.payments.map((payment) => <tr key={payment.receiptNo}><td style={cell}>{payment.receiptNo}</td><td style={cell}>{fmtDateTime(payment.paidAt)}</td><td style={cell}>{payment.mode.toUpperCase()}</td><td style={{ ...cell, textAlign: 'right' }}>{money(payment.amount)}</td><td style={cell}>{[payment.receivedBy, payment.note].filter(Boolean).join(' · ') || '—'}</td></tr>)}
+            {p.payments.length === 0 && <tr><td style={cell} colSpan={5}>No payments recorded.</td></tr>}
+          </tbody>
+        </table>
+
+        <p style={{ marginTop: 16 }}>The buyer confirms receiving the goods listed above and agrees to pay the remaining amount according to this schedule. The customer and guarantor acknowledge the plan details stated on this invoice.</p>
+        <p>Other terms (late payment, default, returns): ____________________________________________<br />______________________________________________________________________________</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 48, fontSize: 12 }}>
+          {['Buyer', 'Guarantor', 'Seller', 'Witness'].map((role) => <div key={role} style={{ width: '22%', borderTop: '1px solid #000', paddingTop: 4, textAlign: 'center' }}>{role}</div>)}
+        </div>
       </div>
     </div>
   );
 }
 
-function Receipt({ plan: p, payment, balanceAfter, business, address, money }: { plan: InstallmentPlan; payment: PlanPayment; balanceAfter: number; business: string; address?: string; money: (n: number) => string }) {
+function Receipt({ plan: p, payment, balanceAfter, business, address, logoUrl, money }: { plan: InstallmentPlan; payment: PlanPayment; balanceAfter: number; business: string; address?: string; logoUrl?: string; money: (n: number) => string }) {
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif', fontSize: 13, color: '#000', padding: 24, maxWidth: 420 }}>
-      <h2 style={{ textAlign: 'center', margin: 0 }}>{business}</h2>
-      {address && <p style={{ textAlign: 'center', margin: '2px 0' }}>{address}</p>}
-      <h3 style={{ textAlign: 'center', letterSpacing: 2 }}>PAYMENT RECEIPT</h3>
-      <hr />
-      <p>Receipt no: <b>{payment.receiptNo}</b><br />Date: {fmtDateTime(payment.paidAt)}<br />Received from: <b>{p.customerName}</b> ({p.customerPhone})<br />Against invoice: {p.invoiceNo}</p>
-      <hr />
-      <p style={{ fontSize: 18 }}>Amount received: <b>{money(payment.amount)}</b></p>
-      <p>Paid by: {payment.mode.toUpperCase()}{payment.note ? ` · ${payment.note}` : ''}<br />Received by: {payment.receivedBy}</p>
-      <hr />
-      <p>Total installment price: {money(p.totalPayable)}<br />Balance remaining: <b>{money(balanceAfter)}</b></p>
-      <p style={{ textAlign: 'center', marginTop: 24, fontSize: 11 }}>Thank you. Keep this receipt as proof of payment.</p>
+    <div style={{ fontFamily: 'Arial, sans-serif', fontSize: 13, color: '#000', padding: 24, maxWidth: 420, position: 'relative', overflow: 'hidden' }}>
+      {logoUrl && (
+        <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%) rotate(-20deg)', opacity: 0.08, pointerEvents: 'none', zIndex: 0 }}>
+          <img src={logoUrl} alt="" style={{ width: 260, height: 260, objectFit: 'contain', filter: 'grayscale(100%)' }} />
+        </div>
+      )}
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        {logoUrl && <div style={{ textAlign: 'center', marginBottom: 6 }}><img src={logoUrl} alt="" style={{ maxHeight: 44, maxWidth: 140, objectFit: 'contain' }} /></div>}
+        <h2 style={{ textAlign: 'center', margin: 0 }}>{business}</h2>
+        {address && <p style={{ textAlign: 'center', margin: '2px 0' }}>{address}</p>}
+        <h3 style={{ textAlign: 'center', letterSpacing: 2 }}>PAYMENT RECEIPT</h3>
+        <hr />
+        <p>Receipt no: <b>{payment.receiptNo}</b><br />Date: {fmtDateTime(payment.paidAt)}<br />Received from: <b>{p.customerName}</b> ({p.customerPhone})<br />Against invoice: {p.invoiceNo}</p>
+        <hr />
+        <p style={{ fontSize: 18 }}>Amount received: <b>{money(payment.amount)}</b></p>
+        <p>Paid by: {payment.mode.toUpperCase()}{payment.note ? ` · ${payment.note}` : ''}<br />Received by: {payment.receivedBy}</p>
+        <hr />
+        <p>Total installment price: {money(p.totalPayable)}<br />Balance remaining: <b>{money(balanceAfter)}</b></p>
+        <p style={{ textAlign: 'center', marginTop: 24, fontSize: 11 }}>Thank you. Keep this receipt as proof of payment.</p>
+      </div>
     </div>
   );
 }

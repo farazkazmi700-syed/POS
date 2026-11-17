@@ -1,0 +1,18 @@
+{
+  "name": "@pos/config",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "Shared configuration schema and validation for KazmiOn POS",
+  "scripts": {
+    "validate": "tsx src/validate.ts"
+  },
+  "dependencies": {
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3"
+  }
+}

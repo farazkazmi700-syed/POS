@@ -13,6 +13,9 @@ import { TenantService } from '../tenant/tenant.service';
 import { INVOICE_QUEUE } from './invoice.constants';
 import { InvoiceJobData } from './invoice-job.types';
 import { InvoiceStateService } from './invoice-state.service';
+import { InstallmentPlan } from '../installment/schemas/installment-plan.schema';
+import { nextDueOf, overdueOf, todayIn } from '../installment/calc/calculate-plan';
+import { toMinor } from '../installment/calc/money';
 
 @Injectable()
 export class InvoiceService {
@@ -21,6 +24,7 @@ export class InvoiceService {
   constructor(
     @InjectQueue(INVOICE_QUEUE) private readonly queue: Queue<InvoiceJobData>,
     @InjectModel(Order.name) private readonly orders: Model<Order>,
+    @InjectModel(InstallmentPlan.name) private readonly plans: Model<InstallmentPlan>,
     private readonly tenants: TenantService,
     private readonly config: ConfigService,
     private readonly state: InvoiceStateService,
@@ -33,20 +37,52 @@ export class InvoiceService {
       generation = await this.state.postgres?.begin(order.tenantId.toString(), order.id);
       order.invoiceStatus = InvoiceStatus.Pending;
       const tenant = await this.tenants.findById(order.tenantId.toString());
+      const plan = order.paymentMode === 'installment' ? await this.plans.findOne({ tenantId: order.tenantId, orderId: order._id }) : null;
       const data: InvoiceJobData = {
         orderId: order.id,
+        ...(plan ? { installment: {
+          cashPrice: plan.cashTotal, downPayment: plan.downPayment,
+          principal: (toMinor(plan.cashTotal) - toMinor(plan.downPayment)) / 100,
+          financedAmount: plan.financedAmount, charges: plan.markupAmount, count: plan.months,
+          frequency: 'monthly', totalPayable: plan.totalPayable,
+          paidToDate: plan.paidTotal, remaining: plan.balance,
+          ...(() => { const overdue = overdueOf(plan.schedule, todayIn(tenant.timeZone || 'Asia/Karachi')); return { overdue: overdue.amount, overdueCount: overdue.count }; })(),
+          nextDue: nextDueOf(plan.schedule), schedule: plan.schedule.map((s) => ({ no: s.no, dueDate: s.dueDate, amount: s.amount, paidAmount: s.paidAmount, status: s.status })),
+          agreementId: plan.invoiceNo,
+          status: plan.status, firstDueDate: plan.firstDueDate, monthlyAmount: plan.monthlyAmount, markupPercent: plan.markupPercent,
+          payments: plan.payments.map((payment) => ({ receiptNo: payment.receiptNo, amount: payment.amount,
+            paidAt: payment.paidAt.toISOString(), mode: payment.mode, receivedBy: payment.receivedBy, note: payment.note })),
+          customer: { name: plan.customerName, phone: plan.customerPhone, cnic: plan.customerCnic, address: plan.customerAddress },
+          guarantor: plan.guarantor?.name ? { name: plan.guarantor.name, phone: plan.guarantor.phone, cnic: plan.guarantor.cnic, address: plan.guarantor.address } : undefined,
+        } } : {}),
         invoiceGeneration: generation,
         invoiceNo: order.invoiceNo,
         createdAt: ((order as unknown as { createdAt?: Date }).createdAt ?? new Date()).toISOString(),
         tenant: {
           id: tenant.id, name: tenant.name, address: tenant.address, taxRegNo: tenant.taxRegNo,
           currency: tenant.currency, logoUrl: tenant.logoUrl,
+          invoicePaperSize: tenant.invoicePrintSettings?.paperSize,
+          invoiceOrientation: tenant.invoicePrintSettings?.orientation,
+          domainType: tenant.domainType,
+          widthMm: tenant.invoicePrintSettings?.widthMm, heightMm: tenant.invoicePrintSettings?.heightMm,
+          stamp: tenant.invoicePrintSettings?.stamp, watermark: tenant.invoicePrintSettings?.watermark,
+          logoWatermark: tenant.invoicePrintSettings?.logoWatermark, footerText: tenant.invoicePrintSettings?.footerText,
         },
         cashierName: order.cashierName,
-        customer: order.customer ? { name: order.customer.name, phone: order.customer.phone } : undefined,
+        // Installment invoices surface the full buyer snapshot (CNIC/address/guarantor) from the plan.
+        customer: order.customer ? {
+          name: order.customer.name,
+          phone: order.customer.phone,
+          ...(plan ? {
+            cnic: plan.customerCnic,
+            address: plan.customerAddress,
+            guarantor: plan.guarantor?.name ? { name: plan.guarantor.name, phone: plan.guarantor.phone, cnic: plan.guarantor.cnic, address: plan.guarantor.address } : undefined,
+          } : {}),
+        } : undefined,
         paymentMode: order.paymentMode,
         payments: order.payments,
         items: order.items.map((i) => ({
+          productId: i.productId.toString(), serialNo: i.serialNo,
           name: i.name, qty: i.qty, unitPrice: i.unitPrice, discountPercent: i.discountPercent,
           discountAmount: i.discountAmount, taxPercent: i.taxPercent, taxAmount: i.taxAmount, lineTotal: i.lineTotal,
         })),

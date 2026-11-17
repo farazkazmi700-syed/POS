@@ -65,9 +65,13 @@ export default function InstallmentPanel({ value, onChange, defaultMarkup, curre
       {quote && !quoteError && (
         <dl className="space-y-1 text-xs text-slate-600 dark:text-slate-300 border-t border-slate-200 dark:border-teal-950 pt-2">
           <div className="flex justify-between"><dt>Cash price</dt><dd>{money(quote.cashTotal)}</dd></div>
-          <div className="flex justify-between"><dt>Markup ({quote.markupPercent}%)</dt><dd>{money(quote.markupAmount)}</dd></div>
-          <div className="flex justify-between"><dt>Installment price</dt><dd>{money(quote.totalPayable)}</dd></div>
           <div className="flex justify-between"><dt>Down payment</dt><dd>− {money(quote.downPayment)}</dd></div>
+          <div className="flex justify-between"><dt>Principal after down payment</dt><dd>{money(quote.cashTotal - quote.downPayment)}</dd></div>
+          <div className="flex justify-between">
+            <dt>{quote.markupAmount > 0 ? `Interest / markup (${quote.markupPercent}% after down payment)` : 'Interest (not applied — no down payment received)'}</dt>
+            <dd>{money(quote.markupAmount)}</dd>
+          </div>
+          <div className="flex justify-between"><dt>Installment price</dt><dd>{money(quote.totalPayable)}</dd></div>
           <div className="flex justify-between border-t border-slate-200 dark:border-teal-950 pt-1 font-semibold text-slate-900 dark:text-slate-100">
             <dt>To pay in {quote.months} months</dt><dd>{money(quote.financedAmount)}</dd>
           </div>

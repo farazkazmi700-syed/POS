@@ -1,0 +1,23 @@
+# Isolated migration target. Does not replace or stop the existing POS stack.
+name: pos-postgres-staging
+services:
+  postgres:
+    image: postgres:18@sha256:2ea8630df176ad090ec92136dee850397c5af8781e4bcf2e4162593691c61bbc
+    environment:
+      POSTGRES_USER: pos_migration
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    ports: ["127.0.0.1:55432:5432"]
+    volumes: [postgres_staging_data:/var/lib/postgresql]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pos_migration -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+secrets:
+  postgres_password:
+    file: ./storage/postgresql-staging/password
+volumes:
+  postgres_staging_data:
