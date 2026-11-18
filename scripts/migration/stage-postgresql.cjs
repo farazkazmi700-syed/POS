@@ -3,7 +3,7 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { MongoClient, BSON } = require('mongodb');
 const { Client } = require('pg');
-const { destination, databaseIdentifier, objectId, GLOBAL_COLLECTIONS, BUSINESS_COLLECTIONS } = require('./routing.cjs');
+const { destination, stagingDatabaseName, objectId, GLOBAL_COLLECTIONS, BUSINESS_COLLECTIONS } = require('./routing.cjs');
 const root = path.resolve(__dirname, '../..');
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const schema = fs.readFileSync(path.join(root, 'database/postgresql/migrations/0001-source-staging.sql'), 'utf8');
@@ -12,6 +12,8 @@ async function main() {
   if (!['--dry-run', '--staging'].includes(process.argv[2])) throw new Error('Specify --dry-run or --staging');
   const dryRun = process.argv[2] === '--dry-run';
   const mongo = new MongoClient(process.env.MIGRATION_MONGO_URI || 'mongodb://127.0.0.1:27017/pos', { serverSelectionTimeoutMS: 10000 });
+  const capture = process.env.MIGRATION_CAPTURE_ID || '';
+  if (capture && !/^[0-9]{14}$/.test(capture)) throw new Error('Specify a 14-digit staging capture ID');
   const targets = new Map();
   let admin;
   try {
@@ -29,9 +31,10 @@ async function main() {
       await admin.connect();
       // Fixed local endpoint and reserved DB names prevent accidental production writes.
       for (const database of databases) {
-        const exists = (await admin.query('SELECT 1 FROM pg_database WHERE datname=$1', [database])).rowCount;
-        if (!exists) await admin.query(`CREATE DATABASE ${databaseIdentifier(database)}`);
-        const client = new Client({ ...pgConfig, database });
+        const physicalName = stagingDatabaseName(database, capture);
+        const exists = (await admin.query('SELECT 1 FROM pg_database WHERE datname=$1', [physicalName])).rowCount;
+        if (!exists) await admin.query(`CREATE DATABASE "${physicalName}"`);
+        const client = new Client({ ...pgConfig, database: physicalName });
         await client.connect();
         targets.set(database, client);
         if (exists) {
@@ -51,7 +54,7 @@ async function main() {
         } catch (error) { await client.query('ROLLBACK'); throw error; }
       }
     }
-    const report = { mode: dryRun ? 'dry_run' : 'staging', startedAt: new Date().toISOString(), sourceDatabase: source.databaseName, consistency: 'Live two-pass verification; not an approved cutover snapshot', collections: [], targetDatabaseCount: databases.length, verifiedRecords: 0 };
+    const report = { capture, mode: dryRun ? 'dry_run' : 'staging', startedAt: new Date().toISOString(), sourceDatabase: source.databaseName, consistency: 'Live two-pass verification; not an approved cutover snapshot', collections: [], targetDatabaseCount: databases.length, verifiedRecords: 0 };
     for (const collectionName of collectionNames) {
       const expected = new Map(databases.map(name => [name, 0]));
       let processed = 0;
@@ -99,7 +102,7 @@ async function main() {
     report.completedAt = new Date().toISOString();
     const reportDirectory = path.join(root, 'docs/migration/reports');
     fs.mkdirSync(reportDirectory, { recursive: true });
-    const output = path.join(reportDirectory, dryRun ? 'staging-dry-run.json' : 'staging-reconciliation.json');
+    const output = path.join(reportDirectory, (dryRun ? 'staging-dry-run' : 'staging-reconciliation') + (capture ? '-' + capture : '') + '.json');
     fs.writeFileSync(output, JSON.stringify(report, null, 2) + '\n');
     console.log(JSON.stringify({ mode: report.mode, collections: report.collections.length, records: report.collections.reduce((n, x) => n + x.sourceRecords, 0), verifiedRecords: report.verifiedRecords, targetDatabases: report.targetDatabaseCount }));
   } finally {

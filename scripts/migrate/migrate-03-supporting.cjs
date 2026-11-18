@@ -16,25 +16,12 @@
 
 const { MongoClient } = require('mongodb');
 const { Client: PgClient } = require('pg');
-const crypto = require('crypto');
+const { mongoIdToUuid } = require('./legacy-id.cjs');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
 const MONGO_URI    = process.env.MONGO_URI    || 'mongodb://localhost:27017/pos';
 const POSTGRES_URL = process.env.POSTGRES_URL || 'postgresql://kazmion:kazmion@localhost:5432/kazmion';
-
-function mongoIdToUuid(oid) {
-  const NS = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
-  const nsBytes = NS.replace(/-/g, '').match(/.{2}/g).map(b => parseInt(b, 16));
-  const hash = crypto.createHash('sha1')
-    .update(Buffer.from(nsBytes))
-    .update(oid.toString())
-    .digest();
-  hash[6] = (hash[6] & 0x0f) | 0x50;
-  hash[8] = (hash[8] & 0x3f) | 0x80;
-  const h = hash.slice(0, 16).toString('hex');
-  return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}`;
-}
 
 function safeDate(val) {
   if (!val) return null;
@@ -43,7 +30,7 @@ function safeDate(val) {
 }
 
 async function migrateStockAdjustments(mongo, pg) {
-  const col = mongo.collection('stockAdjustments');
+  const col = mongo.collection('stockadjustments');
   const total = await col.countDocuments();
   console.log(`\n[stockAdjustments] found ${total} documents`);
 
@@ -92,7 +79,7 @@ async function migrateStockAdjustments(mongo, pg) {
 }
 
 async function migrateAuditEvents(mongo, pg) {
-  const collections = ['auditEvents', 'audit_events', 'audits'];
+  const collections = ['auditevents', 'auditEvents', 'audit_events', 'audits'];
   let col;
   
   for (const name of collections) {
@@ -154,7 +141,7 @@ async function migrateAuditEvents(mongo, pg) {
 }
 
 async function migrateAdminAudit(mongo, pg) {
-  const col = mongo.collection('adminAudit');
+  const col = mongo.collection('adminaudits');
   const total = await col.countDocuments();
   console.log(`\n[adminAudit] found ${total} documents`);
   if (total === 0) return { total: 0, done: 0, errors: 0 };
@@ -201,7 +188,7 @@ async function migrateAdminAudit(mongo, pg) {
 }
 
 async function migrateInvoiceCounters(mongo, pg) {
-  const col = mongo.collection('invoiceCounters');
+  const col = mongo.collection('invoicecounters');
   const total = await col.countDocuments();
   console.log(`\n[invoiceCounters] found ${total} documents`);
   if (total === 0) return { total: 0, done: 0, errors: 0 };

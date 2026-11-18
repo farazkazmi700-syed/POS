@@ -4,7 +4,7 @@ TypeScript POS where any business (retail, restaurant, pharmacy, salon, ...) can
 
 | Part | Tech | Folder |
 |---|---|---|
-| API | NestJS 12, MongoDB (Mongoose), JWT + roles, BullMQ | `apps/api` |
+| API | NestJS 12, PostgreSQL 17 (FerretDB and Mongoose), JWT + roles, BullMQ | `apps/api` |
 | PDF worker | BullMQ worker, Handlebars template, Puppeteer (Chromium) | `apps/pdf-worker` |
 | Web app | React 19, Vite, Tailwind, React Query, Zustand | `apps/web` |
 | Shared contract | plain TypeScript interfaces | `packages/shared-types` |
@@ -12,9 +12,7 @@ TypeScript POS where any business (retail, restaurant, pharmacy, salon, ...) can
 
 See [Project structure and repository conventions](docs/project-structure.md) for directory ownership, generated files and verification commands.
 
-PostgreSQL migration: the API and PDF worker support PostgreSQL-authoritative
-invoice status and PDF metadata. Sales, inventory and authentication still use
-MongoDB. See [hybrid invoice setup and activation gates](docs/migration/09-hybrid-invoices.md).
+The default Docker deployment runs the API, PDF worker, Redis, nginx and PostgreSQL in one container. All POS document data, including accounts and sign-in state, goes to PostgreSQL through a loopback FerretDB gateway. See [storage and migration instructions](docs/adr/0003-single-container-postgresql.md) before upgrading an existing installation.
 
 ## How a sale flows
 
@@ -38,22 +36,11 @@ docker compose up --build
   -> logins `npm run dev:api` / `restaurant@demo.test`, password `demo12345`
 
 Production: `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
-(databases not exposed, secrets mandatory, restart policies; add TLS in front of the `web` container).
+(databases not exposed, secrets mandatory, restart policies; add TLS in front of the POS container).
 
-## Local development (no Docker for the apps)
+## Frontend development
 
-```bash
-npm run install:all             # installs api, web and pdf-worker
-docker compose up -d mongo redis
-cp .env.example .env            # use this one root env file for local apps too
-
-npm run dev:api                 # http://localhost:3000
-npm run dev:worker              # needs Chromium: puppeteer downloads it on install
-npm run dev:web                 # http://localhost:5173 (proxies /api to :3000)
-```
-
-`STORAGE_DIR` must point at the **same folder** for the API and the worker; both load it from the root `.env`.
-Tune the invoice layout with `cd apps/pdf-worker && npm run render:sample` (writes previews to `apps/pdf-worker/artifacts/`, which is ignored by Git).
+Start the standard Docker deployment and run npm run dev:web for a Vite server on port 5173. Vite proxies API calls to the same PostgreSQL-backed POS on port 3000. The explicit docker-compose.legacy-mongo.yml file is available for retrieving pre-migration data.
 
 ## Tests
 

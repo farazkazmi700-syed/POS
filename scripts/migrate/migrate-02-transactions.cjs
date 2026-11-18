@@ -20,26 +20,12 @@
 
 const { MongoClient, ObjectId } = require('mongodb');
 const { Client: PgClient }      = require('pg');
-const crypto                    = require('crypto');
+const { mongoIdToUuid } = require('./legacy-id.cjs');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
 const MONGO_URI    = process.env.MONGO_URI    || 'mongodb://localhost:27017/pos';
 const POSTGRES_URL = process.env.POSTGRES_URL || 'postgresql://kazmion:kazmion@localhost:5432/kazmion';
-
-/** Deterministic UUID v5 from a MongoDB ObjectId string */
-function mongoIdToUuid(oid) {
-  const NS = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
-  const nsBytes = NS.replace(/-/g, '').match(/.{2}/g).map(b => parseInt(b, 16));
-  const hash = crypto.createHash('sha1')
-    .update(Buffer.from(nsBytes))
-    .update(oid.toString())
-    .digest();
-  hash[6] = (hash[6] & 0x0f) | 0x50;
-  hash[8] = (hash[8] & 0x3f) | 0x80;
-  const h = hash.slice(0, 16).toString('hex');
-  return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}`;
-}
 
 function safeNum(val) {
   const n = parseFloat(val);
@@ -141,7 +127,7 @@ async function migrateOrders(mongo, pg) {
 }
 
 async function migrateInstallmentProducts(mongo, pg) {
-  const col = mongo.collection('installmentProducts');
+  const col = mongo.collection('installmentproducts');
   const total = await col.countDocuments();
   console.log(`\n[installmentProducts] found ${total} documents`);
 
@@ -191,7 +177,7 @@ async function migrateInstallmentProducts(mongo, pg) {
 }
 
 async function migrateInstallmentPlans(mongo, pg) {
-  const col = mongo.collection('installmentPlans');
+  const col = mongo.collection('installmentplans');
   const total = await col.countDocuments();
   console.log(`\n[installmentPlans] found ${total} documents`);
 
@@ -244,7 +230,7 @@ async function migrateInstallmentPlans(mongo, pg) {
 }
 
 async function migrateInstallmentSales(mongo, pg) {
-  const col = mongo.collection('installmentSales');
+  const col = mongo.collection('installmentsales');
   const total = await col.countDocuments();
   console.log(`\n[installmentSales] found ${total} documents`);
 

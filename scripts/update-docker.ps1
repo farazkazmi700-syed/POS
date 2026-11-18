@@ -1,28 +1,28 @@
-<#
+﻿<#
 .SYNOPSIS
   KazmiOn — Safe Docker Update Script (data-preserving)
 
 .DESCRIPTION
   Updates running Docker containers to the latest built images WITHOUT
-  deleting any data volumes (mongo_data, redis_data, invoice_data).
+  deleting any data volumes (PostgreSQL, Redis and invoices).
 
   Docker named volumes survive container replacement automatically.
   This script adds:
-  - Pre-update MongoDB backup
+  - Pre-update PostgreSQL backup
   - Container health verification after update
   - Clear rollback instructions if anything fails
 
   WHAT IS PRESERVED (always):
-    pos-system_mongo_data   ← ALL business data (MongoDB)
-    pos-system_redis_data   ← Redis queue persistence
-    pos-system_invoice_data ← Generated PDF invoices
+    pos_system_postgres17_live   ← PostgreSQL cluster and credentials
+    kazmion_redis_data   ← Redis queue persistence
+    kazmion_invoice_data ← Generated PDF invoices
 
   WHAT IS REPLACED:
     Container images (api, web, pdf-worker)
     Container configurations
 
 .PARAMETER SkipBackup
-  Skip the pre-update MongoDB backup (not recommended for production)
+  Skip the pre-update PostgreSQL backup (not recommended for production)
 .PARAMETER SkipVerify
   Skip the post-update smoke test
 .PARAMETER NoCache
@@ -78,7 +78,7 @@ Set-Location $PSScriptRoot\..
 # ─── Step 1: Verify volumes exist ─────────────────────────
 Step "Verifying data volumes"
 $volumes = docker volume ls --format "{{.Name}}" 2>$null
-$requiredVolumes = @("pos-system_mongo_data", "pos-system_redis_data", "pos-system_invoice_data")
+$requiredVolumes = @("pos_system_postgres17_live", "kazmion_redis_data", "kazmion_invoice_data")
 $allPresent = $true
 foreach ($vol in $requiredVolumes) {
   if ($volumes -contains $vol) {
@@ -94,23 +94,18 @@ if (-not $allPresent) {
 
 # ─── Step 2: Pre-update backup ────────────────────────────
 if (-not $SkipBackup) {
-  Step "Pre-update MongoDB backup"
-  if (Test-Path ".\scripts\backup\mongo-backup.ps1") {
-    try {
-      & ".\scripts\backup\mongo-backup.ps1"
-      OK "Backup complete"
-    } catch {
-      FAIL "Backup failed: $($_.Exception.Message)"
-      Write-Host ""
-      Write-Host "  Backup failed. Aborting update to protect your data." -ForegroundColor Red
-      Write-Host "  To skip backup (dev only): .\scripts\update-docker.ps1 -SkipBackup" -ForegroundColor Yellow
-      exit 1
-    }
-  } else {
-    WARN "Backup script not found — skipping"
-  }
-} else {
-  WARN "Backup skipped (SkipBackup flag set)"
+  $backupDir = Join-Path $PSScriptRoot "../backups/postgres"
+  New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+  $archive = "pos_$Timestamp"
+  $destination = Join-Path $backupDir $archive
+  New-Item -ItemType Directory -Path $destination -ErrorAction Stop | Out-Null
+  & docker compose exec -T -u postgres pos-system pg_basebackup -D "/tmp/$archive" -Ft -z -X stream -c fast
+  if ($LASTEXITCODE -ne 0) { throw "PostgreSQL base backup failed. Update stopped." }
+  & docker compose cp "pos-system:/tmp/$archive/." $destination
+  if ($LASTEXITCODE -ne 0) { throw "Could not copy PostgreSQL backup. Update stopped." }
+  & docker compose cp "pos-system:/var/lib/postgresql/data/secrets" $destination
+  if ($LASTEXITCODE -ne 0) { throw "Could not copy service credentials. Update stopped." }
+  & docker compose exec -T -u postgres pos-system rm -r -- "/tmp/$archive"
 }
 
 # ─── Step 3: Show current container status ────────────────
@@ -141,7 +136,7 @@ OK "Images built successfully"
 # ─── Step 5: Replace containers (volumes NOT touched) ─────
 Step "Replacing containers (preserving volumes)"
 INFO "docker compose up -d replaces containers but NEVER deletes named volumes"
-INFO "Data volumes: pos-system_mongo_data, pos-system_redis_data, pos-system_invoice_data"
+INFO "Data volumes: pos_system_postgres17_live, kazmion_redis_data, kazmion_invoice_data"
 Write-Host ""
 
 docker compose up -d
@@ -216,11 +211,10 @@ Write-Host ""
 Write-Host "  All data volumes preserved. No data was deleted." -ForegroundColor Green
 Write-Host ""
 Write-Host "  If the application is not working correctly:" -ForegroundColor Yellow
-Write-Host "    docker compose logs api" -ForegroundColor Gray
-Write-Host "    docker compose logs web" -ForegroundColor Gray
+Write-Host "    docker compose logs pos-system" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  To roll back to previous image (if tagged):" -ForegroundColor Yellow
 Write-Host "    docker compose down" -ForegroundColor Gray
-Write-Host "    # restore from backup: .\scripts\backup\mongo-backup.ps1" -ForegroundColor Gray
+Write-Host "    # see docs/adr/0003-single-container-postgresql.md for storage and rollback" -ForegroundColor Gray
 Write-Host "    # re-run previous deploy" -ForegroundColor Gray
 Write-Host ""

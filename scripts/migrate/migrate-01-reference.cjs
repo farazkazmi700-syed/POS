@@ -13,7 +13,7 @@
 
 const { MongoClient, ObjectId } = require('mongodb');
 const { Client } = require('pg');
-const crypto = require('node:crypto');
+const { mongoIdToUuid } = require('./legacy-id.cjs');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/pos';
@@ -22,14 +22,6 @@ const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
   console.error('ERROR: DATABASE_URL environment variable is required');
   process.exit(1);
-}
-
-// UUID v4 deterministic from MongoDB ObjectId (preserves identity across runs)
-function mongoIdToUuid(mongoId) {
-  const hex = typeof mongoId === 'string' ? mongoId : mongoId.toHexString();
-  // Pad to 32 hex chars and format as UUID
-  const padded = hex.padStart(32, '0');
-  return `${padded.slice(0,8)}-${padded.slice(8,12)}-4${padded.slice(13,16)}-${padded.slice(16,20)}-${padded.slice(20,32)}`;
 }
 
 function safeStr(v) { return v != null ? String(v) : null; }

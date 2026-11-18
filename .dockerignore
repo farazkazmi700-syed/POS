@@ -22,3 +22,5 @@ apps/pdf-worker/artifacts
 apps/pdf-worker/sample-invoice.html
 apps/pdf-worker/sample-invoice.pdf
 .git
+
+**/backups

@@ -130,6 +130,81 @@
 .dev-workspace .dev-badge-warn { background: rgba(245,158,11,0.10); color: #b45309; border-color: rgba(245,158,11,0.18); }
 .dev-workspace .dev-badge-danger { background: rgba(239,68,68,0.10); color: #dc2626; border-color: rgba(239,68,68,0.18); }
 .dev-workspace .dev-badge-success { background: rgba(16,185,129,0.10); color: #15803d; border-color: rgba(16,185,129,0.18); }
+.dev-workspace .dev-spotlight {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 132, 240, 0.18);
+  background:
+    radial-gradient(circle at top left, rgba(0, 132, 240, 0.12), transparent 30%),
+    linear-gradient(135deg, rgba(255,255,255,0.9), rgba(241,248,255,0.9));
+  box-shadow: 0 12px 32px rgba(0, 24, 60, 0.06);
+}
+html.dark .dev-workspace .dev-spotlight {
+  background:
+    radial-gradient(circle at top left, rgba(0, 132, 240, 0.16), transparent 30%),
+    linear-gradient(135deg, rgba(0,24,60,0.96), rgba(0,18,38,0.96));
+  border-color: rgba(0, 132, 240, 0.25);
+}
+.dev-workspace .dev-spotlight-copy { flex: 1 1 auto; min-width: 0; }
+.dev-workspace .dev-spotlight-copy h3 {
+  margin: 12px 0 8px;
+  font-size: clamp(18px, 1.9vw, 24px);
+  line-height: 1.2;
+  letter-spacing: -.03em;
+  color: var(--text);
+}
+.dev-workspace .dev-spotlight-copy p {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-soft);
+}
+.dev-workspace .dev-spotlight-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(90px, 1fr));
+  gap: 10px;
+  align-self: center;
+  min-width: min(100%, 330px);
+}
+.dev-workspace .dev-mini-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255,255,255,0.38);
+}
+html.dark .dev-workspace .dev-mini-metric { background: rgba(255,255,255,0.02); }
+.dev-workspace .dev-mini-metric span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+.dev-workspace .dev-mini-metric strong {
+  font-size: 16px;
+  line-height: 1.2;
+  letter-spacing: -.05em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 720px) {
+  .dev-workspace .dev-spotlight {
+    flex-direction: column;
+    padding: 18px;
+  }
+  .dev-workspace .dev-spotlight-metrics {
+    width: 100%;
+    min-width: 0;
+  }
+}
 /* Developer Engine — UX polish: buttons, inputs, empty states */
 .dev-workspace .dev-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--panel-border); border-radius: var(--dev-control-radius); min-height: 42px; padding: 0 16px; font-size: 13.5px; font-weight: 600; background: var(--panel); color: var(--text); cursor: pointer; transition: background .15s, border-color .15s, color .15s, box-shadow .15s; }
 .dev-workspace .dev-btn:hover { border-color: var(--accent); color: var(--accent-strong); }

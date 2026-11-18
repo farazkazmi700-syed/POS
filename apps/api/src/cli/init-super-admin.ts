@@ -1,7 +1,10 @@
+import { readFileSync } from 'node:fs';
 import mongoose from 'mongoose';
 
 async function initializeSuperAdmin() {
-  const mongoUri = process.env.MONGO_URI;
+  const mongoUri = process.env.POS_DOCUMENT_URI_FILE
+    ? readFileSync(process.env.POS_DOCUMENT_URI_FILE, 'utf8').trim()
+    : process.env.MONGO_URI;
   const email = process.env.SUPER_ADMIN_EMAIL?.trim().toLowerCase();
   if (!mongoUri) throw new Error('MONGO_URI is required');
   if (!email) throw new Error('SUPER_ADMIN_EMAIL is required');

@@ -12,7 +12,13 @@ const databaseName = `pos_spec_test_${Date.now()}_${randomBytes(4).toString('hex
 const prefix = `spec-test-${randomUUID()}`;
 const port = Number(process.env.SPEC_TEST_PORT || 3101);
 const setupToken = randomBytes(32).toString('hex');
-const uri = `mongodb://127.0.0.1:27017/${databaseName}`;
+const registrationPassword = randomBytes(24).toString('hex');
+const endpoint = new URL(process.env.SPEC_DATABASE_URI_FILE
+  ? require('node:fs').readFileSync(process.env.SPEC_DATABASE_URI_FILE, 'utf8').trim()
+  : 'mongodb://127.0.0.1:27017');
+if (endpoint.protocol !== 'mongodb:' || endpoint.hostname !== '127.0.0.1') throw new Error('Use a local test database');
+endpoint.pathname = '/' + databaseName;
+const uri = endpoint.toString();
 let child; let database; let recoveryFixtures; let checks = 0; let output = '';
 async function check(name, task) { await task(); checks++; console.log(`PASS ${name}`); }
 async function request(url, token, body, method = body === undefined ? 'GET' : 'POST', branch) {
@@ -35,7 +41,7 @@ async function main() {
   const owners = await Promise.all(tenants.map(async (tenant, index) => ({ _id: new mongoose.Types.ObjectId(), tenantId: tenant._id, name: `Owner ${index}`, email: `owner${index}@spec.test`, passwordHash: await bcrypt.hash('test-password-123', 4), pinHash: await bcrypt.hash('1234', 4), pinVersion: 0, sessionVersion: 0, pinRequiresChange: false, role: 'owner', isActive: true, superAdmin: false, branchIds: [] })));
   await database.collection('users').insertMany(owners);
   recoveryFixtures = await require('./recovery-fixtures.cjs').startRecoveryFixtures();
-  child = spawn(process.execPath, ['-r', path.join(root, 'qa/recovery-provider-hook.cjs'), 'dist/main.js'], { cwd: path.join(root, 'apps/api'), env: { ...process.env, PORT: String(port), MONGO_URI: uri, REDIS_URL: 'redis://127.0.0.1:6379/0', BULL_PREFIX: prefix, JWT_ACCESS_SECRET: randomBytes(32).toString('hex'), JWT_REFRESH_SECRET: randomBytes(32).toString('hex'), PLATFORM_DEVELOPER_EMAIL: 'developer@spec.test', PLATFORM_DEVELOPER_SETUP_TOKEN: setupToken, CORS_ORIGIN: 'http://localhost:5173', THROTTLE_LIMIT: '10000', SMTP_HOST: '127.0.0.1', SMTP_PORT: String(recoveryFixtures.smtpPort), SMTP_SECURE: 'false', SMTP_USER: 'test@spec.test', SMTP_PASSWORD: randomBytes(16).toString('hex'), SMTP_FROM: 'test@spec.test', TWILIO_ACCOUNT_SID: 'AC-test', TWILIO_AUTH_TOKEN: 'test-only', TWILIO_WHATSAPP_FROM: '+15005550006', TWILIO_WHATSAPP_CONTENT_SID: 'HX-test', RECOVERY_TEST_PROVIDER: recoveryFixtures.whatsappUrl }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  child = spawn(process.execPath, ['-r', path.join(root, 'qa/recovery-provider-hook.cjs'), 'dist/main.js'], { cwd: path.join(root, 'apps/api'), env: { ...process.env, PORT: String(port), DEV_ACCOUNT_EMAIL: 'provisioner@spec.test', DEV_ACCOUNT_PASSWORD_HASH: await bcrypt.hash(registrationPassword, 4), MONGO_URI: uri, REDIS_URL: 'redis://127.0.0.1:6379/0', BULL_PREFIX: prefix, JWT_ACCESS_SECRET: randomBytes(32).toString('hex'), JWT_REFRESH_SECRET: randomBytes(32).toString('hex'), PLATFORM_DEVELOPER_EMAIL: 'developer@spec.test', PLATFORM_DEVELOPER_SETUP_TOKEN: setupToken, CORS_ORIGIN: 'http://localhost:5173', THROTTLE_LIMIT: '10000', SMTP_HOST: '127.0.0.1', SMTP_PORT: String(recoveryFixtures.smtpPort), SMTP_SECURE: 'false', SMTP_USER: 'test@spec.test', SMTP_PASSWORD: randomBytes(16).toString('hex'), SMTP_FROM: 'test@spec.test', TWILIO_ACCOUNT_SID: 'AC-test', TWILIO_AUTH_TOKEN: 'test-only', TWILIO_WHATSAPP_FROM: '+15005550006', TWILIO_WHATSAPP_CONTENT_SID: 'HX-test', RECOVERY_TEST_PROVIDER: recoveryFixtures.whatsappUrl }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   child.stdout.on('data', (data) => { output = (output + data).slice(-18000); }); child.stderr.on('data', (data) => { output = (output + data).slice(-18000); });
   let ready = false;
   for (let attempt = 0; attempt < 80; attempt++) {
@@ -45,6 +51,18 @@ async function main() {
   }
   assert.ok(ready, `API did not become ready: ${output}`);
   await check('health and unauthenticated access', async () => { assert.equal((await request('/health')).status, 200); assert.equal((await request('/products')).status, 401); });
+  await check('registration persists the tenant and owner with a unique email', async () => {
+    const registration = { developerEmail: 'provisioner@spec.test', developerPassword: registrationPassword,
+      businessName: 'Provisioned business', domainType: 'retail', ownerName: 'New owner',
+      email: 'new-owner@spec.test', password: 'Provision-Test-52!' };
+    const response = await request('/auth/register', null, registration);
+    assert.equal(response.status, 201, JSON.stringify(response.data));
+    const account = await database.collection('users').findOne({ email: registration.email });
+    assert.equal(account?.role, 'owner');
+    assert.ok(await database.collection('tenants').findOne({ _id: account.tenantId }));
+    assert.equal((await request('/auth/register', null, registration)).status, 409);
+    assert.equal((await request('/auth/login', null, { email: registration.email, password: registration.password })).status, 201);
+  });
   await check('invalid credentials rejected', async () => assert.equal((await request('/auth/login', null, { email: owners[0].email, password: 'wrong' })).status, 401));
   const owner = await login(owners[0].email); const otherOwner = await login(owners[1].email);
   await check('module read APIs respond for an authorized business account', async () => {
@@ -139,7 +157,7 @@ async function main() {
   await check('branch limit is enforced', async () => assert.equal((await request('/branches', owner, { name: 'Second branch', code: 'SECOND' })).status, 403));
   const setup = await request('/auth/developer/setup-pin', null, { email: 'developer@spec.test', setupToken }); assert.equal(setup.status, 201, JSON.stringify(setup.data));
   const developerResult = await request('/auth/developer/login', null, { pin: setup.data.pin }); assert.equal(developerResult.status, 201, JSON.stringify(developerResult.data)); const developer = developerResult.data.accessToken;
-  await require('./delivery-phase-checks.cjs')({ request, check, owner, cashier: await login('cashier@spec.test'), otherOwner, developer, database, tenants, mongoose });
+  await require('./delivery-phase-checks.cjs')({ request, check, owner, cashier: await login('cashier@spec.test'), otherOwner, developer, database, tenants, mongoose, uri });
   await check('backup is developer-only and includes business records without credentials', async () => {
     assert.equal((await request('/developer/backup', owner)).status, 403);
     const backup = await request('/developer/backup', developer);

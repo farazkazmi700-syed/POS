@@ -19,8 +19,12 @@ function destination(collection, document, tenantIds, users) {
   if (!tenant || !tenantIds.has(tenant)) throw new Error('Unresolved business ownership; source needs review');
   return `pos_stage_${tenant}`;
 }
-function databaseIdentifier(value) {
+function stagingDatabaseName(value, capture = '') {
+  if (capture && !/^[0-9]{14}$/.test(capture)) throw new Error('Invalid staging capture ID');
   if (!/^pos_stage_(?:control|[a-f0-9]{24})$/.test(value)) throw new Error('Refusing non-staging database');
-  return '"' + value + '"';
+  return value + (capture ? '_' + capture : '');
 }
-module.exports = { destination, databaseIdentifier, objectId, GLOBAL_COLLECTIONS, BUSINESS_COLLECTIONS };
+function databaseIdentifier(value) {
+  return '"' + stagingDatabaseName(value) + '"';
+}
+module.exports = { destination, stagingDatabaseName, databaseIdentifier, objectId, GLOBAL_COLLECTIONS, BUSINESS_COLLECTIONS };

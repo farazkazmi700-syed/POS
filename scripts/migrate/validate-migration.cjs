@@ -16,23 +16,10 @@
 
 const { MongoClient } = require('mongodb');
 const { Client: PgClient } = require('pg');
-const crypto = require('crypto');
+const { mongoIdToUuid } = require('./legacy-id.cjs');
 
 const MONGO_URI    = process.env.MONGO_URI    || 'mongodb://localhost:27017/pos';
 const POSTGRES_URL = process.env.POSTGRES_URL || 'postgresql://kazmion:kazmion@localhost:5432/kazmion';
-
-function mongoIdToUuid(oid) {
-  const NS = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
-  const nsBytes = NS.replace(/-/g, '').match(/.{2}/g).map(b => parseInt(b, 16));
-  const hash = crypto.createHash('sha1')
-    .update(Buffer.from(nsBytes))
-    .update(oid.toString())
-    .digest();
-  hash[6] = (hash[6] & 0x0f) | 0x50;
-  hash[8] = (hash[8] & 0x3f) | 0x80;
-  const h = hash.slice(0, 16).toString('hex');
-  return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}`;
-}
 
 const TABLE_MAP = [
   { mongo: 'tenants',             pg: 'tenants' },
@@ -40,9 +27,9 @@ const TABLE_MAP = [
   { mongo: 'products',            pg: 'products' },
   { mongo: 'customers',           pg: 'customers' },
   { mongo: 'orders',              pg: 'orders' },
-  { mongo: 'installmentProducts', pg: 'installment_products' },
-  { mongo: 'installmentPlans',    pg: 'installment_plans' },
-  { mongo: 'installmentSales',    pg: 'installment_sales' },
+  { mongo: 'installmentproducts', pg: 'installment_products' },
+  { mongo: 'installmentplans',    pg: 'installment_plans' },
+  { mongo: 'installmentsales',    pg: 'installment_sales' },
 ];
 
 async function main() {

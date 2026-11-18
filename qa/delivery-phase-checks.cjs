@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { randomUUID, createHash } = require('node:crypto');
 
-module.exports = async function deliveryChecks({ request, check, owner, cashier, otherOwner, developer, database, tenants, mongoose }) {
+module.exports = async function deliveryChecks({ request, check, owner, cashier, otherOwner, developer, database, tenants, mongoose, uri }) {
   await check('business packages reject mismatched tenants and scope provisioned administrator grants', async () => {
     const features = { pos: false, inventory: true, reports: true, customers: true, installments: true, barcodes: false };
     const plan = await request('/developer/plans', developer, { name: 'Electronics delivery package', domainType: 'electronics', price: 100, billingInterval: 'monthly', features });
@@ -64,7 +64,9 @@ module.exports = async function deliveryChecks({ request, check, owner, cashier,
     // Restore ONLY into a newly generated sibling of this disposable test database; never a supplied database name.
     const restoreName = `${database.name}_restore`;
     assert.match(restoreName, /^pos_spec_test_\d+_[a-f0-9]{8}_restore$/);
-    const restored = await mongoose.createConnection(`mongodb://127.0.0.1:27017/${restoreName}`).asPromise();
+    const restoreEndpoint = new URL(uri);
+    restoreEndpoint.pathname = '/' + restoreName;
+    const restored = await mongoose.createConnection(restoreEndpoint.toString()).asPromise();
     try {
       assert.equal((await restored.db.listCollections().toArray()).length, 0);
       for (const [name, rows] of Object.entries(decoded.collections)) if (rows.length) {

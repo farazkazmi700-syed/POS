@@ -1,4 +1,4 @@
-﻿import { createBackupZip } from '../utils/backup';
+import { createBackupZip } from '../utils/backup';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import './Developer.css';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -1057,7 +1057,7 @@ function DeveloperWorkspace() {
         address: String(form.get('address') || ''),
         initialPlanId: initialPlanId || undefined,
         ...(seedAccountsOnProvision && pendingAccounts.length
-          ? { accounts: pendingAccounts.map(({ _key, ...rest }) => rest) }
+          ? { accounts: pendingAccounts.map(({ role, name, email, password, moduleRights }) => ({ role, name, email, password, moduleRights })) }
           : {}),
       },
       {
@@ -1456,70 +1456,56 @@ function DeveloperWorkspace() {
               </section>
 
               {/* Quick Actions & Status */}
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="dev-card p-5 md:col-span-2 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-900 dark:text-white">Quick Engine Actions</h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Instant shortcuts to configure and provision platform entities.</p>
+              <div className="grid gap-4 md:grid-cols-[1.45fr_0.95fr]">
+                <div className="dev-spotlight">
+                  <div className="dev-spotlight-copy">
+                    <div className="flex items-center gap-2">
+                      <span className="dev-badge dev-badge-active">Platform pulse</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Live ops</span>
                     </div>
+                    <h3>Developer workspace is healthy and ready for the next tenant launch.</h3>
+                    <p>
+                      {activeBusinesses} tenants are active, {consoleAlerts.length} operational alerts are in view, and the engine is accepting provisioning work without interruption.
+                    </p>
                   </div>
-                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('create-business')}
-                      className="dev-card dev-card-hover flex flex-col items-start gap-1 p-3.5 text-left"
-                    >
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
-                        <IconPlus className="w-4 h-4" />
-                      </span>
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">Provision Tenant</span>
-                      <span className="text-[10px] text-slate-500">Create business & owner account</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsCreatingPlan(true)}
-                      className="dev-card dev-card-hover flex flex-col items-start gap-1 p-3.5 text-left"
-                    >
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                        <IconBadge className="w-4 h-4" />
-                      </span>
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">Create New Plan</span>
-                      <span className="text-[10px] text-slate-500">Define pricing & module rights</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('audit')}
-                      className="dev-card dev-card-hover flex flex-col items-start gap-1 p-3.5 text-left"
-                    >
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
-                        <IconClock className="w-4 h-4" />
-                      </span>
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">View Audit Trail</span>
-                      <span className="text-[10px] text-slate-500">Inspect latest mutations</span>
-                    </button>
+                  <div className="dev-spotlight-metrics" aria-label="Platform summary metrics">
+                    <div className="dev-mini-metric">
+                      <span>Tenants</span>
+                      <strong>{totalBusinesses}</strong>
+                    </div>
+                    <div className="dev-mini-metric">
+                      <span>Plans</span>
+                      <strong>{activePlans}</strong>
+                    </div>
+                    <div className="dev-mini-metric">
+                      <span>MRR</span>
+                      <strong>{formatMoney(estimatedMonthlyRevenue)}</strong>
+                    </div>
                   </div>
                 </div>
 
-                <div className="dev-card p-5 space-y-3">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Developer Session</h3>
+                <div className="dev-card p-5 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Developer Session</h3>
+                    <span className="dev-badge dev-badge-success">Operational</span>
+                  </div>
                   <div className="space-y-2 text-xs">
-                    <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
                       <span className="text-slate-500">Role</span>
                       <span className="font-semibold text-emerald-600 dark:text-emerald-400">Platform Developer</span>
                     </div>
-                    <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
                       <span className="text-slate-500">Identity</span>
                       <span className="font-mono text-[11px] text-slate-700 dark:text-slate-300">{user?.email}</span>
                     </div>
-                    <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
                       <span className="text-slate-500">Environment</span>
                       <span className="font-semibold">Local / Production API</span>
                     </div>
-                    <div className="flex justify-between py-1">
-                      <span className="text-slate-500">Engine API Status</span>
+                    <div className="flex justify-between py-1.5">
+                      <span className="text-slate-500">Status</span>
                       <span className="inline-flex items-center gap-1 font-semibold text-emerald-600">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500" /> Operational
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" /> Connected
                       </span>
                     </div>
                   </div>
@@ -1532,6 +1518,42 @@ function DeveloperWorkspace() {
                     Sync Platform Data
                   </button>
                 </div>
+              </div>
+
+              <div className="grid gap-2.5 sm:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('create-business')}
+                  className="dev-card dev-card-hover flex flex-col items-start gap-1 p-3.5 text-left"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                    <IconPlus className="w-4 h-4" />
+                  </span>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">Provision Tenant</span>
+                  <span className="text-[10px] text-slate-500">Create business & owner account</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingPlan(true)}
+                  className="dev-card dev-card-hover flex flex-col items-start gap-1 p-3.5 text-left"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <IconBadge className="w-4 h-4" />
+                  </span>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">Create New Plan</span>
+                  <span className="text-[10px] text-slate-500">Define pricing & module rights</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('audit')}
+                  className="dev-card dev-card-hover flex flex-col items-start gap-1 p-3.5 text-left"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                    <IconClock className="w-4 h-4" />
+                  </span>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">View Audit Trail</span>
+                  <span className="text-[10px] text-slate-500">Inspect latest mutations</span>
+                </button>
               </div>
 
               {/* Recent Activity Stream */}
@@ -3212,7 +3234,7 @@ function DeveloperWorkspace() {
               if (provisionAccounts.isPending || pendingAccounts.length === 0) return;
               provisionAccounts.mutate({
                 id: accountsForBusiness.businessId,
-                accounts: pendingAccounts.map(({ _key, ...rest }) => rest),
+                accounts: pendingAccounts.map(({ role, name, email, password, moduleRights }) => ({ role, name, email, password, moduleRights })),
               });
             }}
           >
