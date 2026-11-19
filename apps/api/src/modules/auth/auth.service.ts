@@ -108,24 +108,25 @@ export class AuthService {
     if (!configuredEmail) {
       throw new UnauthorizedException('Developer access is not configured');
     }
-    const candidates: string[] = [];
-    if (dto.email?.trim()) candidates.push(dto.email.trim().toLowerCase());
-    candidates.push(configuredEmail.trim().toLowerCase());
-    let user: UserDocument | null = null;
-    for (const email of [...new Set(candidates)]) {
-      user = await this.users.findOne({
-        email,
-        role: Role.Owner,
-        superAdmin: { $ne: true },
-        isActive: true,
-      }).select('+developerPinHash +pinLockedUntil +pinFailedAttempts +developerSessionVersion');
-      if (user?.developerPinHash) break;
-      user = null;
+    const email = configuredEmail.trim().toLowerCase();
+    if (dto.email?.trim() && dto.email.trim().toLowerCase() !== email) {
+      throw new UnauthorizedException('Invalid developer credentials');
     }
+    const user = await this.users.findOne({ email, role: Role.Owner, superAdmin: { $ne: true }, isActive: true })
+      .select('+developerPinHash +developerStarterHash +pinLockedUntil +pinFailedAttempts +developerSessionVersion');
     if (!user) {
       throw new UnauthorizedException('Developer account not found');
     }
     if (user.pinLockedUntil && user.pinLockedUntil.getTime() > Date.now()) throw new HttpException('Developer access temporarily locked', HttpStatus.TOO_MANY_REQUESTS);
+    if (user.developerStarterHash && isValidDeveloperPin(dto.pin) && await bcrypt.compare(dto.pin, user.developerStarterHash)) {
+      await this.assertTenantAccess(user);
+      const consumed = await this.users.updateOne(
+        { _id: user._id, isActive: true, developerStarterHash: user.developerStarterHash },
+        { $unset: { developerStarterHash: 1 }, $set: { pinFailedAttempts: 0, pinLockedUntil: null } },
+      );
+      if (!consumed.modifiedCount) throw new UnauthorizedException('First-use PIN already used');
+      return { requiresDeveloperPinReset: true as const };
+    }
     const pinHash = user.developerPinHash;
     const pinValid = isValidDeveloperPin(dto.pin) && !!pinHash && await bcrypt.compare(dto.pin, pinHash);
     if (!pinValid) {

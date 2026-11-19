@@ -43,6 +43,8 @@ printf 'postgres://postgres:%s@127.0.0.1:5432/postgres' "$(cat "$POSTGRES_PASSWO
 chown ferret:ferret /run/pos/gateway-uri
 printf 'mongodb://pos_app:%s@127.0.0.1:27017/pos?authMechanism=SCRAM-SHA-256&authSource=admin&retryWrites=false' "$(cat "$store/secrets/pos_app")" > /run/pos/app-uri
 chown node:node /run/pos/app-uri
+install -d -o postgres -g node -m 2750 /run/pos/businesses
+rm -f /run/pos/businesses/ready
 umask 022
 export POS_SERVE="${POS_SERVE:-true}"
 exec /usr/bin/supervisord -n -c /etc/supervisor/supervisord.conf

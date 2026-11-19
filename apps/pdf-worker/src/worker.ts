@@ -13,7 +13,7 @@ const QUEUE = 'invoice';
 async function main() {
   const mode = process.env.INVOICE_STORE || (process.env.INVOICE_DATABASES_FILE ? 'postgres' : 'mongodb');
   if (!['postgres', 'mongodb'].includes(mode)) throw new Error('Invalid INVOICE_STORE');
-  const postgres = mode === 'postgres' ? PostgresInvoiceStore.fromFile(process.env.INVOICE_DATABASES_FILE || '') : undefined;
+  const postgres = process.env.BUSINESS_DB_DIRECTORY ? PostgresInvoiceStore.fromDirectory(process.env.BUSINESS_DB_DIRECTORY) : mode === 'postgres' ? PostgresInvoiceStore.fromFile(process.env.INVOICE_DATABASES_FILE || '') : undefined;
   await postgres?.ready();
   // Tenant entitlements remain in the control database even when invoice state uses PostgreSQL.
   const mongo = new MongoClient(process.env.MONGO_URI || 'mongodb://localhost:27017/pos');

@@ -6,6 +6,7 @@ import { useTenant } from '../hooks/useTenant';
 import { useAuth } from '../store/auth';
 import { errorMessage } from '../utils/errors';
 import { formatMoney } from '../utils/money';
+import { urduClass } from '../utils/urdu';
 
 export default function Orders() {
   const queryClient = useQueryClient();
@@ -92,7 +93,7 @@ export default function Orders() {
               <tr key={o._id} className={o.status === 'voided' ? 'opacity-60 line-through' : ''}>
                 <td className="td font-bold text-teal-800 dark:text-teal-300">{o.invoiceNo}</td>
                 <td className="td text-xs text-slate-500">{new Date(o.createdAt).toLocaleString()}</td>
-                <td className="td">{o.cashierName}</td>
+                <td className={`td ${urduClass(o.cashierName)}`} dir={urduClass(o.cashierName) ? 'rtl' : undefined}>{o.cashierName}</td>
                 <td className="td">{o.items.length}</td>
                 <td className="td capitalize">{o.paymentMode}</td>
                 <td className="td font-bold">{formatMoney(o.grandTotal, currency)}</td>
@@ -196,7 +197,7 @@ export default function Orders() {
               </div>
               <div>
                 <span className="text-slate-500 dark:text-slate-400">Cashier: </span>
-                <span className="text-slate-800 dark:text-slate-200">{o.cashierName}</span>
+                <span className={`text-slate-800 dark:text-slate-200 ${urduClass(o.cashierName)}`} dir={urduClass(o.cashierName) ? 'rtl' : undefined}>{o.cashierName}</span>
               </div>
               <div className="text-right">
                 <span className="text-slate-500 dark:text-slate-400">Items: </span>

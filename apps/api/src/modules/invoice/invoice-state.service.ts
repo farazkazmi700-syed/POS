@@ -8,6 +8,8 @@ import { OrderDocument } from '../order/schemas/order.schema';
 export class InvoiceStateService implements OnModuleDestroy, OnModuleInit {
   readonly postgres?: PostgresInvoiceStore;
   constructor(config: ConfigService) {
+    const directory = config.get<string>('BUSINESS_DB_DIRECTORY');
+    if (directory) { this.postgres = PostgresInvoiceStore.fromDirectory(directory); return; }
     const registry = config.get<string>('INVOICE_DATABASES_FILE');
     const mode = config.get<string>('INVOICE_STORE') || (registry ? 'postgres' : 'mongodb');
     if (!['postgres', 'mongodb'].includes(mode)) throw new Error('Invalid INVOICE_STORE');

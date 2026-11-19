@@ -7,6 +7,7 @@ import { useTenant } from '../hooks/useTenant';
 import { fmtDate, fmtDateTime, todayYmd } from '../utils/dates';
 import { errorMessage } from '../utils/errors';
 import { formatMoney } from '../utils/money';
+import { urduClass } from '../utils/urdu';
 
 type PrintJob = { kind: 'agreement' } | { kind: 'receipt'; payment: PlanPayment; balanceAfter: number };
 
@@ -67,7 +68,7 @@ export default function InstallmentDetail() {
       <div className="no-print space-y-5">
         <div className="flex flex-wrap items-center gap-3">
           <Link to="/installments" className="text-sm text-teal-600 hover:underline dark:text-teal-400">← Installments</Link>
-          <h1 className="page-title">{p.customerName}</h1>
+          <h1 className={`page-title ${urduClass(p?.customerName ?? '')}`} dir={urduClass(p?.customerName) ? 'rtl' : undefined}>{p.customerName}</h1>
           <span className="text-sm text-slate-500">{p.invoiceNo}</span>
           {p.status === 'completed' ? <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Completed</span>
             : p.overdueAmount > 0 ? <span className="rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Overdue {money(p.overdueAmount)}</span> : null}
@@ -245,9 +246,9 @@ function Agreement({ plan: p, business, address, taxRegNo, logoUrl, money }: { p
 
         <h3>Customer &amp; guarantor</h3>
         <table style={table}><tbody>
-          <tr><td style={cell}>Customer</td><td style={cell}><b>{p.customerName}</b></td><td style={cell}>Phone</td><td style={cell}>{p.customerPhone || '—'}</td></tr>
+          <tr><td style={cell}>Customer</td><td style={cell}><b className={`${urduClass(p.customerName)}`} style={{ direction: urduClass(p.customerName) ? 'rtl' : undefined }}>{p.customerName}</b></td><td style={cell}>Phone</td><td style={cell}>{p.customerPhone || '—'}</td></tr>
           <tr><td style={cell}>CNIC</td><td style={cell}>{p.customerCnic || '—'}</td><td style={cell}>Address</td><td style={cell}>{p.customerAddress || '—'}</td></tr>
-          <tr><td style={cell}>Guarantor</td><td style={cell}>{p.guarantor?.name || '—'}</td><td style={cell}>Phone / CNIC</td><td style={cell}>{[p.guarantor?.phone, p.guarantor?.cnic].filter(Boolean).join(' · ') || '—'}</td></tr>
+          <tr><td style={cell}>Guarantor</td><td className={`${urduClass(p.guarantor?.name ?? '')}`} style={{ ...cell, direction: urduClass(p.guarantor?.name) ? 'rtl' : undefined }}>{p.guarantor?.name || '—'}</td><td style={cell}>Phone / CNIC</td><td style={cell}>{[p.guarantor?.phone, p.guarantor?.cnic].filter(Boolean).join(' · ') || '—'}</td></tr>
           <tr><td style={cell}>Guarantor address</td><td style={cell} colSpan={3}>{p.guarantor?.address || '—'}</td></tr>
         </tbody></table>
 
@@ -312,7 +313,7 @@ function Receipt({ plan: p, payment, balanceAfter, business, address, logoUrl, m
         {address && <p style={{ textAlign: 'center', margin: '2px 0' }}>{address}</p>}
         <h3 style={{ textAlign: 'center', letterSpacing: 2 }}>PAYMENT RECEIPT</h3>
         <hr />
-        <p>Receipt no: <b>{payment.receiptNo}</b><br />Date: {fmtDateTime(payment.paidAt)}<br />Received from: <b>{p.customerName}</b> ({p.customerPhone})<br />Against invoice: {p.invoiceNo}</p>
+        <p>Receipt no: <b>{payment.receiptNo}</b><br />Date: {fmtDateTime(payment.paidAt)}<br />Received from: <b className={`${urduClass(p.customerName)}`} style={{ direction: urduClass(p.customerName) ? 'rtl' : undefined }}>{p.customerName}</b> ({p.customerPhone})<br />Against invoice: {p.invoiceNo}</p>
         <hr />
         <p style={{ fontSize: 18 }}>Amount received: <b>{money(payment.amount)}</b></p>
         <p>Paid by: {payment.mode.toUpperCase()}{payment.note ? ` · ${payment.note}` : ''}<br />Received by: {payment.receivedBy}</p>

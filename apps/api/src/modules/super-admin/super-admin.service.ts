@@ -1,3 +1,4 @@
+import { waitForBusinessDatabase } from '../../common/business-database';
 import { branchContext } from '../../common/branch-scope';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -138,6 +139,7 @@ export class SuperAdminService {
     });
     let ownerCreated: { id: string; email: string } | null = null;
     try {
+      await waitForBusinessDatabase(tenant.id);
       const owner = await this.users.create({
         tenantId: tenant._id,
         name: dto.ownerName.trim(),

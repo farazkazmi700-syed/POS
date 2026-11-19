@@ -1,5 +1,12 @@
 # KazmiOn — Test Report
 
+## Single-container acceptance, 2026-11-19
+
+Built with `docker compose -f compose.yaml build` and started with `docker compose -f compose.yaml up -d --no-build --pull never --wait`. Docker reported exactly one running container, kazmion-pos. Only 127.0.0.1:8080 is published. Supervisor reported all six processes running. The web root returned HTTP 200, /health returned ok and the worker rendered a PDF. A read-only PostgreSQL query verified four accounts and two tenants after the container replacement.
+
+The API unit suite passed 61 tests and the PDF worker passed six. The production frontend build included TypeScript checks. This run did not repeat browser end-to-end, recovery delivery or backup/restore drills. The current PostgreSQL cluster uses shared business collections with application tenant scoping. Separate physical databases per business remain outstanding.
+
+
 **Last verified:** 2026-11-17  
 **Node.js version:** v24.15.0  
 **TypeScript version:** 6.x

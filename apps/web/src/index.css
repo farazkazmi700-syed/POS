@@ -2,13 +2,12 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: "Inter", "Jameel Noori Nastaleeq", "Urdu Typesetting", "Noto Nastaliq Urdu", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Nastaliq Urdu", "Noto Naskh Arabic", "Noto Kufi Arabic", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  /* Urdu typography — standard Urdu Noori Nastaleeq first; Google's Noto Nastaliq
-     is the cross-platform fallback so every device renders the same style. */
-  --font-urdu: "Jameel Noori Nastaleeq", "Urdu Typesetting", "Noto Nastaliq Urdu", serif;
-  --font-urdu-ui: "Jameel Noori Nastaleeq", "Urdu Typesetting", "Noto Nastaliq Urdu", serif;
-  --font-urdu-heading: "Jameel Noori Nastaleeq", "Urdu Typesetting", "Noto Nastaliq Urdu", serif;
+  /* Urdu typography — Noto Nastaliq Urdu for Nastaleeq script; Noto Naskh Arabic / Noto Kufi Arabic as fallback */
+  --font-urdu: "Noto Nastaliq Urdu", "Noto Naskh Arabic", "Noto Kufi Arabic", serif;
+  --font-urdu-ui: "Noto Nastaliq Urdu", "Noto Naskh Arabic", "Noto Kufi Arabic", serif;
+  --font-urdu-heading: "Noto Nastaliq Urdu", "Noto Naskh Arabic", "Noto Kufi Arabic", serif;
 
   /* KazmiOn Official Brand Color Palette (Extracted from Brand Logo):
      #00183c (0,24,60)    - Kazmi Deep Midnight Navy (Primary Base)

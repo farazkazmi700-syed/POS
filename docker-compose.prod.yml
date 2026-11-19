@@ -1,4 +1,2 @@
-services:
-  pos-system:
-    ports: !override
-      - "80:80"
+# The default compose.yaml already runs the production image.
+services: {}

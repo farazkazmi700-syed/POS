@@ -12,6 +12,7 @@ import { useAuth } from '../store/auth';
 import { useCart } from '../store/cart';
 import { errorMessage } from '../utils/errors';
 import { formatMoney } from '../utils/money';
+import { urduClass, urduInputProps } from '../utils/urdu';
 
 const PAYMENTS: PaymentMode[] = ['cash', 'card', 'wallet', 'mixed'];
 type Done = Order & { installmentPlanId?: string };
@@ -577,10 +578,12 @@ export default function POS() {
                 <div>
                   <label className="label">Customer (Optional)</label>
                   <input
-                    className="input"
+                    className={`input ${urduClass(customerName)}`}
                     placeholder="Customer name for invoice"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
+                    dir={urduClass(customerName) ? 'rtl' : undefined}
+                    {...urduInputProps}
                   />
                 </div>
               )}

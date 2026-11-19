@@ -5,13 +5,13 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $log = Join-Path $root 'KazmiOn-startup.log'
-$base = Join-Path $root 'docker-compose.yml'
+$base = Join-Path $root 'compose.yaml'
 $prod = Join-Path $root 'docker-compose.prod.yml'
 $files = @('-f', $base)
 $url = 'http://localhost:8080'
 if ($Mode -eq 'production') {
     $files += @('-f', $prod)
-    $url = 'http://localhost'
+    $url = 'http://localhost:8080'
 }
 function Log([string]$message) {
     $line = "$(Get-Date -Format s) $message"
@@ -25,7 +25,7 @@ function Ready([string]$address) {
     } catch { return $false }
 }
 try {
-    if (-not (Test-Path -LiteralPath $base)) { throw 'docker-compose.yml not found. Place launcher files in the repository root.' }
+    if (-not (Test-Path -LiteralPath $base)) { throw 'compose.yaml not found. Place launcher files in the repository root.' }
     if ($Mode -eq 'production' -and -not (Test-Path -LiteralPath $prod)) { throw 'docker-compose.prod.yml not found.' }
     if (-not (Test-Path -LiteralPath (Join-Path $root '.env'))) { throw '.env missing. Copy .env.example to .env and configure required secrets before running.' }
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { throw 'Docker CLI not found. Install and start Docker Desktop or a compatible Docker Engine.' }

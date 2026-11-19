@@ -1,3 +1,4 @@
+import { waitForBusinessDatabase } from '../../common/business-database';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -9,11 +10,18 @@ import { NavigationVisibility, Tenant, TenantDocument, TenantFeatureFlags } from
 export class TenantService {
   constructor(@InjectModel(Tenant.name) private readonly model: Model<Tenant>) {}
 
-  create(data: {
+  async create(data: {
     name: string; domainType?: DomainType; taxRegNo?: string; address?: string; currency?: string;
     featureFlags?: Partial<TenantFeatureFlags>; navigationVisibility?: Partial<NavigationVisibility>;
   }): Promise<TenantDocument> {
-    return this.model.create(data);
+    const tenant = await this.model.create(data);
+    try {
+      await waitForBusinessDatabase(tenant.id);
+      return tenant;
+    } catch (error) {
+      await this.model.deleteOne({ _id: tenant._id });
+      throw error;
+    }
   }
 
   async findById(id: string): Promise<TenantDocument> {

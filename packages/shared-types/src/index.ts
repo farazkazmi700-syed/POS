@@ -43,11 +43,11 @@ export const TENANT_NAVIGATION_ITEMS = [
   { key: 'customers', to: '/customers', label: 'Customers', managerOnly: false, feature: 'customers' },
   { key: 'installments', to: '/installments', label: 'Installments', managerOnly: false, feature: 'installments' },
   { key: 'orders', to: '/orders', label: 'Orders', managerOnly: false },
-  { key: 'settings', to: '/settings', label: 'Settings', managerOnly: true },
   { key: 'barcode-generator', to: '/barcode-generator', label: 'Barcode Generator', managerOnly: true, feature: 'barcodes' },
   { key: 'barcode-scanner', to: '/barcode-scanner', label: 'Barcode Scanner', managerOnly: true, feature: 'barcodes' },
   { key: 'backup', to: '/backup', label: 'Backup', managerOnly: false },
   { key: 'help', to: '/help', label: 'Help', managerOnly: false },
+  { key: 'settings', to: '/settings', label: 'Settings', managerOnly: true },
 ] as const;
 
 export type TenantNavigationKey = (typeof TENANT_NAVIGATION_ITEMS)[number]['key'];

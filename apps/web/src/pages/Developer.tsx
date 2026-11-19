@@ -511,6 +511,11 @@ function DeveloperLogin() {
   const login = useMutation({
     mutationFn: (variables: DeveloperLoginInput) => authApi.developerLogin(variables),
     onSuccess: (session) => {
+      if ('requiresDeveloperPinReset' in session) {
+        setPin('');
+        navigate('/recover?purpose=developer-pin', { replace: true });
+        return;
+      }
       setSession(session);
       navigate('/developer', { replace: true });
     },

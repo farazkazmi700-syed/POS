@@ -7,6 +7,7 @@ import { customerApi, type CustomerInput } from '../api';
 import Modal from '../components/Modal';
 import { useDebounce } from '../hooks/useDebounce';
 import { errorMessage } from '../utils/errors';
+import { urduClass } from '../utils/urdu';
 
 interface FormState {
   name: string;
@@ -131,7 +132,7 @@ export default function Customers() {
           <tbody className="divide-y divide-slate-100 dark:divide-teal-950">
             {customersList.map((c) => (
               <tr key={c._id}>
-                <td className="td font-semibold text-slate-900 dark:text-slate-100">{c.name}</td>
+                <td className={`td font-semibold ${urduClass(c.name)}`} dir={urduClass(c.name) ? 'rtl' : undefined}>{c.name}</td>
                 <td className="td">
                   <a href={`tel:${c.phone}`} className="text-teal-700 hover:underline dark:text-teal-400 font-medium">
                     {c.phone}
@@ -142,7 +143,7 @@ export default function Customers() {
                 <td className="td text-xs text-slate-500">
                   {c.guarantor?.name ? (
                     <span>
-                      <span className="font-medium text-slate-700 dark:text-slate-300">{c.guarantor.name}</span>
+                      <span className={`font-medium ${urduClass(c.guarantor.name)}`} dir={urduClass(c.guarantor.name) ? 'rtl' : undefined}>{c.guarantor.name}</span>
                       {c.guarantor.phone && ` (${c.guarantor.phone})`}
                     </span>
                   ) : (
@@ -182,7 +183,7 @@ export default function Customers() {
           <div key={c._id} className="card space-y-3 p-4">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                <h3 className={`font-bold text-slate-900 dark:text-slate-100 text-sm ${urduClass(c.name)}`} dir={urduClass(c.name) ? 'rtl' : undefined}>
                   {c.name}
                 </h3>
                 <a
@@ -206,7 +207,7 @@ export default function Customers() {
                 {c.guarantor?.name && (
                   <p className="truncate">
                     <span className="text-slate-400">Guarantor:</span>{' '}
-                    <span className="font-medium text-slate-700 dark:text-slate-300">{c.guarantor.name}</span>
+                    <span className={`font-medium text-slate-700 dark:text-slate-300 ${urduClass(c.guarantor.name)}`} dir={urduClass(c.guarantor.name) ? 'rtl' : undefined}>{c.guarantor.name}</span>
                     {c.guarantor.phone && ` (${c.guarantor.phone})`}
                   </p>
                 )}

@@ -5,7 +5,7 @@ services:
     image: kazmion/pos:latest
     build:
       context: .
-      dockerfile: Dockerfile.single
+      dockerfile: Dockerfile
     restart: unless-stopped
     env_file:
       - .env
@@ -26,8 +26,9 @@ services:
       STORAGE_DIR: /data/invoices
     ports:
       # Application entry point only. PostgreSQL, FerretDB gateway and Redis stay loopback-internal.
-      - "127.0.0.1:8080:80"
+      - "127.0.0.1:8080:8080"
     volumes:
+      - kazmion_queue:/data/redis
       - kazmion_pgdata:/var/lib/postgresql/data
       - kazmion_uploads:/data/invoices
       - kazmion_backups:/app/backups
@@ -39,8 +40,13 @@ services:
       retries: 5
 volumes:
   kazmion_pgdata:
-    name: kazmion_pgdata
+    external: ${KAZMION_EXISTING_VOLUMES:-false}
+    name: ${KAZMION_PG_VOLUME:-kazmion_pgdata}
   kazmion_uploads:
-    name: kazmion_uploads
+    external: ${KAZMION_EXISTING_VOLUMES:-false}
+    name: ${KAZMION_UPLOAD_VOLUME:-kazmion_uploads}
   kazmion_backups:
     name: kazmion_backups
+  kazmion_queue:
+    external: ${KAZMION_EXISTING_VOLUMES:-false}
+    name: ${KAZMION_QUEUE_VOLUME:-kazmion_queue}

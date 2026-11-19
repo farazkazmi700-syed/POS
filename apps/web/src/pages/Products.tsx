@@ -7,6 +7,7 @@ import PageHeading from '../components/PageHeading';
 import { useDebounce } from '../hooks/useDebounce';
 import { useTenant } from '../hooks/useTenant';
 import { errorMessage } from '../utils/errors';
+import { urduClass } from '../utils/urdu';
 import { formatMoney } from '../utils/money';
 
 interface FormState {
@@ -137,7 +138,7 @@ export default function Products() {
               const low = p.trackStock && p.stockQty <= p.lowStockThreshold;
               return (
                 <tr key={p._id}>
-                  <td className="td font-semibold text-slate-900 dark:text-slate-100">{p.name}</td>
+                  <td className={`td font-semibold ${urduClass(p.name)}`} dir={urduClass(p.name) ? 'rtl' : undefined}>{p.name}</td>
                   <td className="td text-xs text-slate-500">{p.sku ?? '—'}</td>
                   <td className="td">
                     {p.category ? (

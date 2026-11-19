@@ -20,8 +20,16 @@ class PostgresInvoiceStore {
     try { return new PostgresInvoiceStore(JSON.parse(readFileSync(file, 'utf8'))); }
     catch { throw new Error('Cannot load trusted invoice database registry'); }
   }
+  static fromDirectory(directory) {
+    const store = new PostgresInvoiceStore({});
+    store.directory = directory;
+    return store;
+  }
   async pool(tenant) {
     identifier(tenant);
+    if (this.directory && !this.connections.has(tenant)) {
+      this.connections.set(tenant, readFileSync(require('node:path').join(this.directory, tenant), 'utf8').trim());
+    }
     if (!this.connections.has(tenant)) throw new Error('Business has no provisioned invoice database');
     if (!this.pools.has(tenant)) {
       const pool = new Pool({ connectionString: this.connections.get(tenant), max: 2, idleTimeoutMillis: 30000, connectionTimeoutMillis: 5000, statement_timeout: 10000 });
@@ -38,6 +46,7 @@ class PostgresInvoiceStore {
     catch { throw new Error('PostgreSQL invoice store unavailable or business mapping invalid'); }
   }
   async ready() {
+    if (this.directory) { require('node:fs').accessSync(require('node:path').join(this.directory, 'ready')); return; }
     if (!this.connections.size) throw new Error('Invoice registry has no provisioned businesses');
     await Promise.all([...this.connections.keys()].map(tenant => this.query(tenant, 'SELECT 1 FROM invoice_store.invoices LIMIT 0', [])));
   }

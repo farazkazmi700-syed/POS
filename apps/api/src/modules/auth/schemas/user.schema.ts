@@ -22,6 +22,7 @@ export class User {
   /** Invalidates developer-only access and refresh tokens when incremented. */
   @Prop({ default: 0, select: false }) developerSessionVersion: number;
   @Prop({ type: String, select: false }) pinHash?: string;
+  @Prop({ type: String, select: false }) developerStarterHash?: string;
   @Prop({ type: String, select: false }) developerPinHash?: string;
   @Prop({ default: 0 }) sessionVersion: number;
   @Prop({ default: false }) pinRequiresChange: boolean;

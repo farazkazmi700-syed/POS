@@ -1,6 +1,7 @@
 export interface InvoiceState { orderId: string; status: 'pending' | 'ready' | 'failed'; pdfPath?: string | null; }
 export class PostgresInvoiceStore {
   constructor(connections: Record<string, string>);
+  static fromDirectory(directory: string): PostgresInvoiceStore;
   static fromFile(file: string): PostgresInvoiceStore;
   ready(): Promise<void>;
   seed(tenant: string, records: InvoiceState[]): Promise<void>;

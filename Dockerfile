@@ -61,11 +61,14 @@ COPY infra/postgres/init-pos.sh /docker-entrypoint-initdb.d/99-init-pos.sh
 COPY infra/postgres/start-app.sh /usr/local/bin/start-pos-app
 RUN groupadd --system node && useradd --system --gid node node \
  && useradd --system --user-group ferret \
- && chmod 0755 /usr/local/bin/pos-system-entrypoint /usr/local/bin/pos-healthcheck /usr/local/bin/start-pos-app /docker-entrypoint-initdb.d/99-init-pos.sh
+ && chmod 0755 /usr/local/bin/pos-system-entrypoint /usr/local/bin/pos-healthcheck /usr/local/bin/start-pos-app /docker-entrypoint-initdb.d/99-init-pos.sh \
  && install -d -m 0755 /app/backups
 
+COPY infra/postgres/provision-businesses.cjs /app/api/provision-businesses.cjs
+COPY infra/postgres/business-hba.conf /etc/pos-pg-hba.conf
+ENV BUSINESS_DB_DIRECTORY=/run/pos/businesses
 ENV POS_DOCUMENT_URI_FILE=/run/pos/app-uri
-EXPOSE 80 3000
+EXPOSE 8080
 VOLUME ["/data/redis", "/data/invoices", "/app/backups"]
 HEALTHCHECK --interval=20s --timeout=5s --start-period=120s --retries=5 \
   CMD /usr/local/bin/pos-healthcheck
