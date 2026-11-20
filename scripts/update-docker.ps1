@@ -215,6 +215,6 @@ Write-Host "    docker compose logs pos-system" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  To roll back to previous image (if tagged):" -ForegroundColor Yellow
 Write-Host "    docker compose down" -ForegroundColor Gray
-Write-Host "    # see docs/adr/0003-single-container-postgresql.md for storage and rollback" -ForegroundColor Gray
+Write-Host "    # see README.md#ref-07 for storage and rollback" -ForegroundColor Gray
 Write-Host "    # re-run previous deploy" -ForegroundColor Gray
 Write-Host ""

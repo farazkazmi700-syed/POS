@@ -46,6 +46,16 @@ describe('renderInvoiceHtml', () => {
     const html = await renderInvoiceHtml({ ...sample, tenant: { ...sample.tenant, logoUrl: 'http://169.254.169.254/latest/meta-data/' } });
     assert.doesNotMatch(html, /169\.254\.169\.254/);
   });
+  it('prints the saved service charge, tax breakdown and payable total', async () => {
+    const html = await renderInvoiceHtml({
+      ...sample,
+      totals: { ...sample.totals, charges: [{ label: 'Service charge (5%)', amount: 85.5 }], chargesTotal: 85.5, grandTotal: 2103.3 },
+    });
+    assert.match(html, /Service charge \(5%\)<\/td><td>[^<]*85\.50/);
+    assert.match(html, /Tax Breakdown/);
+    assert.match(html, /1,710\.00<\/td><td>[^<]*307\.80/);
+    assert.match(html, /2,103\.30/);
+  });
   it('prints mixed tenders and escapes business-controlled text', async () => {
     const html = await renderInvoiceHtml({ ...sample, tenant: { ...sample.tenant, name: '<script>alert(1)</script>' }, paymentMode: 'mixed', payments: [{ mode: 'cash', amount: 1000 }, { mode: 'card', amount: 1017.8 }] });
     assert.match(html, /1,017\.80/); assert.match(html, /MIXED/); assert.doesNotMatch(html, /<script>alert/);

@@ -64,7 +64,7 @@ export default function Products() {
   const adjustmentKey = useRef({ payload: '', key: '' });
   const adjust = useMutation({ mutationFn: () => { const payload = JSON.stringify(adjustment); if (adjustmentKey.current.payload !== payload) adjustmentKey.current = { payload, key: crypto.randomUUID() }; return stockApi.adjust({ productId: adjustment.productId, delta: Number(adjustment.delta), reason: adjustment.reason, idempotencyKey: adjustmentKey.current.key }); }, onSuccess: () => { setAdjustment({ productId: '', delta: '', reason: '' }); queryClient.invalidateQueries({ queryKey: ['products'] }); } });
   const q = useDebounce(search);
-  const [editing, setEditing] = useState<{ id?: string; form: FormState } | null>(null);
+  const [editing, setEditing] = useState<{ id?: string; origStock: number; form: FormState } | null>(null);
 
   const list = useQuery({
     queryKey: ['products', 'manage', q, lowOnly],
@@ -72,8 +72,15 @@ export default function Products() {
   });
 
   const save = useMutation({
-    mutationFn: (v: { id?: string; form: FormState }) =>
-      v.id ? productApi.update(v.id, { ...toInput(v.form), stockQty: undefined }) : productApi.create(toInput(v.form)),
+    mutationFn: async (v: { id?: string; origStock: number; form: FormState }) => {
+      if (!v.id) return productApi.create(toInput(v.form));
+      // Editing stock goes through the audited adjustment endpoint so it is logged.
+      const delta = Number(v.form.stockQty || 0) - v.origStock;
+      if (delta !== 0) {
+        await stockApi.adjust({ productId: v.id, delta, reason: 'Manual edit from product form', idempotencyKey: crypto.randomUUID() });
+      }
+      return productApi.update(v.id, { ...toInput(v.form), stockQty: undefined });
+    },
     onSuccess: () => { setEditing(null); queryClient.invalidateQueries({ queryKey: ['products'] }); },
   });
   const remove = useMutation({
@@ -111,7 +118,7 @@ export default function Products() {
           </label>
           <button
             className="btn-primary w-full sm:w-auto"
-            onClick={() => { save.reset(); setEditing({ form: empty }); }}
+            onClick={() => { save.reset(); setEditing({ origStock: 0, form: empty }); }}
           >
             + Add product
           </button>
@@ -169,7 +176,7 @@ export default function Products() {
                   <td className="td space-x-2 text-right">
                     <button
                       className="btn-secondary !px-2.5 !py-1 text-xs"
-                      onClick={() => { save.reset(); setEditing({ id: p._id, form: fromProduct(p) }); }}
+                      onClick={() => { save.reset(); setEditing({ id: p._id, origStock: p.stockQty, form: fromProduct(p) }); }}
                     >
                       Edit
                     </button>
@@ -247,7 +254,7 @@ export default function Products() {
               <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-teal-950">
                 <button
                   className="btn-secondary flex-1 !py-2 text-xs font-semibold"
-                  onClick={() => { save.reset(); setEditing({ id: p._id, form: fromProduct(p) }); }}
+                  onClick={() => { save.reset(); setEditing({ id: p._id, origStock: p.stockQty, form: fromProduct(p) }); }}
                 >
                   Edit Product
                 </button>
@@ -368,16 +375,20 @@ export default function Products() {
                 {editing.form.trackStock && (
                   <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-200 dark:border-teal-900/40">
                     <div>
-                      <label className="label">{editing.id ? 'Current stock (use adjustment to change)' : 'Opening stock'}</label>
+                      <label className="label">{editing.id ? 'Current stock' : 'Opening stock'}</label>
                       <input
                         className="input"
                         type="number"
                         min={0}
                         step="any"
                         value={editing.form.stockQty}
-                        readOnly={!!editing.id}
                         onChange={(e) => setField('stockQty', e.target.value)}
                       />
+                      {editing.id && Number(editing.form.stockQty || 0) !== editing.origStock && (
+                        <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+                          Saving will log a stock adjustment ({Number(editing.form.stockQty || 0) - editing.origStock > 0 ? '+' : ''}{Number(editing.form.stockQty || 0) - editing.origStock}).
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="label">Low Stock Alert Limit</label>

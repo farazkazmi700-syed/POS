@@ -65,10 +65,10 @@ export interface InstallmentTerms {
 
 export const authApi = {
   login: (body: { email: string; password: string }) => api.post<LoginResponse>('/auth/login', body).then((r) => r.data),
-  developerLogin: (body: { email?: string; pin: string }) =>
-    api.post<AuthResponse | { requiresDeveloperPinReset: true }>('/auth/developer/login', body).then((r) => r.data),
-  setupDeveloperPin: (body: { email: string; setupToken: string }) =>
-    api.post<{ email: string; pin: string }>('/auth/developer/setup-pin', body).then((r) => r.data),
+  developerLogin: (body: { email: string; password: string }) =>
+    api.post<AuthResponse>('/auth/developer/login', body).then((r) => r.data),
+  setupDeveloperPassword: (body: { email: string; setupToken: string; password: string }) =>
+    api.post<{ email: string; passwordSet: true }>('/auth/developer/setup-password', body).then((r) => r.data),
   register: (body: {
     businessName: string; domainType: string; ownerName: string; email: string; password: string;
     developerEmail: string; developerPassword: string;

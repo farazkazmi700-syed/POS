@@ -1,5 +1,5 @@
 import { createBackupZip } from '../utils/backup';
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import './Developer.css';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FeatureKey, SubscriptionPlan, FeatureFlags, BusinessPlanTarget, BillingInterval, DomainType, ProvisionableRole } from '@pos/shared-types';
@@ -7,7 +7,7 @@ import { DOMAIN_ROLE_PACKAGES, MODULE_RIGHTS } from '@pos/shared-types';
 import type { DomainRolePackage, ProvisionAccountInput, ClientAccountEntry } from '../api';
 import { developerApi, authApi } from '../api';
 import { useAuth } from '../store/auth';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import DevConsoleSearch from '../components/developer/DevConsoleSearch';
 import DevNotificationCenter from '../components/developer/DevNotificationCenter';
@@ -490,7 +490,7 @@ function StatusBadge({ status }: { status?: 'active' | 'suspended' }) {
 
 export default function Developer() {
   const user = useAuth((state) => state.user);
-  return user?.isDeveloper ? <DeveloperWorkspace /> : <DeveloperLogin />;
+  return user?.isDeveloper ? <DeveloperWorkspace key={user._id} developerId={user._id} /> : <DeveloperLogin />;
 }
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -499,23 +499,18 @@ export default function Developer() {
 
 function DeveloperLogin() {
   const [email, setEmail] = useState('');
-  const [pin, setPin] = useState('');
-  const [showPin, setShowPin] = useState(false);
-  const [capsLock, setCapsLock] = useState(false);
+  const [password, setPassword] = useState('');
+  const [step, setStep] = useState<'email' | 'password'>('email');
+  const [showPassword, setShowPassword] = useState(false);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const setSession = useAuth((state) => state.setSession);
   const navigate = useNavigate();
 
-  type DeveloperLoginInput = { email?: string; pin: string };
+  type DeveloperLoginInput = { email: string; password: string };
 
   const login = useMutation({
     mutationFn: (variables: DeveloperLoginInput) => authApi.developerLogin(variables),
     onSuccess: (session) => {
-      if ('requiresDeveloperPinReset' in session) {
-        setPin('');
-        navigate('/recover?purpose=developer-pin', { replace: true });
-        return;
-      }
       setSession(session);
       navigate('/developer', { replace: true });
     },
@@ -523,8 +518,15 @@ function DeveloperLogin() {
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (pin.length === 8 && !login.isPending) {
-      login.mutate({ email: email.trim() || undefined, pin });
+    const normalizedEmail = email.trim();
+    if (step === 'email' && normalizedEmail) {
+      login.reset();
+      setEmail(normalizedEmail);
+      setStep('password');
+      return;
+    }
+    if (step === 'password' && normalizedEmail && password && !login.isPending) {
+      login.mutate({ email: normalizedEmail, password });
     }
   };
 
@@ -548,112 +550,140 @@ function DeveloperLogin() {
             <div>
               <p className="dev-eyebrow justify-center">Kazmion POS Engine</p>
               <h1 className="mt-1.5 text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                Developer Engine
+                {step === 'email' ? 'Developer sign in' : 'Enter your password'}
               </h1>
             </div>
             <p className="mx-auto max-w-[280px] text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              Sign in with your developer email and 8-digit PIN to manage businesses, subscriptions, and platform APIs.
+              {step === 'email'
+                ? 'Access the platform workspace with your verified developer account.'
+                : 'Use your account password to continue to the Developer Engine.'}
             </p>
           </header>
 
-          <div className="mt-6 space-y-4">
-            {/* Developer PIN — primary credential, focused first */}
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <label
-                  className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400"
-                  htmlFor="developer-pin"
-                >
-                  Developer PIN
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowPin((v) => !v)}
-                  className="dev-link-btn"
-                  aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
-                >
-                  {showPin ? <IconEyeOff className="w-3.5 h-3.5" /> : <IconEye className="w-3.5 h-3.5" />}
-                  {showPin ? 'Hide' : 'Show'}
-                </button>
-              </div>
-              <input
-                id="developer-pin"
-                className="dev-pin-input"
-                type={showPin ? 'text' : 'password'}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                autoFocus
-                enterKeyHint="go"
-                aria-describedby={capsLock ? 'developer-caps-hint' : 'developer-pin-hint'}
-                aria-invalid={login.isError || undefined}
-                minLength={8}
-                maxLength={8}
-                pattern="[0-9]{8}"
-                placeholder="••••••••"
-                required
-                value={pin}
-                onKeyDown={(event) => setCapsLock(event.getModifierState?.('CapsLock') ?? false)}
-                onKeyUp={(event) => setCapsLock(event.getModifierState?.('CapsLock') ?? false)}
-                onBlur={() => setCapsLock(false)}
-                onChange={(event) => {
-                  setPin(event.target.value.replace(/\D/g, '').slice(0, 8));
-                  if (login.isError) login.reset();
-                }}
-              />
-              <div className="mt-2.5 flex justify-center gap-1.5" aria-hidden="true">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <span
-                    key={i}
-                    className={`dev-pin-dot ${i < pin.length ? 'is-filled' : ''}`}
-                  />
-                ))}
-              </div>
-              {capsLock && <p id="developer-caps-hint" className="mt-2 text-center text-[11px] font-medium text-amber-600 dark:text-amber-400" role="status">Caps Lock is on.</p>}
+          <div className="dev-login-progress mt-6" role="list" aria-label={`Step ${step === 'email' ? 1 : 2} of 2`}>
+            <div className={step === 'email' ? 'is-current' : 'is-complete'} role="listitem" aria-current={step === 'email' ? 'step' : undefined}>
+              <span className="dev-login-step-number">{step === 'email' ? '1' : <IconCheck className="w-3.5 h-3.5" />}</span>
+              <span>Email</span>
             </div>
-
-            {/* Developer Email — optional identity refinement */}
-            <div>
-              <label
-                className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400"
-                htmlFor="developer-email"
-              >
-                Developer Email <span className="normal-case tracking-normal opacity-70">(optional)</span>
-              </label>
-              <input
-                id="developer-email"
-                className="input w-full text-[13px]"
-                type="email"
-                autoComplete="email"
-                placeholder="developer@kazmion.com"
-                value={email}
-                onChange={(event) => {
-                  setEmail(event.target.value);
-                  if (login.isError) login.reset();
-                }}
-              />
-              <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                Leave blank to sign in with your configured platform developer account.
-              </p>
+            <span className="dev-login-progress-line" aria-hidden="true" />
+            <div className={step === 'password' ? 'is-current' : ''} role="listitem" aria-current={step === 'password' ? 'step' : undefined}>
+              <span className="dev-login-step-number">2</span>
+              <span>Password</span>
             </div>
           </div>
 
-          {login.isError && (
+          <div className="mt-6 space-y-4">
+            {step === 'email' ? (
+              <div>
+                <label
+                  className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400"
+                  htmlFor="developer-email"
+                >
+                  Verified developer email
+                </label>
+                <input
+                  id="developer-email"
+                  className="input w-full text-[13px]"
+                  type="email"
+                  autoComplete="username"
+                  autoFocus
+                  required
+                  placeholder="name@example.com"
+                  value={email}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    if (login.isError) login.reset();
+                  }}
+                />
+                <p className="mt-2 text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
+                  Use the email address configured for your Developer account.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="dev-login-identity">
+                  <div className="min-w-0">
+                    <span className="dev-login-identity-label">Signing in as</span>
+                    <strong title={email}>{email}</strong>
+                  </div>
+                  <button
+                    type="button"
+                    className="dev-link-btn"
+                    onClick={() => {
+                      setPassword('');
+                      setShowPassword(false);
+                      login.reset();
+                      setStep('email');
+                    }}
+                  >
+                    Change
+                  </button>
+                </div>
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <label
+                      className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400"
+                      htmlFor="developer-password"
+                    >
+                      Developer password
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((value) => !value)}
+                      className="dev-link-btn"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <IconEyeOff className="w-3.5 h-3.5" /> : <IconEye className="w-3.5 h-3.5" />}
+                      {showPassword ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                  <input
+                    id="developer-password"
+                    className="input w-full text-[13px]"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    autoFocus
+                    enterKeyHint="go"
+                    aria-describedby="developer-password-hint"
+                    aria-invalid={login.isError || undefined}
+                    maxLength={128}
+                    placeholder="Enter your password"
+                    required
+                    value={password}
+                    onChange={(event) => {
+                      setPassword(event.target.value);
+                      if (login.isError) login.reset();
+                    }}
+                  />
+                  <p id="developer-password-hint" className="mt-2 text-center text-[11px] text-slate-400 dark:text-slate-500">
+                    Your password is stored as a secure hash, never as plain text.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+
+          {step === 'password' && login.isError && (
             <div className="dev-inline-alert" role="alert">
               <IconAlert className="w-4 h-4 flex-shrink-0" />
               <span>{errorMessage(login.error)}</span>
             </div>
           )}
 
-          <button className="dev-login-btn mt-6" type="submit" disabled={login.isPending || pin.length !== 8}>
-            {login.isPending ? (
+          <button
+            className="dev-login-btn mt-6"
+            type="submit"
+            disabled={step === 'email' ? !email.trim() : login.isPending || !password}
+          >
+            {step === 'email' ? (
+              'Continue to password'
+            ) : login.isPending ? (
               <span className="flex items-center justify-center gap-2">
                 <IconRefresh className="w-4 h-4 spinning" />
                 Verifying…
               </span>
-            ) : pin.length === 8 ? (
-              'Access Developer Engine'
             ) : (
-              `Enter all ${8 - pin.length} remaining digit${8 - pin.length === 1 ? '' : 's'}`
+              'Sign in to Developer Engine'
             )}
           </button>
 
@@ -664,7 +694,7 @@ function DeveloperLogin() {
               className="dev-link-btn"
             >
               <IconKey className="w-3.5 h-3.5" />
-              Initial PIN setup
+              Set up password
             </button>
             <Link to="/login" className="dev-link-btn">
               <IconArrowLeft className="w-3.5 h-3.5" />
@@ -673,7 +703,7 @@ function DeveloperLogin() {
           </div>
 
           <p className="dev-secure-note">
-            <Link to="/recover?purpose=developer-pin">Forgot or change developer PIN</Link>
+            <Link to="/recover?purpose=password&source=developer">Forgot or change password</Link>
             <IconLock className="w-3.5 h-3.5" />
           </p>
         </form>
@@ -681,7 +711,7 @@ function DeveloperLogin() {
 
       {/* Developer Setup Modal */}
       {showSetupModal && (
-        <DeveloperSetupModal onClose={() => setShowSetupModal(false)} />
+        <DeveloperPasswordSetupModal onClose={() => setShowSetupModal(false)} />
       )}
     </div>
   );
@@ -689,22 +719,24 @@ function DeveloperLogin() {
 
 /* ─────────────── Developer Setup Modal ─────────────── */
 
-function DeveloperSetupModal({ onClose }: { onClose: () => void }) {
+function DeveloperPasswordSetupModal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState('');
   const [setupToken, setSetupToken] = useState('');
-  const setup = useMutation({ mutationFn: authApi.setupDeveloperPin });
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const setup = useMutation({ mutationFn: authApi.setupDeveloperPassword });
 
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setup.mutate({ email, setupToken }, { onSuccess: () => setSetupToken('') });
+    setup.mutate({ email, setupToken, password }, { onSuccess: () => { setSetupToken(''); setPassword(''); } });
   };
 
   return (
     <ModalOverlay onClose={onClose} labelledBy="setup-modal-title">
       <ModalHeader
         titleId="setup-modal-title"
-        title="Developer PIN Setup"
-        subtitle="Authorize or reset developer access using your server setup token."
+        title="Developer password setup"
+        subtitle="Use the local setup token to set or replace the Developer password."
         onClose={onClose}
       />
       <div className="dev-modal-body">
@@ -714,13 +746,10 @@ function DeveloperSetupModal({ onClose }: { onClose: () => void }) {
               <IconCheck className="w-6 h-6" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Developer PIN Generated</h4>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Password saved</h4>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Created for <strong>{setup.data.email}</strong>. Copy and store this PIN securely:
+                Password access is ready for <strong>{setup.data.email}</strong>. The previous Developer PIN was removed.
               </p>
-            </div>
-            <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 font-mono text-2xl font-bold tracking-widest text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100">
-              {setup.data.pin}
             </div>
             <button type="button" onClick={onClose} className="dev-btn-primary w-full text-xs">
               Return to Login
@@ -735,7 +764,7 @@ function DeveloperSetupModal({ onClose }: { onClose: () => void }) {
                 type="email"
                 required
                 className="input text-xs"
-                placeholder="developer@pos.local"
+                placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -752,7 +781,32 @@ function DeveloperSetupModal({ onClose }: { onClose: () => void }) {
                 value={setupToken}
                 onChange={(e) => setSetupToken(e.target.value)}
               />
-              <p className="mt-1 text-[11px] text-slate-400">Setup generates a private PIN. There is no default developer credential.</p>
+            </div>
+            <div>
+              <label className="label" htmlFor="setup-password">New password</label>
+              <div className="flex gap-2">
+                <input
+                  id="setup-password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  required
+                  minLength={12}
+                  maxLength={128}
+                  className="input min-w-0 flex-1 text-xs"
+                  placeholder="Use at least 12 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="dev-btn-secondary text-xs"
+                  onClick={() => setShowPassword((value) => !value)}
+                  aria-label={showPassword ? 'Hide new password' : 'Show new password'}
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-slate-400">The password is hashed before it is stored.</p>
             </div>
             {setup.isError && (
               <div className="dev-inline-alert" role="alert">
@@ -765,7 +819,7 @@ function DeveloperSetupModal({ onClose }: { onClose: () => void }) {
                 Cancel
               </button>
               <button type="submit" disabled={setup.isPending} className="dev-btn-primary text-xs">
-                {setup.isPending ? 'Generating…' : 'Generate PIN'}
+                {setup.isPending ? 'Saving…' : 'Save password'}
               </button>
             </div>
           </form>
@@ -789,14 +843,60 @@ const ROLE_BADGE: Record<ProvisionableRole, { cls: string; short: string }> = {
 };
 const MODULE_RIGHT_LABEL: Record<string, string> = Object.fromEntries(MODULE_RIGHTS.map((r) => [r.key, r.label]));
 
-function DeveloperWorkspace() {
+const navSections: { label: string; keys: readonly Tab[] }[] = [
+    { label: 'Workspace', keys: ['overview'] },
+    { label: 'Business Management', keys: ['businesses', 'plans', 'packages', 'create-business'] },
+    { label: 'Platform Access', keys: ['modules', 'module-rights', 'clients'] },
+    { label: 'Operations', keys: ['audit', 'backup', 'help'] },
+    { label: 'System', keys: ['settings'] },
+  ];
+
+const accentPresets = [
+  { name: 'Cobalt', color: '#2463eb' },
+  { name: 'Teal', color: '#087d78' },
+  { name: 'Violet', color: '#7652ce' },
+  { name: 'Copper', color: '#b75528' },
+];
+const defaultAccent = accentPresets[0].color;
+
+function accentForeground(hex: string) {
+  const channels = [1, 3, 5].map((offset) => {
+    const channel = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  return luminance > 0.179 ? '#000000' : '#ffffff';
+}
+
+function DeveloperWorkspace({ developerId }: { developerId: string }) {
+  const accentKey = `pos-developer-accent:${developerId}`;
+  const [accent, setAccent] = useState(() => {
+    const stored = localStorage.getItem(accentKey);
+    return stored && /^#[0-9a-f]{6}$/i.test(stored) ? stored.toLowerCase() : defaultAccent;
+  });
+  function chooseAccent(color: string) {
+    setAccent(color);
+    localStorage.setItem(accentKey, color);
+  }
   const client = useQueryClient();
   const user = useAuth((state) => state.user);
   const logout = useAuth((state) => state.logout);
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [params, setParams] = useSearchParams();
+  const activeTab = navSections.flatMap((group) => group.keys).find((key) => key === params.get('section')) ?? 'overview';
+  function setActiveTab(tab: Tab) {
+    if (tab === activeTab) return;
+    setParams((previous) => {
+      const next = new URLSearchParams(previous);
+      if (tab === 'overview') next.delete('section');
+      else next.set('section', tab);
+      return next;
+    });
+  }
+  useEffect(() => { window.scrollTo(0, 0); }, [activeTab]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [navSearch, setNavSearch] = useState('');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [businessSearch, setBusinessSearch] = useState('');
   const [businessSort, setBusinessSort] = useState('default');
@@ -1159,6 +1259,15 @@ function DeveloperWorkspace() {
     { key: 'audit', label: 'Audit Log', icon: <IconClock className="w-[18px] h-[18px]" />, badge: auditLogs.data?.length },
     { key: 'settings', label: 'Settings', icon: <IconSettings className="w-[18px] h-[18px]" /> },
   ];
+  const normalizedNavSearch = navSearch.trim().toLowerCase();
+  const visibleNavSections = navSections.map((section) => {
+    const sectionMatches = section.label.toLowerCase().includes(normalizedNavSearch);
+    const items = section.keys.flatMap((key) => {
+      const tab = tabs.find((item) => item.key === key);
+      return tab && (!normalizedNavSearch || sectionMatches || tab.label.toLowerCase().includes(normalizedNavSearch)) ? [tab] : [];
+    });
+    return { ...section, items };
+  }).filter((section) => section.items.length > 0);
 
   const pageTitle =
     activeTab === 'overview' ? 'Developer Dashboard'
@@ -1175,7 +1284,7 @@ function DeveloperWorkspace() {
                     : 'Console Settings';
 
   const pageSubtitle =
-    activeTab === 'overview' ? 'High-level engine analytics, tenant health, and quick actions.'
+    activeTab === 'overview' ? 'Review business activity, plan coverage, and estimated monthly revenue.'
       : activeTab === 'businesses' ? 'Manage tenant organizations, assign plans, and toggle module entitlements.'
         : activeTab === 'plans' ? 'Configure subscription tiers, pricing, and baseline features.'
           : activeTab === 'packages' ? 'Per-industry account bundles the owner rolls out as admin, staff & cashier accounts.'
@@ -1195,13 +1304,13 @@ function DeveloperWorkspace() {
   };
 
   /* License & subscription alerts derived only from real backend records. */
-  const consoleAlerts = useMemo(() => {
+  const consoleAlerts = (() => {
     const alerts: { id: string; tone: 'warning' | 'danger'; title: string; detail: string; actionLabel: string; onAction: () => void }[] = [];
     const now = Date.now();
     const in30Days = now + 30 * 24 * 60 * 60 * 1000;
     for (const b of businesses.data ?? []) {
       if (b.status === 'suspended') {
-        alerts.push({ id: `susp-${b.businessId}`, tone: 'danger', title: `${b.name} suspended`, detail: 'Tenant API access is disabled until reactivation.', actionLabel: 'Review', onAction: () => setActiveTab('businesses') });
+        alerts.push({ id: `susp-${b.businessId}`, tone: 'danger', title: `${b.name} suspended`, detail: 'Tenant API access is disabled until reactivation.', actionLabel: 'Review', onAction: () => { setActiveTab('businesses'); setInspectingBusiness(b); } });
       }
       if (b.licenseExpiresAt) {
         const expiry = new Date(b.licenseExpiresAt).getTime();
@@ -1212,18 +1321,31 @@ function DeveloperWorkspace() {
             title: expiry <= now ? `${b.name} license expired` : `${b.name} license expiring`,
             detail: expiry <= now ? 'Expired license — review deployment entitlement.' : `Expires ${fmtDateTime(b.licenseExpiresAt)}.`,
             actionLabel: 'Open',
-            onAction: () => setActiveTab('businesses'),
+            onAction: () => { setActiveTab('businesses'); setInspectingBusiness(b); },
           });
         }
       }
     }
     return alerts;
-  }, [businesses.data]);
+  })();
 
   const userInitial = (user?.name?.charAt(0) || 'D').toUpperCase();
 
+  const accountControls = (
+    <div className="dev-header-account" role="group" aria-label="Developer account">
+      <span className="dev-avatar !h-8 !w-8 !text-xs" aria-hidden="true">{userInitial}</span>
+      <div className="dev-header-identity">
+        <strong dir="auto" title={user?.name}>{user?.name || 'Developer'}</strong>
+        {user?.email && <span title={user.email}>{user.email}</span>}
+      </div>
+      <button type="button" className="dev-header-signout" onClick={signOut}>
+        <IconLogout className="h-4 w-4" /> Sign out
+      </button>
+    </div>
+  );
+
   return (
-    <div className={`dev-workspace${sidebarCollapsed ? ' dev-workspace-collapsed' : ''}`}>
+    <div style={{ '--dev-accent': accent, '--dev-on-accent': accentForeground(accent) } as CSSProperties} className={`dev-workspace${sidebarCollapsed ? ' dev-workspace-collapsed' : ''}`}>
       <a className="dev-skip-link" href="#developer-content">Skip to content</a>
       {/* ─── Desktop Sidebar ─── */}
       <aside className="dev-sidebar">
@@ -1233,46 +1355,60 @@ function DeveloperWorkspace() {
             <KazmiLogo className="w-5 h-5" />
           </span>
           <div className="dev-brand-copy min-w-0">
-            <h1 className="truncate text-sm font-bold tracking-tight text-slate-900 dark:text-white">Dev Engine</h1>
-            <p className="truncate text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Kazmi POS Core</p>
+            <h1 className="truncate text-sm font-bold tracking-tight text-slate-900 dark:text-white">Developer Engine</h1>
+            <p className="dev-brand-subtitle"><span className="dev-brand-status" aria-hidden="true" /> Platform console</p>
           </div>
         </div>
 
         {/* Nav Items */}
-        <nav id="developer-navigation" className="mt-7 flex-1 space-y-1" aria-label="Developer navigation">
-          <p className="dev-nav-caption">Console Modules</p>
-          <div className="mt-1 flex flex-col gap-0.5">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`dev-nav-item ${activeTab === tab.key ? 'dev-nav-item-active' : ''}`}
-                aria-current={activeTab === tab.key ? 'page' : undefined}
-                aria-label={tab.label}
-                title={sidebarCollapsed ? tab.label : undefined}
-              >
-                {tab.icon}
-                <span className="dev-nav-label">{tab.label}</span>
-                {tab.badge !== undefined && (
-                  <span className="dev-nav-badge">{tab.badge}</span>
-                )}
+        <nav id="developer-navigation" className="dev-nav-list flex-1" aria-label="Developer navigation">
+          <div className="dev-nav-filter">
+            <IconSearch className="dev-nav-filter-icon" />
+            <input
+              type="text"
+              aria-label="Filter navigation"
+              placeholder="Find a section"
+              autoComplete="off"
+              value={navSearch}
+              onChange={(event) => setNavSearch(event.target.value)}
+              onKeyDown={(event) => { if (event.key === 'Escape') setNavSearch(''); }}
+            />
+            {navSearch && (
+              <button type="button" className="dev-nav-filter-clear" aria-label="Clear navigation filter" onClick={() => setNavSearch('')}>
+                <IconClose className="w-3.5 h-3.5" />
               </button>
-            ))}
+            )}
           </div>
+          {visibleNavSections.map((section) => (
+            <div key={section.label} className="dev-nav-section">
+              <h2 className="dev-nav-caption">{section.label}</h2>
+              <div className="dev-nav-items">
+                {section.items.map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setActiveTab(tab.key)}
+                      className={`dev-nav-item ${activeTab === tab.key ? 'dev-nav-item-active' : ''}`}
+                      aria-current={activeTab === tab.key ? 'page' : undefined}
+                      aria-label={tab.label}
+                      title={sidebarCollapsed ? tab.label : undefined}
+                    >
+                      <span className="dev-nav-icon">{tab.icon}</span>
+                      <span className="dev-nav-label">{tab.label}</span>
+                      {tab.badge !== undefined && tab.badge > 0 && (
+                        <span className="dev-nav-badge">{tab.badge > 99 ? '99+' : tab.badge}</span>
+                      )}
+                    </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          {visibleNavSections.length === 0 && <p className="dev-nav-empty" role="status">No sections found</p>}
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="dev-sidebar-footer space-y-3 border-t border-slate-200/70 pt-3 dark:border-slate-800/70">
-          <div className="flex items-center gap-2.5 px-2">
-            <span className="dev-avatar !h-8 !w-8 !text-xs">{userInitial}</span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">{user?.name || 'Developer'}</p>
-              <p className="truncate text-[10px] text-slate-500 dark:text-slate-400">{user?.email || 'developer@pos.local'}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-1 px-1">
+        <div className="dev-sidebar-footer">
+          <div className="dev-sidebar-tools">
             <ThemeToggle />
             <button
               onClick={refresh}
@@ -1283,15 +1419,7 @@ function DeveloperWorkspace() {
             >
               <IconRefresh className="w-4 h-4" spinning={businesses.isFetching || plans.isFetching || overview.isFetching} />
             </button>
-            <button
-              type="button"
-              onClick={signOut}
-              className="dev-icon-btn dev-icon-btn-danger"
-              title="Sign out of developer portal"
-              aria-label="Sign out"
-            >
-              <IconLogout className="w-4 h-4" />
-            </button>
+
           </div>
         </div>
       </aside>
@@ -1304,33 +1432,12 @@ function DeveloperWorkspace() {
             <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Kazmi POS</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Link className="dev-icon-btn" to="/recover?purpose=developer-pin" title="Account security" aria-label="Account security"><IconLock className="w-4 h-4" /></Link>
-          <ThemeToggle />
-          <button
-            onClick={refresh}
-            type="button"
-            className="dev-icon-btn"
-            title="Refresh data"
-            aria-label="Refresh data"
-          >
-            <IconRefresh className="w-4 h-4" spinning={businesses.isFetching || plans.isFetching} />
-          </button>
-          <button
-            type="button"
-            onClick={signOut}
-            className="dev-icon-btn dev-icon-btn-danger"
-            title="Sign out"
-            aria-label="Sign out"
-          >
-            <IconLogout className="w-4 h-4" />
-          </button>
-        </div>
+        {accountControls}
       </header>
 
       {/* ─── Main Content ─── */}
       <main className="dev-main" id="developer-content" tabIndex={-1}>
-        <div className="dev-topbar">
+        <header className="dev-topbar">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <button type="button" className="dev-icon-btn dev-collapse-toggle"
               onClick={() => setSidebarCollapsed((value) => !value)}
@@ -1343,35 +1450,56 @@ function DeveloperWorkspace() {
               <DevConsoleSearch
                 businesses={businesses.data}
                 plans={plans.data}
-                onOpenBusiness={() => setActiveTab('businesses')}
-                onOpenPlans={() => setActiveTab('plans')}
+                onOpenBusiness={(business) => { setActiveTab('businesses'); setInspectingBusiness(business); }}
+                onOpenPlan={(plan) => { setActiveTab('plans'); setEditingPlan(plan); }}
               />
             )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <div className="dev-mobile-tools">
+              <Link className="dev-icon-btn" to="/recover?purpose=password&source=developer" title="Account security" aria-label="Account security"><IconLock className="w-4 h-4" /></Link>
+              <ThemeToggle />
+              <button
+                onClick={refresh}
+                type="button"
+                className="dev-icon-btn"
+                title="Refresh data"
+                aria-label="Refresh data"
+              >
+                <IconRefresh className="w-4 h-4" spinning={businesses.isFetching || plans.isFetching} />
+              </button>
+            </div>
             <DevNotificationCenter alerts={consoleAlerts} />
-            <Link to="/recover?purpose=developer-pin" className="dev-topbar-security"><IconLock className="w-4 h-4" /> Account security</Link>
+            <Link to="/recover?purpose=password&source=developer" className="dev-topbar-security"><IconLock className="w-4 h-4" /> Account security</Link>
+            <div className="dev-desktop-account">{accountControls}</div>
           </div>
-        </div>
+        </header>
         <div className="dev-mobile-section">
           <label htmlFor="developer-section">Workspace section</label>
           <select id="developer-section" className="input" value={activeTab} onChange={(event) => setActiveTab(event.target.value as Tab)}>
-            {tabs.map((tab) => <option key={tab.key} value={tab.key}>{tab.label}</option>)}
+            {navSections.map((section) => (
+              <optgroup key={section.label} label={section.label}>
+                {section.keys.map((key) => {
+                  const tab = tabs.find((item) => item.key === key);
+                  return tab ? <option key={tab.key} value={tab.key}>{tab.label}</option> : null;
+                })}
+              </optgroup>
+            ))}
           </select>
         </div>
         {/* Page Header */}
-        <div className="dev-page-header">
+        <div className={`dev-page-header${activeTab === 'overview' ? ' dev-overview-header' : ''}`}>
           <div className="min-w-0">
-            <p className="dev-eyebrow">Developer Engine</p>
+            
             <h2 className="dev-page-title" aria-live="polite">{pageTitle}</h2>
             <p className="dev-page-subtitle">{pageSubtitle}</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="dev-live-pill" role="status" title="Status of developer API requests">
+            <span className="dev-live-pill" data-state={failedQueries.length || isError || overview.isError ? 'error' : isLoading || overview.isPending ? 'loading' : 'ready'} role="status" title="Status of developer API requests">
               <span className="dev-live-dot" />
-              {isError || overview.isError ? 'Connection issue' : isLoading || overview.isPending ? 'Connecting…' : 'Engine connected'}
+              {failedQueries.length || isError || overview.isError ? 'Connection issue' : isLoading || overview.isPending ? 'Connecting…' : 'Engine connected'}
             </span>
-            {activeTab !== 'create-business' && (
+            {['businesses', 'plans', 'overview'].includes(activeTab) && (
               <button
                 type="button"
                 onClick={() => (activeTab === 'plans' ? setIsCreatingPlan(true) : setActiveTab('create-business'))}
@@ -1415,7 +1543,7 @@ function DeveloperWorkspace() {
           {activeTab === 'overview' && (
             <div className="space-y-6">
               {/* Platform Statistics */}
-              <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6" aria-label="Platform telemetry">
+              <section className="dev-metrics-grid" aria-label="Platform telemetry">
                 <StatCard
                   icon={<IconBuilding className="w-4 h-4" />}
                   label="Total Businesses"
@@ -1448,7 +1576,7 @@ function DeveloperWorkspace() {
                   icon={<IconCube className="w-4 h-4" />}
                   label="Modules"
                   value={featureKeys.length}
-                  hint="POS, Inv, Rep, Cust, Inst, Barcode"
+                  hint="Platform features"
                   tone="default"
                 />
                 <StatCard
@@ -1460,112 +1588,32 @@ function DeveloperWorkspace() {
                 />
               </section>
 
-              {/* Quick Actions & Status */}
-              <div className="grid gap-4 md:grid-cols-[1.45fr_0.95fr]">
-                <div className="dev-spotlight">
-                  <div className="dev-spotlight-copy">
-                    <div className="flex items-center gap-2">
-                      <span className="dev-badge dev-badge-active">Platform pulse</span>
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Live ops</span>
-                    </div>
-                    <h3>Developer workspace is healthy and ready for the next tenant launch.</h3>
-                    <p>
-                      {activeBusinesses} tenants are active, {consoleAlerts.length} operational alerts are in view, and the engine is accepting provisioning work without interruption.
-                    </p>
+              {businesses.data && (
+                <section className="dev-card dev-business-review" aria-labelledby="review-heading">
+                  <h3 id="review-heading">Business review</h3>
+                  <div className="dev-review-actions">
+                    {([
+                      ['suspended', 'Suspended businesses', totalBusinesses - activeBusinesses],
+                      ['no-plan', 'Businesses without a plan', totalBusinesses - assignedBusinesses],
+                    ] as const).map(([filter, label, count]) => (
+                      <button key={filter} type="button" onClick={() => {
+                        setBusinessSearch('');
+                        setBusinessPage(1);
+                        setBusinessFilter(filter);
+                        setActiveTab('businesses');
+                      }}>
+                        <span>{label}</span><strong>{count}</strong><span aria-hidden="true">&rarr;</span>
+                      </button>
+                    ))}
                   </div>
-                  <div className="dev-spotlight-metrics" aria-label="Platform summary metrics">
-                    <div className="dev-mini-metric">
-                      <span>Tenants</span>
-                      <strong>{totalBusinesses}</strong>
-                    </div>
-                    <div className="dev-mini-metric">
-                      <span>Plans</span>
-                      <strong>{activePlans}</strong>
-                    </div>
-                    <div className="dev-mini-metric">
-                      <span>MRR</span>
-                      <strong>{formatMoney(estimatedMonthlyRevenue)}</strong>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="dev-card p-5 space-y-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Developer Session</h3>
-                    <span className="dev-badge dev-badge-success">Operational</span>
-                  </div>
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">Role</span>
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">Platform Developer</span>
-                    </div>
-                    <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">Identity</span>
-                      <span className="font-mono text-[11px] text-slate-700 dark:text-slate-300">{user?.email}</span>
-                    </div>
-                    <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-slate-500">Environment</span>
-                      <span className="font-semibold">Local / Production API</span>
-                    </div>
-                    <div className="flex justify-between py-1.5">
-                      <span className="text-slate-500">Status</span>
-                      <span className="inline-flex items-center gap-1 font-semibold text-emerald-600">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500" /> Connected
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={refresh}
-                    className="dev-btn-secondary w-full text-xs justify-center"
-                  >
-                    <IconRefresh className="w-3.5 h-3.5" spinning={businesses.isFetching} />
-                    Sync Platform Data
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid gap-2.5 sm:grid-cols-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('create-business')}
-                  className="dev-card dev-card-hover flex flex-col items-start gap-1 p-3.5 text-left"
-                >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
-                    <IconPlus className="w-4 h-4" />
-                  </span>
-                  <span className="text-xs font-bold text-slate-900 dark:text-white">Provision Tenant</span>
-                  <span className="text-[10px] text-slate-500">Create business & owner account</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsCreatingPlan(true)}
-                  className="dev-card dev-card-hover flex flex-col items-start gap-1 p-3.5 text-left"
-                >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    <IconBadge className="w-4 h-4" />
-                  </span>
-                  <span className="text-xs font-bold text-slate-900 dark:text-white">Create New Plan</span>
-                  <span className="text-[10px] text-slate-500">Define pricing & module rights</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('audit')}
-                  className="dev-card dev-card-hover flex flex-col items-start gap-1 p-3.5 text-left"
-                >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
-                    <IconClock className="w-4 h-4" />
-                  </span>
-                  <span className="text-xs font-bold text-slate-900 dark:text-white">View Audit Trail</span>
-                  <span className="text-[10px] text-slate-500">Inspect latest mutations</span>
-                </button>
-              </div>
+                </section>
+              )}
 
               {/* Recent Activity Stream */}
               <div className="dev-card p-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Recent Platform Mutations</h3>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Recent platform activity</h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">Real-time log of business, plan, and entitlement changes.</p>
                   </div>
                   <button
@@ -2235,7 +2283,7 @@ function DeveloperWorkspace() {
                   <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                     Owner email and phone captured at provisioning power password reset and account verification (Mail/SMS badges in Clients).
                     Suspend/reactivate tenants anytime from their card; suspended tenants lose API access but keep their data.
-                    Use <strong>Backup</strong> regularly — the JSON snapshot is secrets-free and portable. Lost developer PIN? Use “Forgot or change developer PINâ€ on the login card.
+                    Use <strong>Backup</strong> regularly — the JSON snapshot is secrets-free and portable. Forgot your Developer password? Use the recovery link on the sign-in card.
                   </p>
                 </div>
               </div>
@@ -2901,12 +2949,23 @@ function DeveloperWorkspace() {
                   </div>
                   <ThemeToggle />
                 </div>
-                <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Account</p>
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Signed in as <span className="font-mono font-semibold">{user?.email}</span> — developer scope. Use the header profile menu to sign out.
-                  </p>
-                </div>
+                <fieldset className="dev-palette">
+                  <legend>Accent color</legend>
+                  <p>Choose a preset or pick a custom color. Your choice is saved in this browser.</p>
+                  <div className="dev-palette-options">
+                    {accentPresets.map((preset) => (
+                      <button type="button" key={preset.color} aria-pressed={accent === preset.color}
+                        onClick={() => chooseAccent(preset.color)}>
+                        <span aria-hidden="true" style={{ background: preset.color }} />{preset.name}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="dev-custom-accent">
+                    <label>Custom color <input type="color" value={accent} onChange={(event) => chooseAccent(event.target.value)} /></label>
+                    <output>{accent.toUpperCase()}</output>
+                    <button type="button" onClick={() => chooseAccent(defaultAccent)} disabled={accent === defaultAccent}>Reset to default</button>
+                  </div>
+                </fieldset>
                 <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
                   <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Hierarchy reference</p>
                   <p className="mt-1 text-[11px] text-slate-500">

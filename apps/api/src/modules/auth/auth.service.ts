@@ -15,11 +15,10 @@ import { BranchService } from '../branch/branch.module';
 import { oid } from '../../common/object-id';
 import {
   hasTenantAccess, isConfiguredDeveloper, isDeveloperSetupAuthorized, isPublicBusinessRegistrationClosed,
-  isValidDeveloperPin,
 } from '../../common/security-access';
 import { TenantService } from '../tenant/tenant.service';
 import {
-  CompletePinLoginDto, CreateStaffDto, DeveloperLoginDto, DeveloperSetupPinDto, LoginDto, PinResetDto, PinResetRequestDto, RegisterDto,
+  CompletePinLoginDto, CreateStaffDto, DeveloperLoginDto, DeveloperSetupPasswordDto, LoginDto, PinResetDto, PinResetRequestDto, RegisterDto,
   UpdateProfileDto, VerifyEmailCodeDto, VerifyRecoveryDto,
 } from './dto/auth.dto';
 import { EmailService } from './email.service';
@@ -102,51 +101,44 @@ export class AuthService {
   }
 
   async developerLogin(dto: DeveloperLoginDto) {
-    // The developer signs in with their own email + 8-digit PIN.
-    // The configured platform email may also be used when no explicit email is provisioned.
     const configuredEmail = this.config.get<string>('PLATFORM_DEVELOPER_EMAIL');
     if (!configuredEmail) {
       throw new UnauthorizedException('Developer access is not configured');
     }
     const email = configuredEmail.trim().toLowerCase();
-    if (dto.email?.trim() && dto.email.trim().toLowerCase() !== email) {
+    if (dto.email.trim().toLowerCase() !== email) {
       throw new UnauthorizedException('Invalid developer credentials');
     }
     const user = await this.users.findOne({ email, role: Role.Owner, superAdmin: { $ne: true }, isActive: true })
-      .select('+developerPinHash +developerStarterHash +pinLockedUntil +pinFailedAttempts +developerSessionVersion');
+      .select('+passwordHash +pinLockedUntil +pinFailedAttempts +developerSessionVersion');
     if (!user) {
       throw new UnauthorizedException('Developer account not found');
     }
     if (user.pinLockedUntil && user.pinLockedUntil.getTime() > Date.now()) throw new HttpException('Developer access temporarily locked', HttpStatus.TOO_MANY_REQUESTS);
-    if (user.developerStarterHash && isValidDeveloperPin(dto.pin) && await bcrypt.compare(dto.pin, user.developerStarterHash)) {
-      await this.assertTenantAccess(user);
-      const consumed = await this.users.updateOne(
-        { _id: user._id, isActive: true, developerStarterHash: user.developerStarterHash },
-        { $unset: { developerStarterHash: 1 }, $set: { pinFailedAttempts: 0, pinLockedUntil: null } },
-      );
-      if (!consumed.modifiedCount) throw new UnauthorizedException('First-use PIN already used');
-      return { requiresDeveloperPinReset: true as const };
-    }
-    const pinHash = user.developerPinHash;
-    const pinValid = isValidDeveloperPin(dto.pin) && !!pinHash && await bcrypt.compare(dto.pin, pinHash);
-    if (!pinValid) {
+    const passwordHash = user.passwordHash;
+    if (!passwordHash || !(await this.passwordHashing.verifyPassword(dto.password, passwordHash))) {
       const failed = (user.pinFailedAttempts ?? 0) + 1;
       await this.users.updateOne({ _id: user._id }, { $inc: { pinFailedAttempts: 1 }, ...(failed >= 5 ? { $set: { pinLockedUntil: new Date(Date.now() + 15 * 60_000) } } : {}) });
-      throw new UnauthorizedException('Invalid developer PIN');
+      throw new UnauthorizedException('Invalid developer credentials');
+    }
+    if (this.passwordHashing.needsUpgrade(passwordHash)) {
+      await this.users.updateOne({ _id: user._id }, { $set: { passwordHash: await this.passwordHashing.hashPassword(dto.password) } });
     }
     await this.assertTenantAccess(user);
     await this.users.updateOne({ _id: user._id }, { $set: { pinFailedAttempts: 0, pinLockedUntil: null } });
     return this.issueTokens(user, true);
   }
 
-  /** One-time developer PIN setup. Authorized via the configured developer email + setup token. */
-  async setupPin(dto: DeveloperSetupPinDto) {
+  /** One-time developer password setup. Authorized via the configured email + setup token. */
+  async setupPassword(dto: DeveloperSetupPasswordDto) {
     const configuredEmail = this.config.get<string>('PLATFORM_DEVELOPER_EMAIL');
     const configuredToken = this.config.get<string>('PLATFORM_DEVELOPER_SETUP_TOKEN');
     if (!isDeveloperSetupAuthorized(dto.email, configuredEmail, dto.setupToken, configuredToken)) {
       throw new UnauthorizedException('Developer setup not authorized');
     }
+    validatePasswordPolicy(dto.password);
     const email = dto.email.trim().toLowerCase();
+    const passwordHash = await this.passwordHashing.hashPassword(dto.password);
     let user = await this.users.findOne({
       email,
       role: Role.Owner,
@@ -155,17 +147,19 @@ export class AuthService {
     });
     if (!user) {
       const tenant = await this.tenants.create({ name: 'Developer Console', featureFlags: { pos: false, inventory: false, reports: false, customers: false, installments: false, barcodes: false } });
-      try { user = await this.users.create({ tenantId: tenant._id, name: 'Platform Developer', email, passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), 12), role: Role.Owner, isActive: true }); }
+      try { user = await this.users.create({ tenantId: tenant._id, name: 'Platform Developer', email, passwordHash, role: Role.Owner, isActive: true }); }
       catch (error) { await this.tenants.delete(tenant.id); throw error; }
     }
-    const pin = String(randomInt(10_000_000, 100_000_000));
-    user.developerPinHash = await bcrypt.hash(pin, 12);
-    await this.users.updateOne({ _id: user._id }, { $inc: { developerSessionVersion: 1 } });
-    user.pinRequiresChange = false;
-    user.pinFailedAttempts = 0;
-    user.pinLockedUntil = null;
-    await user.save();
-    return { email, pin };
+    const updated = await this.users.updateOne(
+      { _id: user._id, isActive: true },
+      {
+        $set: { passwordHash, pinFailedAttempts: 0, pinLockedUntil: null },
+        $unset: { developerPinHash: 1, developerStarterHash: 1 },
+        $inc: { sessionVersion: 1, developerSessionVersion: 1 },
+      },
+    );
+    if (!updated.matchedCount) throw new UnauthorizedException('Developer account is inactive');
+    return { email, passwordSet: true as const };
   }
 
   async completePinLogin(dto: CompletePinLoginDto) {

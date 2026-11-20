@@ -1,31 +1,38 @@
-import { MODULE_RIGHTS, MODULE_RIGHT_KEYS, TENANT_NAVIGATION_ITEMS } from '@pos/shared-types';
-import type { ChargeRule, ModuleRightKey, TaxProfile, Tenant, TenantNavigationKey, InvoicePrintSettings } from '@pos/shared-types';
+import { MODULE_RIGHTS } from '@pos/shared-types';
+import type { ModuleRightKey, Tenant, TenantNavigationKey, InvoicePrintSettings } from '@pos/shared-types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent } from 'react';
 import LogoBrandingManager from '../components/LogoBrandingManager';
 import PageHeading from '../components/PageHeading';
+import TaxSettings from '../components/TaxSettings';
 import OperationsSettings from '../components/OperationsSettings';
 import { authApi, branchApi, tenantApi } from '../api';
 import { useTenant } from '../hooks/useTenant';
 import { useAuth } from '../store/auth';
 import { errorMessage } from '../utils/errors';
+import { availablePages, canManageSetting } from '../utils/access';
 import { Link } from 'react-router-dom';
-
-const SETTINGS_SECTIONS = [
-  { id: 'navigation', label: 'Navigation' },
-  { id: 'business', label: 'Business details' },
-  { id: 'taxes', label: 'Taxes & charges' },
-  { id: 'installments', label: 'Installments' },
-  { id: 'account', label: 'Admin account' },
-  { id: 'staff', label: 'Staff' },
-];
 
 export default function Settings() {
   const queryClient = useQueryClient();
   const { tenant } = useTenant();
-  const role = useAuth((s) => s.user?.role);
   const authUser = useAuth((s) => s.user);
   const setSession = useAuth((s) => s.setSession);
+
+  const pages = authUser && tenant ? availablePages(authUser, tenant) : [];
+  const can = (action: string) => canManageSetting(authUser, action);
+  const business = can('tax.configure');
+  const invoices = business && pages.some((page) => page.key === 'pos' || page.key === 'orders');
+  const installments = business && can('installments.write') && pages.some((page) => page.key === 'installments');
+  const staffAccess = can('users.read') || can('users.invite');
+  const sections = [
+    { id: 'navigation', label: 'Navigation', visible: business },
+    { id: 'business', label: 'Business details', visible: business },
+    { id: 'installments', label: 'Installments', visible: installments },
+    { id: 'account', label: 'Admin account', visible: true },
+    { id: 'taxes', label: 'Tax and service charges', visible: invoices },
+    { id: 'staff', label: 'Staff', visible: staffAccess },
+  ];
 
   const [biz, setBiz] = useState({ name: '', address: '', taxRegNo: '', currency: 'PKR', invoicePrefix: 'INV', logoUrl: '' });
   const [profile, setProfile] = useState({ name: '', recoveryEmail: '', phone: '' });
@@ -35,7 +42,6 @@ export default function Settings() {
   const [emailVerificationNotice, setEmailVerificationNotice] = useState('');
   const [markup, setMarkup] = useState(0);
   const [print, setPrint] = useState<InvoicePrintSettings>({ paperSize: 'A4', orientation: 'portrait', widthMm: 80, heightMm: 200, logoWatermark: true });
-  const [tax, setTax] = useState<TaxProfile>({ gstPercent: 0, reducedGstPercent: 0, serviceChargePercent: 0, otherCharges: [] });
 
   useEffect(() => {
     if (!tenant) return;
@@ -43,7 +49,6 @@ export default function Settings() {
       name: tenant.name, address: tenant.address ?? '', taxRegNo: tenant.taxRegNo ?? '',
       currency: tenant.currency, invoicePrefix: tenant.invoicePrefix, logoUrl: tenant.logoUrl ?? '',
     });
-    setTax(tenant.taxProfile);
     setMarkup(tenant.installmentMarkupPercent ?? 0);
     setPrint({ paperSize: 'A4', orientation: 'portrait', widthMm: 80, heightMm: 200, logoWatermark: true, ...tenant.invoicePrintSettings });
   }, [tenant]);
@@ -59,25 +64,20 @@ export default function Settings() {
 
   const save = useMutation({
     mutationFn: () => tenantApi.update({
-      ...biz,
-      logoUrl: biz.logoUrl?.trim() || undefined,
+      name: biz.name,
+      address: biz.address,
+      ...(invoices ? { invoicePrefix: biz.invoicePrefix, taxRegNo: biz.taxRegNo, invoicePrintSettings: print } : {}),
+      ...(invoices ? { logoUrl: biz.logoUrl?.trim() || undefined } : {}),
       currency: biz.currency.toUpperCase(),
-      taxProfile: tax,
-      installmentMarkupPercent: markup,
-      invoicePrintSettings: print,
+      ...(installments ? { installmentMarkupPercent: markup } : {}),
     }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tenant'] }),
   });
-  const submit = (e: FormEvent) => { e.preventDefault(); save.mutate(); };
+  const submit = (e: FormEvent) => { e.preventDefault(); if (business) save.mutate(); };
 
   const saveLogo = useMutation({
     mutationFn: (url: string) => tenantApi.update({
       logoUrl: url.trim() || undefined,
-      name: biz.name,
-      address: biz.address,
-      taxRegNo: biz.taxRegNo,
-      currency: biz.currency.toUpperCase(),
-      invoicePrefix: biz.invoicePrefix,
     }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tenant'] }),
   });
@@ -139,9 +139,6 @@ export default function Settings() {
   });
 
   const num = (v: string) => (v === '' ? 0 : Number(v));
-  const setCharge = (i: number, patch: Partial<ChargeRule>) =>
-    setTax({ ...tax, otherCharges: tax.otherCharges.map((c, idx) => (idx === i ? { ...c, ...patch } : c)) });
-
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="page-header">
@@ -150,7 +147,7 @@ export default function Settings() {
 
       <div className="grid items-start gap-5 lg:grid-cols-[190px_minmax(0,1fr)] lg:gap-9">
         <nav aria-label="Settings sections" className="flex gap-1.5 overflow-x-auto pb-2 no-scrollbar border-b border-slate-200 dark:border-slate-700 lg:sticky lg:top-24 lg:block lg:overflow-visible lg:border-b-0 lg:border-l lg:pb-0">
-          {SETTINGS_SECTIONS.map((section) => (
+          {sections.filter((section) => section.visible).map((section) => (
             <a
               key={section.id}
               href={`#${section.id}`}
@@ -163,13 +160,14 @@ export default function Settings() {
 
         <div className="min-w-0 space-y-6">
           <form onSubmit={submit} className="space-y-6">
+        {business && <>
         <section id="navigation" className="card scroll-mt-28 space-y-3">
           <div>
             <h2 className="text-sm font-semibold">Navigation</h2>
             <p className="text-xs text-slate-500">Choose which sections appear in the app navigation.</p>
           </div>
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
-            {TENANT_NAVIGATION_ITEMS.filter((item) => item.key !== 'help' && item.key !== 'backup').map((item) => (
+            {pages.filter((item) => item.key !== 'help' && item.key !== 'backup').map((item) => (
               <label key={item.key} className="flex items-center justify-between gap-3 py-2 text-sm">
                 <span>{item.label}</span>
                 <input
@@ -187,21 +185,21 @@ export default function Settings() {
         </section>
 
         <section id="business" className="card scroll-mt-28 space-y-3">
-          <h2 className="text-sm font-semibold">Business details (printed on every invoice)</h2>
+          <h2 className="text-sm font-semibold">Business details</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2"><label className="label">Business name</label>
               <input className="input" required value={biz.name} onChange={(e) => setBiz({ ...biz, name: e.target.value })} /></div>
             <div className="sm:col-span-2"><label className="label">Address</label>
               <input className="input" value={biz.address} onChange={(e) => setBiz({ ...biz, address: e.target.value })} /></div>
-            <div><label className="label">Tax registration no. (NTN/STRN)</label>
-              <input className="input" value={biz.taxRegNo} onChange={(e) => setBiz({ ...biz, taxRegNo: e.target.value })} /></div>
+            {invoices && <div><label className="label">Tax registration no. (NTN/STRN)</label>
+              <input className="input" value={biz.taxRegNo} onChange={(e) => setBiz({ ...biz, taxRegNo: e.target.value })} /></div>}
             <div className="grid grid-cols-2 gap-3">
               <div><label className="label">Currency (ISO)</label>
                 <input className="input" maxLength={3} minLength={3} required value={biz.currency} onChange={(e) => setBiz({ ...biz, currency: e.target.value })} /></div>
-              <div><label className="label">Invoice prefix</label>
-                <input className="input" minLength={2} maxLength={8} required value={biz.invoicePrefix} onChange={(e) => setBiz({ ...biz, invoicePrefix: e.target.value })} /></div>
+              {invoices && <div><label className="label">Invoice prefix</label>
+                <input className="input" minLength={2} maxLength={8} required value={biz.invoicePrefix} onChange={(e) => setBiz({ ...biz, invoicePrefix: e.target.value })} /></div>}
             </div>
-            <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/60">
+            {invoices && <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/60">
               <LogoBrandingManager
                 logoUrl={biz.logoUrl}
                 savedLogoUrl={tenant?.logoUrl ?? ''}
@@ -218,11 +216,11 @@ export default function Settings() {
                 isSaving={saveLogo.isPending}
               />
               {saveLogo.isError && <p className="mt-2 text-sm text-red-600">{errorMessage(saveLogo.error)}</p>}
-            </div>
+            </div>}
           </div>
         </section>
 
-        <section className="card space-y-3">
+        {invoices && <section className="card space-y-3">
           <h2 className="text-sm font-semibold">Invoice printing</h2>
           <p className="text-xs text-slate-500">Applies to newly generated invoices. Open a receipt PDF to preview or print at actual size.</p>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -237,40 +235,9 @@ export default function Settings() {
             <label className="label">Footer message<input className="input" maxLength={250} value={print.footerText ?? ''} onChange={(e) => setPrint({ ...print, footerText: e.target.value })} /></label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={print.logoWatermark !== false} onChange={(e) => setPrint({ ...print, logoWatermark: e.target.checked })} />Business logo watermark</label>
           </div>
-        </section>
+        </section>}
 
-        <section id="taxes" className="card scroll-mt-28 space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold">Taxes &amp; charges</h2>
-            <p className="text-xs text-slate-500">Enter the rates that apply to your business under local law. Products pick a rate through their tax class.</p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div><label className="label">Standard tax %</label>
-              <input className="input" type="number" min={0} max={100} step="0.01" value={tax.gstPercent} onChange={(e) => setTax({ ...tax, gstPercent: num(e.target.value) })} /></div>
-            <div><label className="label">Reduced tax %</label>
-              <input className="input" type="number" min={0} max={100} step="0.01" value={tax.reducedGstPercent} onChange={(e) => setTax({ ...tax, reducedGstPercent: num(e.target.value) })} /></div>
-            <div><label className="label">Service charge %</label>
-              <input className="input" type="number" min={0} max={100} step="0.01" value={tax.serviceChargePercent} onChange={(e) => setTax({ ...tax, serviceChargePercent: num(e.target.value) })} /></div>
-          </div>
-
-          <div>
-            <div className="mb-1 flex items-center justify-between">
-              <label className="label !mb-0">Other charges</label>
-              <button type="button" className="text-xs font-medium text-teal-600 hover:underline dark:text-teal-400"
-                onClick={() => setTax({ ...tax, otherCharges: [...tax.otherCharges, { label: '', type: 'flat', value: 0 }] })}>+ Add charge</button>
-            </div>
-            {tax.otherCharges.map((c, i) => (
-              <div key={i} className="mb-2 grid grid-cols-[minmax(0,1fr)_minmax(5rem,0.7fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_auto]">
-                <input className="input col-span-3 min-w-0 sm:col-span-1" placeholder="Label (e.g. Packaging)" required value={c.label} onChange={(e) => setCharge(i, { label: e.target.value })} />
-                <select className="input !w-auto min-w-0" value={c.type} onChange={(e) => setCharge(i, { type: e.target.value as ChargeRule['type'] })}>
-                  <option value="flat">Flat</option><option value="percent">Percent</option>
-                </select>
-                <input className="input !w-auto min-w-0" type="number" min={0} step="0.01" value={c.value} onChange={(e) => setCharge(i, { value: num(e.target.value) })} />
-                <button type="button" className="rounded-lg px-2 text-slate-500 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/40 dark:hover:text-red-300" aria-label={`Remove ${c.label || 'charge'}`} onClick={() => setTax({ ...tax, otherCharges: tax.otherCharges.filter((_, idx) => idx !== i) })}>×</button>
-              </div>
-            ))}
-          </div>
-        </section>
+        </>}
 
         <section id="account" className="card scroll-mt-28 space-y-4">
           <div>
@@ -315,25 +282,26 @@ export default function Settings() {
           {emailVerificationNotice && <p className="text-sm text-emerald-700">{emailVerificationNotice}</p>}
         </section>
 
-        <section id="installments" className="card scroll-mt-28 space-y-3">
+        {installments && <section id="installments" className="card scroll-mt-28 space-y-3">
           <div>
             <h2 className="text-sm font-semibold">Installment sales</h2>
             <p className="text-xs text-slate-500">Installment price = cash price + this markup. The cashier can change it for each sale.</p>
           </div>
           <div className="max-w-xs"><label className="label">Default markup %</label>
             <input className="input" type="number" min={0} max={100} step="0.01" value={markup} onChange={(e) => setMarkup(num(e.target.value))} /></div>
-        </section>
+        </section>}
 
-        <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
+        {business && <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
           <p aria-live="polite" className={`text-sm ${save.isError ? 'text-red-600' : 'text-slate-500 dark:text-slate-400'}`}>
-            {save.isError ? errorMessage(save.error) : save.isSuccess ? 'Business settings saved.' : 'Remember to save your business and tax changes.'}
+            {save.isError ? errorMessage(save.error) : save.isSuccess ? 'Business settings saved.' : 'Remember to save your business changes.'}
           </p>
           <button className="btn-primary w-full sm:w-auto" disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save settings'}</button>
-        </div>
+        </div>}
           </form>
 
-          {role === 'owner' || role === 'admin' ? <div id="staff" className="scroll-mt-28"><StaffSection /></div> : null}
-          {role === 'owner' || role === 'admin' ? <OperationsSettings /> : null}
+          {invoices && tenant?.taxProfile && <TaxSettings key={tenant._id} profile={tenant.taxProfile} currency={tenant.currency} />}
+          {staffAccess ? <div id="staff" className="scroll-mt-28"><StaffSection /></div> : null}
+          {(can('branches.read') || can('branches.write') || can('audit.read')) && <OperationsSettings readBranches={can('branches.read')} writeBranches={can('branches.write')} readAudit={can('audit.read')} />}
         </div>
       </div>
     </div>
@@ -343,13 +311,25 @@ export default function Settings() {
 function StaffSection() {
   const queryClient = useQueryClient();
   const actor = useAuth((state) => state.user);
-  const branches = useQuery({ queryKey: ['branches'], queryFn: branchApi.list });
+  const { tenant } = useTenant();
+  const can = (action: string) => canManageSetting(actor, action);
+  const branches = useQuery({ queryKey: ['branches'], queryFn: branchApi.list, enabled: can('branches.read') });
   const [newStaffBranches, setNewStaffBranches] = useState<string[]>([]);
   const [editingActions, setEditingActions] = useState<string[]>([]);
   const [editingBranches, setEditingBranches] = useState<string[]>([]);
   const actions = actor?.permissions ?? [];
-  const staff = useQuery({ queryKey: ['staff'], queryFn: authApi.staff });
-  const grantableRights = MODULE_RIGHT_KEYS.filter((key) => actor?.role === 'owner' || actor?.moduleRights === undefined || actor.moduleRights.includes(key));
+  const staff = useQuery({ queryKey: ['staff'], queryFn: authApi.staff, enabled: can('users.read') });
+  const pages = actor && tenant ? availablePages(actor, tenant) : [];
+  const grantableRights = MODULE_RIGHTS.filter((right) => pages.some((page) => page.key === right.key)).map((right) => right.key);
+  const actionModules: Record<string, ModuleRightKey[]> = {
+    catalog: ['products', 'pos', 'barcode-generator', 'barcode-scanner'], inventory: ['products'],
+    sales: ['orders', 'pos'], receipts: ['orders', 'pos'], customers: ['customers', 'pos', 'installments'],
+    installments: ['installments'], reports: ['dashboard'], tax: ['orders', 'pos'],
+  };
+  const visibleActions = actions.filter((action) => {
+    const modules = actionModules[action.split('.')[0]];
+    return !modules || modules.some((key) => grantableRights.includes(key));
+  });
   const [form, setForm] = useState<{ name: string; email: string; password: string; role: 'cashier' | 'admin'; moduleRights: ModuleRightKey[] }>({ name: '', email: '', password: '', role: 'cashier', moduleRights: grantableRights.filter((key) => key !== 'dashboard' && key !== 'settings') });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingRights, setEditingRights] = useState<ModuleRightKey[]>([]);
@@ -375,7 +355,7 @@ function StaffSection() {
     targetRole: string,
   ) => (
     <div className="grid gap-1 sm:grid-cols-2">
-      {MODULE_RIGHTS.map((right) => (
+      {MODULE_RIGHTS.filter((right) => grantableRights.includes(right.key)).map((right) => (
         <label key={right.key} className="flex items-center gap-2 py-1 text-xs">
           <input type="checkbox" className="h-4 w-4 accent-teal-600" checked={selected.includes(right.key)} disabled={add.isPending || updateRights.isPending || (targetRole === 'cashier' && (right.key === 'dashboard' || right.key === 'settings')) || (actor?.role !== 'owner' && actor?.moduleRights !== undefined && !actor.moduleRights.includes(right.key))} onChange={() => toggle(right.key)} aria-label={`Grant ${right.label} module access`} />
           <span>{right.label}</span>
@@ -387,7 +367,8 @@ function StaffSection() {
   return (
     <section className="card space-y-3">
       <h2 className="text-sm font-semibold">Staff & access rights</h2>
-      <p className="text-xs text-slate-500">Choose the modules each account can access. Business entitlements and role restrictions still apply. Settings access includes staff management.</p>
+      <p className="text-xs text-slate-500">Choose the modules each account can access. Business entitlements and role restrictions still apply. Available actions depend on your account permissions.</p>
+      {can('users.read') && <>
       {staff.isPending && <p role="status" className="text-sm text-slate-500">Loading staff…</p>}
       {staff.isError && <div role="alert" className="text-sm text-red-600">{errorMessage(staff.error)} <button type="button" className="underline" onClick={() => staff.refetch()}>Retry</button></div>}
       {status.isError && <p role="alert" className="text-sm text-red-600">{errorMessage(status.error)}</p>}
@@ -399,27 +380,27 @@ function StaffSection() {
               <span>{u.name} <span className="text-slate-500">· {u.email}</span></span>
               <span className="flex items-center gap-2">
                 <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs uppercase dark:bg-slate-800">{u.role}</span>
-                {u.role !== 'owner' && (
+                {can('users.roles.assign') && u.role !== 'owner' && (
                   <button
                     type="button"
                     className="text-xs font-medium text-teal-600 hover:underline dark:text-teal-400"
                     disabled={updateRights.isPending}
-                    onClick={() => { updateRights.reset(); setEditingId(editingId === u._id ? null : u._id); setEditingRights(u.moduleRights ?? [...MODULE_RIGHT_KEYS]); setEditingActions(u.permissions ?? actions); setEditingBranches(u.branchIds ?? []); }}
+                    onClick={() => { updateRights.reset(); setEditingId(editingId === u._id ? null : u._id); setEditingRights(u.moduleRights ?? [...grantableRights]); setEditingActions(u.permissions ?? actions); setEditingBranches(u.branchIds ?? []); }}
                   >
                     {editingId === u._id ? 'Cancel' : 'Edit rights'}
                   </button>
                 )}
-                {u.role !== 'owner' && u._id !== actor?._id && <button type="button" className="text-xs font-semibold text-red-600" disabled={status.isPending} onClick={() => { if (window.confirm(`${u.isActive ? 'Deactivate' : 'Reactivate'} ${u.name}? Existing sessions will be revoked.`)) status.mutate({ id: u._id, active: !u.isActive }); }}>{u.isActive ? 'Deactivate' : 'Reactivate'}</button>}
+                {can('users.disable') && u.role !== 'owner' && u._id !== actor?._id && <button type="button" className="text-xs font-semibold text-red-600" disabled={status.isPending} onClick={() => { if (window.confirm(`${u.isActive ? 'Deactivate' : 'Reactivate'} ${u.name}? Existing sessions will be revoked.`)) status.mutate({ id: u._id, active: !u.isActive }); }}>{u.isActive ? 'Deactivate' : 'Reactivate'}</button>}
               </span>
             </div>
             {editingId !== u._id && (
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{u.role === 'owner' ? 'All business modules' : u.moduleRights === undefined ? 'All modules permitted by role' : u.moduleRights.length ? `Modules: ${MODULE_RIGHTS.filter((right) => u.moduleRights?.includes(right.key)).map((right) => right.label).join(', ')}` : 'No modules assigned'}</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{u.role === 'owner' ? 'All business modules' : u.moduleRights === undefined ? 'All modules permitted by role' : u.moduleRights.length ? `Modules: ${MODULE_RIGHTS.filter((right) => grantableRights.includes(right.key) && u.moduleRights?.includes(right.key)).map((right) => right.label).join(', ')}` : 'No modules assigned'}</p>
             )}
-            {editingId === u._id && (
+            {can('users.roles.assign') && editingId === u._id && (
               <div className="mt-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
                 {rightsChecklist(editingRights, toggleEditRight, u.role)}
-                {Array.isArray(branches.data) && branches.data.length > 0 && <fieldset className="mt-4"><legend className="label">Assigned branches</legend><div className="grid gap-2 sm:grid-cols-2">{branches.data.map((branch) => <label key={branch._id} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={editingBranches.includes(branch._id)} onChange={() => setEditingBranches((current) => current.includes(branch._id) ? current.filter((id) => id !== branch._id) : [...current, branch._id])} />{branch.name}</label>)}</div></fieldset>}
-                {actions.length > 0 && <details className="mt-4"><summary className="cursor-pointer text-xs font-semibold">Action permissions</summary><div className="mt-3 grid gap-2 sm:grid-cols-2">{actions.filter((action) => action !== 'account.self' && action !== 'workspace.read').map((action) => <label key={action} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={editingActions.includes(action)} onChange={() => setEditingActions((current) => current.includes(action) ? current.filter((key) => key !== action) : [...current, action])} /><span>{action}</span></label>)}</div></details>}
+                {can('branches.read') && Array.isArray(branches.data) && branches.data.length > 0 && <fieldset className="mt-4"><legend className="label">Assigned branches</legend><div className="grid gap-2 sm:grid-cols-2">{branches.data.map((branch) => <label key={branch._id} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={editingBranches.includes(branch._id)} onChange={() => setEditingBranches((current) => current.includes(branch._id) ? current.filter((id) => id !== branch._id) : [...current, branch._id])} />{branch.name}</label>)}</div></fieldset>}
+                {actions.length > 0 && <details className="mt-4"><summary className="cursor-pointer text-xs font-semibold">Action permissions</summary><div className="mt-3 grid gap-2 sm:grid-cols-2">{visibleActions.filter((action) => action !== 'account.self' && action !== 'workspace.read').map((action) => <label key={action} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={editingActions.includes(action)} onChange={() => setEditingActions((current) => current.includes(action) ? current.filter((key) => key !== action) : [...current, action])} /><span>{action}</span></label>)}</div></details>}
                 <div className="mt-3 flex gap-3 text-xs"><button type="button" className="text-teal-600 underline" disabled={updateRights.isPending} onClick={() => setEditingRights(grantableRights.filter((key) => u.role !== 'cashier' || (key !== 'dashboard' && key !== 'settings')))}>Select available</button><button type="button" className="text-slate-500 underline" disabled={updateRights.isPending} onClick={() => setEditingRights([])}>Clear all</button></div>
                 <div className="mt-2 flex items-center gap-2">
                   <button type="button" className="btn-primary !w-auto" disabled={updateRights.isPending} onClick={() => updateRights.mutate({ id: u._id, rights: editingRights })}>
@@ -432,7 +413,8 @@ function StaffSection() {
           </li>
         ))}
       </ul>
-      <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); if (!add.isPending) add.mutate(); }}>
+      </>}
+      {can('users.invite') && <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); if (!add.isPending) add.mutate(); }}>
         <div className="grid gap-2 sm:grid-cols-5">
           <input className="input sm:col-span-1" placeholder="Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input className="input sm:col-span-2" type="email" placeholder="Email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
@@ -444,11 +426,11 @@ function StaffSection() {
         <div>
           <p className="mb-1 text-xs font-medium text-slate-600 dark:text-slate-300">Module access</p>
           {rightsChecklist(form.moduleRights, toggleFormRight, form.role)}
-          {Array.isArray(branches.data) && branches.data.length > 0 && <fieldset className="mt-3"><legend className="label">Branch access for the new account</legend>{branches.data.map((branch) => <label key={branch._id} className="mr-4 inline-flex items-center gap-2 text-xs"><input type="checkbox" checked={newStaffBranches.includes(branch._id)} onChange={() => setNewStaffBranches((current) => current.includes(branch._id) ? current.filter((id) => id !== branch._id) : [...current, branch._id])} />{branch.name}</label>)}</fieldset>}
+          {can('branches.read') && Array.isArray(branches.data) && branches.data.length > 0 && <fieldset className="mt-3"><legend className="label">Branch access for the new account</legend>{branches.data.map((branch) => <label key={branch._id} className="mr-4 inline-flex items-center gap-2 text-xs"><input type="checkbox" checked={newStaffBranches.includes(branch._id)} onChange={() => setNewStaffBranches((current) => current.includes(branch._id) ? current.filter((id) => id !== branch._id) : [...current, branch._id])} />{branch.name}</label>)}</fieldset>}
           <div className="mt-3 flex gap-3 text-xs"><button type="button" className="text-teal-600 underline" disabled={add.isPending} onClick={() => setForm((current) => ({ ...current, moduleRights: grantableRights.filter((key) => current.role !== 'cashier' || (key !== 'dashboard' && key !== 'settings')) }))}>Select available</button><button type="button" className="text-slate-500 underline" disabled={add.isPending} onClick={() => setForm((current) => ({ ...current, moduleRights: [] }))}>Clear all</button></div>
         </div>
         <button className="btn-primary w-full sm:w-auto" disabled={add.isPending}>{add.isPending ? 'Adding…' : 'Add staff member'}</button>
-      </form>
+      </form>}
       {add.isError && <p className="text-sm text-red-600">{errorMessage(add.error)}</p>}
     </section>
   );

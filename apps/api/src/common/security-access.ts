@@ -10,11 +10,6 @@ export function hasSuperAdminAccess(user?: unknown): boolean {
   return typeof user === 'object' && user !== null && 'isSuperAdmin' in user && user.isSuperAdmin === true;
 }
 
-export function isValidDeveloperPin(pin?: string | null): boolean {
-  if (typeof pin !== 'string') return false;
-  return /^\d{8}$/.test(pin);
-}
-
 export function isConfiguredDeveloper(email: string, configuredEmail?: string, isSuperAdmin = false): boolean {
   if (isSuperAdmin) return false;
   const normalizedEmail = email.trim().toLowerCase();

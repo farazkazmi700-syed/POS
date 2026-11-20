@@ -31,7 +31,7 @@ for (const width of [390, 1440]) {
     await page.screenshot({ path: `qa/artifacts/recovery-${width}.png`, fullPage: true });
   });
 }
-test('developer PIN recovery sends the correct purpose and channel', async ({ page }) => {
+test('developer password recovery sends the password purpose and returns to Developer sign in', async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
   let sent;
   await page.route('**/api/auth/recovery/**', async (route) => {
@@ -39,12 +39,14 @@ test('developer PIN recovery sends the correct purpose and channel', async ({ pa
     sent = route.request().postDataJSON();
     return route.fulfill({ json: { challengeId: 'c001fa51-5b3d-4e62-86fc-947d7715e308', resendAfter: 60, message: 'Check your registered contact.' } });
   });
-  await page.goto('/recover?purpose=developer-pin');
+  await page.goto('/recover?purpose=password&source=developer');
+  await expect(page.getByRole('link', { name: '← Back to sign in' })).toHaveAttribute('href', '/developer');
+  await expect(page.locator('option[value="developer-pin"]')).toHaveCount(0);
   await page.getByLabel('Account sign-in email').fill('developer@example.test');
   await page.getByLabel('Send verification code by').selectOption('whatsapp');
   await page.getByRole('button', { name: 'Send verification code', exact: true }).click();
-  await expect(page.getByLabel('New 8-digit PIN')).toBeVisible();
-  expect(sent).toEqual({ email: 'developer@example.test', purpose: 'developer-pin', channel: 'whatsapp' });
+  await expect(page.getByLabel('New password', { exact: true })).toBeVisible();
+  expect(sent).toEqual({ email: 'developer@example.test', purpose: 'password', channel: 'whatsapp' });
 });
 test('unconfigured providers are unavailable and never imply code delivery', async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());

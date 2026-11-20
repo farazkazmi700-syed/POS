@@ -1,128 +1,99 @@
-# Multi-tenant POS System
+# KazmiOn POS
 
-TypeScript POS where any business (retail, restaurant, pharmacy, salon, ...) can register, add its own products, sell, and get a **tax-invoice PDF** (itemised lines, per-rate tax breakdown, service/other charges, discount, QR code).
+KazmiOn POS manages sales, inventory, customer accounts, installments and tax invoices. The default deployment runs the React app, NestJS API and invoice worker in a single container with nginx, PostgreSQL, FerretDB and Redis.
 
-| Part | Tech | Folder |
-|---|---|---|
-| API | NestJS 12, PostgreSQL 17 (FerretDB and Mongoose), JWT + roles, BullMQ | `apps/api` |
-| PDF worker | BullMQ worker, Handlebars template, Puppeteer (Chromium) | `apps/pdf-worker` |
-| Web app | React 19, Vite, Tailwind, React Query, Zustand | `apps/web` |
-| Shared contract | plain TypeScript interfaces | `packages/shared-types` |
-| Phase 2 (stubs) | FastAPI analytics + chatbot | `apps/analytics-service`, `apps/chatbot-service` |
+## Repository layout
 
-See [Project structure and repository conventions](docs/project-structure.md) for directory ownership, generated files and verification commands.
+| Path | Responsibility |
+| --- | --- |
+| `apps/api/`, `apps/web/`, `apps/pdf-worker/` | Services shipped in the default image |
+| `packages/` | Shared types, contracts, configuration and invoice storage |
+| `docker/` | Container entrypoint, process supervision and health checks |
+| `infra/` | nginx configuration and PostgreSQL provisioning |
+| `database/postgresql/` | Versioned SQL migrations |
+| `scripts/` | Build, install, update, migration, backup and restore |
+| `qa/` | Integration, browser and deployment tests |
+| `docs/` | API specification, migration reports and technical reference |
+| `KazmiOn-Launcher/` | Windows launcher installer sources |
+| `.github/workflows/` | Continuous integration |
 
-The default Docker deployment runs the API, PDF worker, Redis, nginx and PostgreSQL in one container. All POS document data, including accounts and sign-in state, goes to PostgreSQL through a loopback FerretDB gateway. See [storage and migration instructions](docs/adr/0003-single-container-postgresql.md) before upgrading an existing installation.
+The root Dockerfile builds the production image. Compose uses `compose.yaml` by default. Existing launch scripts can use the compatibility Compose files. The standalone `docker-compose.postgres.yml` supports development and migration work.
 
-## How a sale flows
+## Windows installation
 
-```
-React POS -> POST /api/orders -> API: calculate totals -> reserve stock atomically -> save order (INV-2026-000001)
-                                      -> enqueue job in Redis -> responds immediately
-pdf-worker: job -> render invoice.hbs (+QR) -> Chromium -> PDF file -> order.invoiceStatus = "ready"
-React: polls GET /api/orders/:id/invoice until "ready" -> opens GET /api/orders/:id/invoice/pdf
-```
-
-## Quick start (Docker)
-
-```bash
-cp .env.example .env            # then change the JWT secrets
-docker compose up --build
-```
-
-* App: http://localhost:8080  (register a business, then Settings -> set your tax rates)
-* API docs (Swagger): http://localhost:3000/api/docs
-* Demo data (optional, with the stack running): `npm run seed`
-  -> logins `npm run dev:api` / `restaurant@demo.test`, password `demo12345`
-
-Production: `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
-(databases not exposed, secrets mandatory, restart policies; add TLS in front of the POS container).
-
-## Frontend development
-
-Start the standard Docker deployment and run npm run dev:web for a Vite server on port 5173. Vite proxies API calls to the same PostgreSQL-backed POS on port 3000. The explicit docker-compose.legacy-mongo.yml file is available for retrieving pre-migration data.
-
-## Tests
-
-```bash
-npm run test:api                # money-calculation unit tests (discount -> tax -> charges, rounding, breakdown)
-npm run build                   # type-checks and builds api, worker and web
-```
-
-## Super Admin
-
-The private control panel is served by the existing web app at `http://localhost:8080/super-admin` with Docker Compose. During local Vite development, use `http://localhost:5173/super-admin`; both use the existing API on port `3000`.
-
-### Initialize the owner once
-
-1. Start the stack with the updated code: `docker compose up -d --build`.
-2. Ensure the intended owner already has an active Owner account. If this is a new installation, create the first business through the existing `/register` flow using the developer credentials configured in `.env`; choose a private owner password. The first Owner login uses the existing PIN flow and requires changing the initial `0000` PIN. Public/developer registration closes after Super Admin initialization; create later businesses in the control panel.
-3. Promote that account from a shell with access to the running API container and MongoDB:
-
-  ```bash
-  docker compose exec -e SUPER_ADMIN_EMAIL=owner@example.com api npm run super-admin:init
-  ```
-
-  Replace the example value with the existing Owner account email. The command only promotes an active `owner`, creates a unique database index for the Super Admin marker, and refuses to run if one is already initialized. It does not create credentials or change the account password/PIN. It is safe to rerun only to receive the "already initialized" refusal; promotion is not exposed through the application API.
-
-4. Sign out and back in through `http://localhost:8080/login` (or `http://localhost:5173/login` for Vite), using the Owner account's existing password and PIN. Open **Super Admin** in the navigation or go directly to the dashboard URL above.
-
-For production, run the same command against the running production Compose stack after deploying the updated image. The MongoDB volume is unchanged; no data migration or destructive operation is required. The business ID displayed in the panel is its existing MongoDB tenant `_id`, so no duplicate identifier is introduced.
-
-### Configure the Developer account
-
-Set `PLATFORM_DEVELOPER_EMAIL` and `PLATFORM_DEVELOPER_SETUP_TOKEN` in the root `.env` for Docker Compose and local development. Generate and save a 64-character setup token locally in PowerShell; do not send it in chat or commit it:
+For a new installation with Docker Desktop running, run the following command from the repository root.
 
 ```powershell
-$token = node -p "require('crypto').randomBytes(32).toString('hex')"
-$envFile = '.env'
-$lines = Get-Content $envFile | Where-Object { $_ -notmatch '^PLATFORM_DEVELOPER_SETUP_TOKEN=' }
-$lines += "PLATFORM_DEVELOPER_SETUP_TOKEN=$token"
-Set-Content $envFile $lines -Encoding ascii
-Remove-Variable token
-``` 
+.\scripts\install.ps1
+```
 
-Restart/recreate the API after setting the token, then open `/developer` (`http://localhost:8080/developer` in Docker or `http://localhost:5173/developer` with Vite). Choose **Set up Developer PIN**, then enter the configured Developer email and setup token. The page creates a dedicated empty tenant, generates an 8-digit PIN, stores only its bcrypt hash, and displays the PIN once. The setup token is accepted only once; remove it from the env file and restart the API after setup. Main-window sign-in at `/login` remains email/password-based for business users. Developer sign-in at `/developer` uses the configured email plus the generated PIN. The Developer session is restricted to Developer APIs and cannot access ordinary POS/business routes.
+Open the POS at `http://localhost:8080`. nginx exposes API documentation at `/api/docs` and application health at `/health`. Existing installations can start through `KazmiOn-Launch.bat`. Review the installation's volume mappings and backup procedure before upgrading.
 
-The account receives the **Developer** workspace at `http://localhost:8080/developer` (Vite: `http://localhost:5173/developer`).
+## Development and verification
 
-The Developer account can create businesses and create/edit/archive subscription plans or assign plans to businesses. Super Admin can activate/suspend businesses and override per-business features, but has no plan mutation or assignment API. Assigning a plan copies its feature entitlements to the business; editing a plan later does not silently change existing businesses. Suspension and feature changes retain business records, sales, payments, installments, receipts, and PDFs. Administrative mutations are recorded in MongoDB audit logs.
+CI uses Node.js 24. Each shipped service has an npm lockfile. Run these commands from the repository root.
 
-## Installment sales (electronics shops)
+```sh
+npm ci --prefix apps/api
+npm ci --prefix apps/pdf-worker
+npm ci --prefix apps/web
+npm run build
+npm run test:all
+docker compose config --quiet
+```
 
-At the POS pick **Installment**, choose or add the customer (and guarantor), then enter down payment, months and markup %.
-Installment price = cash price + markup% (default set in *Settings*); the monthly amount is rounded up to a whole rupee
-and the last instalment absorbs the difference. Manage plans under **Installments**: collect payments, see overdue
-amounts, print the agreement and payment receipts (browser print / Save as PDF).
-To change the pricing rule edit `apps/api/src/modules/installment/calc/calculate-plan.ts`.
-Installment sales cannot be voided in the app; handle returns manually.
+Use `npm run dev:web` for the Vite development server on port 5173. Its default API proxy targets port 8080. Owners manage invoice taxes under **Settings > Tax and service charges**.
 
-## Roles
+## Technical reference
 
-| Role | Can |
-|---|---|
-| owner | everything, incl. settings and staff |
-| admin | products, orders, void, dashboard, settings, staff |
-| cashier | POS checkout and order list (own receipts) |
+The [technical reference](docs/technical-reference.md) contains design decisions, operating procedures and historical migration records.
 
-## Design decisions worth knowing
+<details>
+<summary>Reference index</summary>
 
-* **Tenant isolation**: every document has `tenantId`; every service query filters on the tenantId from the JWT, never from the request body.
-* **Taxes are data, not code**: rates live in each tenant's *Tax profile* (Settings). Products choose a *tax class* (standard / reduced / exempt). Defaults (18% / 5%) are only a starting point; set what your local law requires.
-* **Money math** is done in integer minor units and rounded per line (`apps/api/src/modules/order/calc`). The cart screen calls `POST /orders/preview`, so the screen and the receipt can never disagree.
-* **No oversell**: stock is decremented with a conditional atomic update (`stockQty >= qty`), with a compensating rollback if a later line fails. (Multi-document transactions would need a MongoDB replica set.)
-* **Invoice numbers** are sequential per tenant per year (`INV-2026-000001`) via an atomic counter.
-* **Async PDFs**: checkout never waits for Chromium. If the queue is down the sale still succeeds and the invoice can be regenerated.
-* **Flexible catalogue**: `Product.attributes` is a free-form object (batch/expiry for pharmacy, spice level for restaurant, ...), editable in the product form.
+- <a id="ref-01"></a>[ARCHITECTURE_AUDIT.md](docs/technical-reference.md#ref-01)
+- <a id="ref-02"></a>[CHANGELOG.md](docs/technical-reference.md#ref-02)
+- <a id="ref-03"></a>[CLEANUP_REPORT.md](docs/technical-reference.md#ref-03)
+- <a id="ref-04"></a>[docs/account-recovery.md](docs/technical-reference.md#ref-04)
+- <a id="ref-05"></a>[docs/adr/0001-postgresql-invoice-authority.md](docs/technical-reference.md#ref-05)
+- <a id="ref-06"></a>[docs/adr/0002-postgresql-migration.md](docs/technical-reference.md#ref-06)
+- <a id="ref-07"></a>[docs/adr/0003-single-container-postgresql.md](docs/technical-reference.md#ref-07)
+- <a id="ref-08"></a>[docs/adr/0004-business-databases.md](docs/technical-reference.md#ref-08)
+- <a id="ref-09"></a>[docs/API_DOCUMENTATION.md](docs/technical-reference.md#ref-09)
+- <a id="ref-10"></a>[docs/ARCHITECTURE.md](docs/technical-reference.md#ref-10)
+- <a id="ref-11"></a>[docs/architecture/CURRENT_STATE_AUDIT.md](docs/technical-reference.md#ref-11)
+- <a id="ref-12"></a>[docs/architecture/TARGET_STATE.md](docs/technical-reference.md#ref-12)
+- <a id="ref-13"></a>[docs/AUTHENTICATION_SECURITY.md](docs/technical-reference.md#ref-13)
+- <a id="ref-14"></a>[docs/backup-and-production-validation.md](docs/technical-reference.md#ref-14)
+- <a id="ref-15"></a>[docs/BACKUP_RESTORE.md](docs/technical-reference.md#ref-15)
+- <a id="ref-16"></a>[docs/barcode-module.md](docs/technical-reference.md#ref-16)
+- <a id="ref-17"></a>[docs/DATABASE_DESIGN.md](docs/technical-reference.md#ref-17)
+- <a id="ref-18"></a>[docs/delivery-phases.md](docs/technical-reference.md#ref-18)
+- <a id="ref-19"></a>[docs/DEPLOYMENT_GUIDE.md](docs/technical-reference.md#ref-19)
+- <a id="ref-20"></a>[docs/design-system.md](docs/technical-reference.md#ref-20)
+- <a id="ref-21"></a>[docs/DOCKER_DEPLOYMENT.md](docs/technical-reference.md#ref-21)
+- <a id="ref-22"></a>[docs/erd.md](docs/technical-reference.md#ref-22)
+- <a id="ref-23"></a>[docs/installment-pricing.md](docs/technical-reference.md#ref-23)
+- <a id="ref-24"></a>[docs/migration/01-repository-audit.md](docs/technical-reference.md#ref-24)
+- <a id="ref-25"></a>[docs/migration/02-mongodb-inventory.md](docs/technical-reference.md#ref-25)
+- <a id="ref-26"></a>[docs/migration/03-dependency-map.md](docs/technical-reference.md#ref-26)
+- <a id="ref-27"></a>[docs/migration/04-data-profile.md](docs/technical-reference.md#ref-27)
+- <a id="ref-28"></a>[docs/migration/05-data-quality-report.md](docs/technical-reference.md#ref-28)
+- <a id="ref-29"></a>[docs/migration/07-etl-guide.md](docs/technical-reference.md#ref-29)
+- <a id="ref-30"></a>[docs/migration/08-reconciliation-report.md](docs/technical-reference.md#ref-30)
+- <a id="ref-31"></a>[docs/migration/09-hybrid-invoices.md](docs/technical-reference.md#ref-31)
+- <a id="ref-32"></a>[docs/migration/POSTGRESQL_MIGRATION_PLAN.md](docs/technical-reference.md#ref-32)
+- <a id="ref-33"></a>[docs/module-registration.md](docs/technical-reference.md#ref-33)
+- <a id="ref-34"></a>[docs/MODULE_MANAGEMENT.md](docs/technical-reference.md#ref-34)
+- <a id="ref-35"></a>[docs/POSTGRESQL_MIGRATION.md](docs/technical-reference.md#ref-35)
+- <a id="ref-36"></a>[docs/project-structure.md](docs/technical-reference.md#ref-36)
+- <a id="ref-37"></a>[docs/README.md](docs/technical-reference.md#ref-37)
+- <a id="ref-38"></a>[docs/RELEASE_CHECKLIST.md](docs/technical-reference.md#ref-38)
+- <a id="ref-39"></a>[docs/ROLLBACK_GUIDE.md](docs/technical-reference.md#ref-39)
+- <a id="ref-40"></a>[docs/specification-implementation.md](docs/technical-reference.md#ref-40)
+- <a id="ref-41"></a>[docs/TENANT_ISOLATION.md](docs/technical-reference.md#ref-41)
+- <a id="ref-42"></a>[docs/TEST_REPORT.md](docs/technical-reference.md#ref-42)
+- <a id="ref-43"></a>[docs/WINDOWS_INSTALLER.md](docs/technical-reference.md#ref-43)
+- <a id="ref-44"></a>[KazmiOn-Launcher/README.txt](docs/technical-reference.md#ref-44)
 
-## Before going live: checklist
-
-- [ ] Replace the JWT secrets; use MongoDB authentication and a managed Redis/Mongo (e.g. Atlas).
-- [ ] **Tax compliance**: the QR code currently encodes invoice facts (`qrPayload()` in `apps/pdf-worker/src/services/invoice-renderer.ts`). If your tax authority requires integration (e.g. FBR POS integration in Pakistan), replace it with the authority-issued invoice number/QR, and confirm tax rules (service charges are not taxed here; some jurisdictions tax them).
-- [ ] Store PDFs in S3 / Cloudflare R2: only `apps/pdf-worker/src/services/storage.service.ts` and the API's `resolvePdfPath` change.
-- [ ] Add HTTPS, backups, log shipping and monitoring (Sentry / Prometheus).
-- [ ] Refresh tokens are stateless (7 days); add a revocation list if you need instant logout-everywhere.
-
-## Phase 2 (AI)
-
-`apps/analytics-service` (forecasting, anomaly detection, restock advice) and `apps/chatbot-service` (RAG over each tenant's own data) are stubs with `/health` endpoints. Install their Python packages with `apps/analytics-service/requirements.txt` inside a `venv`. Every query they run must filter by `tenantId`, like the API.
+</details>

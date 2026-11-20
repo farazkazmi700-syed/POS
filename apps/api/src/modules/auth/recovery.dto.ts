@@ -3,7 +3,7 @@ import { IsEmail, IsIn, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLen
 
 export class RecoveryRequestDto {
   @ApiProperty() @IsEmail() email: string;
-  @ApiProperty({ enum: ['password', 'pin', 'developer-pin'] }) @IsIn(['password', 'pin', 'developer-pin']) purpose: 'password' | 'pin' | 'developer-pin';
+  @ApiProperty({ enum: ['password', 'pin'] }) @IsIn(['password', 'pin']) purpose: 'password' | 'pin';
   @ApiPropertyOptional({ enum: ['email', 'whatsapp'], default: 'email' }) @IsOptional() @IsIn(['email', 'whatsapp']) channel?: 'email' | 'whatsapp';
 }
 export class ConfirmOtpDto {

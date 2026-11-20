@@ -24,3 +24,11 @@ apps/pdf-worker/sample-invoice.pdf
 .git
 
 **/backups
+
+# Repository material unused by image builds
+/.github/
+/.vscode/
+/docs/
+/qa/
+/KazmiOn-Launcher/
+/tmp/

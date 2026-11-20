@@ -42,7 +42,7 @@ export const TENANT_NAVIGATION_ITEMS = [
   { key: 'products', to: '/products', label: 'Products', managerOnly: true, feature: 'inventory' },
   { key: 'customers', to: '/customers', label: 'Customers', managerOnly: false, feature: 'customers' },
   { key: 'installments', to: '/installments', label: 'Installments', managerOnly: false, feature: 'installments' },
-  { key: 'orders', to: '/orders', label: 'Orders', managerOnly: false },
+  { key: 'orders', to: '/orders', label: 'Orders', managerOnly: false, feature: 'pos' },
   { key: 'barcode-generator', to: '/barcode-generator', label: 'Barcode Generator', managerOnly: true, feature: 'barcodes' },
   { key: 'barcode-scanner', to: '/barcode-scanner', label: 'Barcode Scanner', managerOnly: true, feature: 'barcodes' },
   { key: 'backup', to: '/backup', label: 'Backup', managerOnly: false },

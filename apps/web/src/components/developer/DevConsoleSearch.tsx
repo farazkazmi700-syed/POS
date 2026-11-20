@@ -19,15 +19,16 @@ export default function DevConsoleSearch({
   businesses,
   plans,
   onOpenBusiness,
-  onOpenPlans,
+  onOpenPlan,
 }: {
   businesses: BusinessPlanTarget[];
   plans: SubscriptionPlan[];
-  onOpenBusiness: (businessId: string) => void;
-  onOpenPlans: () => void;
+  onOpenBusiness: (business: BusinessPlanTarget) => void;
+  onOpenPlan: (plan: SubscriptionPlan) => void;
 }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState(-1);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -39,7 +40,7 @@ export default function DevConsoleSearch({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setOpen(false);
-        inputRef.current?.blur();
+        inputRef.current?.focus();
       }
     };
     document.addEventListener('pointerdown', onPointerDown);
@@ -61,7 +62,7 @@ export default function DevConsoleSearch({
         kind: 'Business',
         title: b.name,
         subtitle: `${b.businessId} · ${b.domainType ?? 'custom'} · ${b.status}`,
-        action: () => onOpenBusiness(b.businessId),
+        action: () => onOpenBusiness(b),
       }));
     const planHits: SearchHit[] = plans
       .filter((p) => p.name.toLowerCase().includes(q))
@@ -71,10 +72,10 @@ export default function DevConsoleSearch({
         kind: 'Plan',
         title: p.name,
         subtitle: `${p.isActive ? 'Active' : 'Archived'} plan`,
-        action: onOpenPlans,
+        action: () => onOpenPlan(p),
       }));
     return [...businessHits, ...planHits];
-  }, [query, businesses, plans, onOpenBusiness, onOpenPlans]);
+  }, [query, businesses, plans, onOpenBusiness, onOpenPlan]);
 
   return (
     <div className="relative min-w-0 flex-1 max-w-md" ref={containerRef}>
@@ -83,13 +84,28 @@ export default function DevConsoleSearch({
         ref={inputRef}
         type="search"
         role="combobox"
-        aria-expanded={open && hits.length > 0}
+        aria-expanded={open && query.trim().length >= 2}
+        aria-autocomplete="list"
+        aria-activedescendant={open && hits[selected] ? hits[selected].id : undefined}
+        onKeyDown={(event) => {
+          if (!hits.length) return;
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            setOpen(true);
+            setSelected((index) => event.key === 'ArrowDown' ? (index + 1) % hits.length : (index <= 0 ? hits.length - 1 : index - 1));
+          } else if (open && event.key === 'Enter' && hits[selected]) {
+            event.preventDefault();
+            hits[selected].action();
+            setOpen(false);
+            setQuery('');
+          }
+        }}
         aria-controls="dev-global-search-results"
         aria-label="Search businesses and plans"
         placeholder="Search tenants, plans…"
         className="input !min-h-[38px] w-full pl-9 text-[13px]"
         value={query}
-        onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
+        onChange={(event) => { setSelected(-1); setQuery(event.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
       />
       {open && query.trim().length >= 2 && (
@@ -102,13 +118,14 @@ export default function DevConsoleSearch({
           {hits.length === 0 ? (
             <p className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">No matching businesses or plans.</p>
           ) : (
-            hits.map((hit) => (
+            hits.map((hit, index) => (
               <button
                 key={hit.id}
                 type="button"
                 role="option"
-                aria-selected={false}
-                className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 focus:bg-slate-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
+                id={hit.id}
+                aria-selected={index === selected}
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-left aria-selected:bg-slate-100 dark:aria-selected:bg-slate-800 hover:bg-slate-50 focus:bg-slate-50 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
                 onClick={() => { hit.action(); setOpen(false); setQuery(''); }}
               >
                 <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-300">

@@ -1,13 +1,15 @@
 @import "tailwindcss";
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/noto-nastaliq-urdu/wght.css";
+@import "@fontsource-variable/jetbrains-mono/wght.css";
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Nastaliq Urdu", "Noto Naskh Arabic", "Noto Kufi Arabic", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  /* Urdu typography — Noto Nastaliq Urdu for Nastaleeq script; Noto Naskh Arabic / Noto Kufi Arabic as fallback */
-  --font-urdu: "Noto Nastaliq Urdu", "Noto Naskh Arabic", "Noto Kufi Arabic", serif;
-  --font-urdu-ui: "Noto Nastaliq Urdu", "Noto Naskh Arabic", "Noto Kufi Arabic", serif;
-  --font-urdu-heading: "Noto Nastaliq Urdu", "Noto Naskh Arabic", "Noto Kufi Arabic", serif;
+  --font-sans: "Inter Variable", "Noto Nastaliq Urdu Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "Noto Nastaliq Urdu Variable", ui-monospace, monospace;
+  --font-urdu: var(--font-sans);
+  --font-urdu-ui: var(--font-sans);
+  --font-urdu-heading: var(--font-sans);
 
   /* KazmiOn Official Brand Color Palette (Extracted from Brand Logo):
      #00183c (0,24,60)    - Kazmi Deep Midnight Navy (Primary Base)
@@ -2522,12 +2524,6 @@ html.dark thead {
   }
 }
 
-/* --------------- Urdu typography utilities ---------------
-   Available app-wide: .urdu (nastaliq body), .urdu-ui (compact),
-   .urdu-heading (kufi). Latin glyphs fall through automatically. */
-/* ─────────────── Urdu typography utilities ───────────────
-   Standard Urdu Noori Nastaleeq everywhere — inputs included so
-   business/account names typed in Urdu render in nastaleeq as typed. */
 input, select, textarea { unicode-bidi: plaintext; }
 input:lang(ur), [value].urdu-input { font-family: var(--font-urdu); }
 .urdu { font-family: var(--font-urdu); direction: rtl; unicode-bidi: isolate; line-height: 2.1; }

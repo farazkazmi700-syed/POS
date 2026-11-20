@@ -32,7 +32,7 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
-    const isAuthCall = /^\/auth\/(?:login(?:\/pin)?|developer\/(?:login|setup-pin)|register|refresh|pin\/reset(?:\/request)?)$/.test(original?.url ?? '');
+    const isAuthCall = /^\/auth\/(?:login(?:\/pin)?|developer\/(?:login|setup-password)|register|refresh|pin\/reset(?:\/request)?)$/.test(original?.url ?? '');
     if (error.response?.status === 401 && original && !original._retry && !isAuthCall && useAuth.getState().refreshToken) {
       original._retry = true;
       refreshing ??= refreshAccessToken().finally(() => { refreshing = null; });

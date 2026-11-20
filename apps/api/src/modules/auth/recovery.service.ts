@@ -47,9 +47,9 @@ export class RecoveryService {
   async request(dto: RecoveryRequestDto) {
     const channel = dto.channel ?? 'email';
     if (!this.options()[channel]) throw new ServiceUnavailableException(`${channel === 'email' ? 'Email' : 'WhatsApp'} OTP delivery is not configured. Contact your administrator.`);
-    const user = await this.users.findOne({ email: dto.email.trim().toLowerCase(), isActive: true }).select('+developerPinHash +developerSessionVersion');
+    const user = await this.users.findOne({ email: dto.email.trim().toLowerCase(), isActive: true }).select('+developerSessionVersion');
     const destination = user ? this.destination(user, channel) : null;
-    const eligible = user && destination && (dto.purpose !== 'developer-pin' || !!user.developerPinHash && user.email === this.config.get<string>('PLATFORM_DEVELOPER_EMAIL')?.trim().toLowerCase());
+    const eligible = user && destination;
     if (!eligible) {
       await bcrypt.hash(String(randomInt(100000, 1000000)), 10);
       return this.response(randomUUID());
@@ -83,7 +83,7 @@ export class RecoveryService {
     return this.response(challengeId);
   }
   private async validate(dto: ConfirmOtpDto, phoneUserId?: string) {
-    const challenge = await this.challenges.findOneAndUpdate({ challengeId: dto.challengeId, expiresAt: { $gt: new Date() }, attempts: { $lt: 5 }, ...(phoneUserId ? { userId: new Types.ObjectId(phoneUserId), purpose: 'phone-verification' } : { purpose: { $ne: 'phone-verification' } }) }, { $inc: { attempts: 1 } }, { new: true }).select('+codeHash');
+    const challenge = await this.challenges.findOneAndUpdate({ challengeId: dto.challengeId, expiresAt: { $gt: new Date() }, attempts: { $lt: 5 }, ...(phoneUserId ? { userId: new Types.ObjectId(phoneUserId), purpose: 'phone-verification' } : { purpose: { $in: ['password', 'pin'] } }) }, { $inc: { attempts: 1 } }, { new: true }).select('+codeHash');
     if (!challenge || !await bcrypt.compare(dto.code, challenge.codeHash)) throw new BadRequestException('Invalid or expired code. Request a new code if needed.');
     const user = await this.users.findOne({ _id: challenge.userId, isActive: true }).select('+developerSessionVersion');
     if (!user || (user.sessionVersion ?? 0) !== challenge.sessionVersion || (user.developerSessionVersion ?? 0) !== challenge.developerSessionVersion || !phoneUserId && this.destination(user, challenge.channel) !== challenge.destination) throw new BadRequestException('Account or recovery contact changed. Request a new code.');
@@ -92,12 +92,12 @@ export class RecoveryService {
   async confirm(dto: RecoveryConfirmDto) {
     const { challenge, user } = await this.validate(dto);
     const secret = dto.newSecret;
-    if (challenge.purpose === 'password' ? secret.length < 8 || Buffer.byteLength(secret, 'utf8') > 72 : !new RegExp(`^\\d{${challenge.purpose === 'developer-pin' ? 8 : 4}}$`).test(secret) || /^0+$/.test(secret)) throw new BadRequestException(challenge.purpose === 'password' ? 'Use a password of 8–72 bytes.' : 'Enter a private PIN of the required length; all-zero PINs are not allowed.');
+    if (challenge.purpose === 'password' ? secret.length < 8 || Buffer.byteLength(secret, 'utf8') > 72 : !/^\d{4}$/.test(secret) || /^0+$/.test(secret)) throw new BadRequestException(challenge.purpose === 'password' ? 'Use a password of 8–72 bytes.' : 'Enter a private 4-digit PIN; all-zero PINs are not allowed.');
     const hash = await bcrypt.hash(secret, 12);
     const claimed = await this.challenges.deleteOne({ _id: challenge._id, codeHash: challenge.codeHash, attempts: { $lte: 5 }, expiresAt: { $gt: new Date() } });
     if (!claimed.deletedCount) throw new BadRequestException('This code has expired or has already been used.');
-    const field = challenge.purpose === 'password' ? 'passwordHash' : challenge.purpose === 'developer-pin' ? 'developerPinHash' : 'pinHash';
-    const updated = await this.users.updateOne({ _id: user._id, isActive: true, ...this.versions(challenge), email: user.email, recoveryEmail: user.recoveryEmail ?? null, phone: user.phone ?? null, emailVerifiedAt: user.emailVerifiedAt ?? null, phoneVerifiedAt: user.phoneVerifiedAt ?? null }, { $set: { [field]: hash, pinFailedAttempts: 0, pinLockedUntil: null, ...(field === 'pinHash' ? { pinRequiresChange: false, pinEnabled: true } : {}) }, $inc: { sessionVersion: 1, developerSessionVersion: 1, pinVersion: 1 }, $unset: { ...(field === 'developerPinHash' ? { developerStarterHash: 1 } : {}), pinChallengeId: 1, pinResetCodeHash: 1, pinResetExpiresAt: 1, emailVerificationCodeHash: 1, emailVerificationExpiresAt: 1 } });
+    const field = challenge.purpose === 'password' ? 'passwordHash' : 'pinHash';
+    const updated = await this.users.updateOne({ _id: user._id, isActive: true, ...this.versions(challenge), email: user.email, recoveryEmail: user.recoveryEmail ?? null, phone: user.phone ?? null, emailVerifiedAt: user.emailVerifiedAt ?? null, phoneVerifiedAt: user.phoneVerifiedAt ?? null }, { $set: { [field]: hash, pinFailedAttempts: 0, pinLockedUntil: null, ...(field === 'pinHash' ? { pinRequiresChange: false, pinEnabled: true } : {}) }, $inc: { sessionVersion: 1, developerSessionVersion: 1, pinVersion: 1 }, $unset: { pinChallengeId: 1, pinResetCodeHash: 1, pinResetExpiresAt: 1, emailVerificationCodeHash: 1, emailVerificationExpiresAt: 1 } });
     if (!updated.modifiedCount) throw new BadRequestException('Account changed. Request a new code.');
     await this.challenges.deleteMany({ userId: user._id });
     return { message: 'Updated successfully. All sessions have been signed out. Sign in with your new credentials.' };

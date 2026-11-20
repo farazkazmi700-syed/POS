@@ -13,7 +13,7 @@ import { AuthService } from './auth.service';
 import { PasswordRecoveryService } from './password-recovery.service';
 import { RecoveryService } from './recovery.service';
 import {
-  CompletePinLoginDto, CreateStaffDto, DeveloperLoginDto, DeveloperSetupPinDto, ForgotPasswordDto, LoginDto, PinResetDto, PinResetRequestDto, RefreshDto, RegisterDto,
+  CompletePinLoginDto, CreateStaffDto, DeveloperLoginDto, DeveloperSetupPasswordDto, ForgotPasswordDto, LoginDto, PinResetDto, PinResetRequestDto, RefreshDto, RegisterDto,
   UpdateProfileDto, UpdateStaffRightsDto, UpdateStaffStatusDto, VerifyEmailCodeDto, VerifyRecoveryDto,
   AdminResetStaffDto, ChangePasswordDto, RecoverOfflineDto, ResetPasswordDto,
 } from './dto/auth.dto';
@@ -46,9 +46,9 @@ export class AuthController {
 
   @Public()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  @Post('developer/setup-pin')
-  setupPin(@Body() dto: DeveloperSetupPinDto) {
-    return this.auth.setupPin(dto);
+  @Post('developer/setup-password')
+  setupPassword(@Body() dto: DeveloperSetupPasswordDto) {
+    return this.auth.setupPassword(dto);
   }
 
   @Public()

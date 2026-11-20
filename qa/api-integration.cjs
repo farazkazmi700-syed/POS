@@ -155,8 +155,9 @@ async function main() {
   await check('deactivate and reactivate revoke previous sessions', async () => { assert.equal((await request(`/auth/staff/${staffId}/status`, owner, { isActive: false }, 'PATCH')).status, 200); assert.equal((await request('/products', cashier)).status, 401); assert.equal((await request(`/auth/staff/${staffId}/status`, owner, { isActive: true }, 'PATCH')).status, 200); assert.equal((await request('/products', cashier)).status, 401); });
   const defaultBranch = await request('/branches', owner, { name: 'Main branch', code: 'MAIN' }); assert.equal(defaultBranch.status, 201, JSON.stringify(defaultBranch.data));
   await check('branch limit is enforced', async () => assert.equal((await request('/branches', owner, { name: 'Second branch', code: 'SECOND' })).status, 403));
-  const setup = await request('/auth/developer/setup-pin', null, { email: 'developer@spec.test', setupToken }); assert.equal(setup.status, 201, JSON.stringify(setup.data));
-  const developerResult = await request('/auth/developer/login', null, { pin: setup.data.pin }); assert.equal(developerResult.status, 201, JSON.stringify(developerResult.data)); const developer = developerResult.data.accessToken;
+  const developerPassword = 'developer-password-123';
+  const setup = await request('/auth/developer/setup-password', null, { email: 'developer@spec.test', setupToken, password: developerPassword }); assert.equal(setup.status, 201, JSON.stringify(setup.data)); assert.equal(setup.data.passwordSet, true);
+  const developerResult = await request('/auth/developer/login', null, { email: 'developer@spec.test', password: developerPassword }); assert.equal(developerResult.status, 201, JSON.stringify(developerResult.data)); const developer = developerResult.data.accessToken;
   await require('./delivery-phase-checks.cjs')({ request, check, owner, cashier: await login('cashier@spec.test'), otherOwner, developer, database, tenants, mongoose, uri });
   await check('backup is developer-only and includes business records without credentials', async () => {
     assert.equal((await request('/developer/backup', owner)).status, 403);
@@ -280,12 +281,11 @@ async function main() {
     const loggedIn = await request('/auth/login/pin', null, { challengeToken: step.data.challengeToken, pin: '5678' }); assert.equal(loggedIn.status, 201, JSON.stringify(loggedIn.data));
     assert.equal((await request('/auth/me', loggedIn.data.accessToken)).status, 200);
   });
-  await check('developer PIN reset is single-use under concurrent confirmations', async () => {
-    const issued = await recoveryRequest('developer@spec.test', 'developer-pin');
-    const results = await Promise.all(Array.from({ length: 4 }, () => request('/auth/recovery/confirm', null, { challengeId: issued.challengeId, code: issued.code, newSecret: '48291736' })));
-    assert.equal(results.filter((result) => result.status === 201).length, 1, JSON.stringify(results));
-    assert.ok(results.every((result) => [201, 400].includes(result.status)));
-    assert.equal((await request('/auth/developer/login', null, { pin: '48291736' })).status, 201);
+  await check('developer authentication requires the configured email and password', async () => {
+    assert.equal((await request('/auth/developer/login', null, { pin: '48291736' })).status, 400);
+    assert.equal((await request('/auth/developer/login', null, { email: 'developer@spec.test', password: 'wrong-password-123' })).status, 401);
+    assert.equal((await request('/auth/developer/login', null, { email: 'developer@spec.test', password: developerPassword })).status, 201);
+    assert.equal((await request('/auth/recovery/request', null, { email: 'developer@spec.test', purpose: 'developer-pin' })).status, 400);
   });
   await check('legacy PIN reset endpoints use the same OTP and session protections', async () => {
     await database.collection('users').updateOne({ email: owners[0].email }, { $unset: { securityCodeRequestedAt: 1 } });

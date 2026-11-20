@@ -1,3 +1,4 @@
+import { availablePages } from '../utils/access';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -9,7 +10,6 @@ import ThemeToggle from './ThemeToggle';
 import { urduClass } from '../utils/urdu';
 import { useCart } from '../store/cart';
 import { useAuth } from '../store/auth';
-import { TENANT_NAVIGATION_ITEMS } from '@pos/shared-types';
 import {
   IconDashboard,
   IconPOS,
@@ -90,7 +90,7 @@ export default function Layout() {
   const stockAlerts = useQuery({
     queryKey: ['products', 'stock-alerts'],
     queryFn: () => productApi.list({ lowStock: true, limit: 100 }),
-    enabled: isManager && tenant?.featureFlags?.inventory !== false && (user?.role === 'owner' || user?.moduleRights === undefined || user.moduleRights.includes('products')),
+    enabled: isManager && tenant?.featureFlags?.inventory !== false && (user?.moduleRights === undefined || user.moduleRights.includes('products')),
     refetchInterval: 60_000,
   });
   const visibleStockAlerts = stockAlerts.data?.data.filter((product) => !dismissedStockAlertIds.has(product._id)) ?? [];
@@ -104,14 +104,9 @@ export default function Layout() {
     });
   }, [stockAlerts.data]);
 
-  const links = TENANT_NAVIGATION_ITEMS.filter((item) =>
-    (!item.managerOnly || isManager) && (item.key === 'help' || item.key === 'backup' || tenant?.navigationVisibility?.[item.key] !== false)
-      && (!('feature' in item) || tenant?.featureFlags?.[item.feature] !== false)
-      // Backup exports stay on the business owner account; help is universal.
-      && (item.key !== 'backup' || user?.role === 'owner')
-      // Module rights: owner sees everything; admin/staff are limited to their granted modules.
-      && (item.key === 'help' || item.key === 'backup' || user?.role === 'owner' || !user?.moduleRights || user.moduleRights.includes(item.key)),
-  );
+  const links = user ? availablePages(user, tenant).filter((item) =>
+    item.key === 'help' || item.key === 'backup' || tenant?.navigationVisibility?.[item.key] !== false,
+  ) : [];
 
   const getNavIcon = (key: string) => {
     switch (key) {
@@ -445,7 +440,7 @@ export default function Layout() {
                 </div>
               )}
 
-              {isManager && tenant?.featureFlags?.reports !== false && (
+              {links.some((item) => item.key === 'dashboard') && (
                 <NavLink
                   to="/reports"
                   aria-label="Reports"

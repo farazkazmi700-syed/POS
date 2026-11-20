@@ -1,5 +1,4 @@
 import {
-  isValidDeveloperPin,
   canUseDeveloperRoute, hasAnyFeatureAccess, hasDeveloperAccess, hasFeatureAccess, hasSuperAdminAccess, hasTenantAccess, isPersistedSuperAdmin,
   isConfiguredDeveloper, isDeveloperSetupAuthorized, isPublicBusinessRegistrationClosed,
 } from './security-access';
@@ -48,7 +47,7 @@ describe('authorization policy helpers', () => {
     expect(hasDeveloperAccess({ role: 'owner' })).toBe(false);
   });
 
-  it('requires the configured email and setup token for one-time PIN enrollment', () => {
+  it('requires the configured email and setup token for Developer password setup', () => {
     expect(isDeveloperSetupAuthorized('dev@example.com', 'dev@example.com', 'token-123456789012345678901234567890', 'token-123456789012345678901234567890')).toBe(true);
     expect(isDeveloperSetupAuthorized('other@example.com', 'dev@example.com', 'token-123456789012345678901234567890', 'token-123456789012345678901234567890')).toBe(false);
     expect(isDeveloperSetupAuthorized('dev@example.com', 'dev@example.com', 'wrong-token-12345678901234567890', 'token-123456789012345678901234567890')).toBe(false);
@@ -61,12 +60,4 @@ describe('authorization policy helpers', () => {
     expect(canUseDeveloperRoute(false, false)).toBe(true);
   });
 
-  it('validates developer PIN format without embedding an authentication credential', () => {
-    expect(isValidDeveloperPin('12345678')).toBe(true);
-    expect(isValidDeveloperPin(' 12345678 ')).toBe(false);
-    expect(isValidDeveloperPin('0000')).toBe(false);
-    expect(isValidDeveloperPin('')).toBe(false);
-    expect(isValidDeveloperPin(null)).toBe(false);
-    expect(isValidDeveloperPin(undefined)).toBe(false);
-  });
 });

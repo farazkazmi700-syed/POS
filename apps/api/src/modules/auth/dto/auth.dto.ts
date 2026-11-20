@@ -22,13 +22,14 @@ export class LoginDto {
 }
 
 export class DeveloperLoginDto {
-  @ApiPropertyOptional() @IsOptional() @IsEmail() email?: string;
-  @ApiProperty({ example: '52909063' }) @IsString() @Matches(/^\d{8}$/, { message: 'PIN must be an 8-digit code' }) pin: string;
+  @ApiProperty() @IsEmail() email: string;
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(128) password: string;
 }
 
-export class DeveloperSetupPinDto {
+export class DeveloperSetupPasswordDto {
   @ApiProperty() @IsEmail() email: string;
   @ApiProperty() @IsString() @MinLength(32) setupToken: string;
+  @ApiProperty() @IsString() @MinLength(12) @MaxLength(128) password: string;
 }
 
 export class CompletePinLoginDto {
