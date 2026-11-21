@@ -80,7 +80,7 @@ export const authApi = {
   resetPin: (body: { email: string; code: string; newPin: string }) =>
     api.post<{ message: string }>('/auth/pin/reset', body).then((r) => r.data),
   me: () => api.get<UserSummary>('/auth/me').then((r) => r.data),
-  updateProfile: (body: { name?: string; recoveryEmail?: string; phone?: string }) =>
+  updateProfile: (body: { name?: string; recoveryEmail?: string | null; phone?: string | null }) =>
     api.patch<UserSummary>('/auth/me', body).then((r) => r.data),
   verifyRecovery: (type: 'email' | 'phone') => api.post<UserSummary | { message: string }>('/auth/me/verify-recovery', { type }).then((r) => r.data),
   confirmRecoveryEmail: (code: string) =>

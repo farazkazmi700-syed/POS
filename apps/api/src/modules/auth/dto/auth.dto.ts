@@ -58,8 +58,8 @@ export class RefreshDto {
 
 export class UpdateProfileDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(2, 80) name?: string;
-  @ApiPropertyOptional() @IsOptional() @IsEmail() recoveryEmail?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() @Length(7, 32) phone?: string;
+  @ApiPropertyOptional() @IsOptional() @IsEmail() recoveryEmail?: string | null;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(7, 32) phone?: string | null;
 }
 
 export class VerifyRecoveryDto {

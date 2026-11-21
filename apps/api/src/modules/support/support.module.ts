@@ -34,7 +34,7 @@ export class SupportController {
 
   @Get()
   information(@CurrentUser() user: AuthUser) {
-    return { help: { email: 'kazmitech142@gmail.com', recoveryUrl: '/recover',
+    return { help: { email: 'info.kazmion@gmail.com', recoveryUrl: '/recover',
       channels: { email: true, whatsapp: false },
       codeExpiryMinutes: 10, maxAttempts: 5, cooldownSeconds: 60 },
       entitlements: { help: true, backup: true },

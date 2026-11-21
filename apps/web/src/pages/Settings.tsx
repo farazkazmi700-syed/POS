@@ -67,7 +67,7 @@ export default function Settings() {
       name: biz.name,
       address: biz.address,
       ...(invoices ? { invoicePrefix: biz.invoicePrefix, taxRegNo: biz.taxRegNo, invoicePrintSettings: print } : {}),
-      ...(invoices ? { logoUrl: biz.logoUrl?.trim() || undefined } : {}),
+      ...(invoices ? { logoUrl: biz.logoUrl.trim() } : {}),
       currency: biz.currency.toUpperCase(),
       ...(installments ? { installmentMarkupPercent: markup } : {}),
     }),
@@ -77,7 +77,7 @@ export default function Settings() {
 
   const saveLogo = useMutation({
     mutationFn: (url: string) => tenantApi.update({
-      logoUrl: url.trim() || undefined,
+      logoUrl: url.trim(),
     }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tenant'] }),
   });
@@ -85,8 +85,8 @@ export default function Settings() {
   const profileMutation = useMutation({
     mutationFn: () => authApi.updateProfile({
       name: profile.name.trim(),
-      recoveryEmail: profile.recoveryEmail.trim() || undefined,
-      phone: profile.phone.trim() || undefined,
+      recoveryEmail: profile.recoveryEmail.trim() || null,
+      phone: profile.phone.trim() || null,
     }),
     onSuccess: (data) => {
       setSession({ accessToken: useAuth.getState().accessToken ?? '', refreshToken: useAuth.getState().refreshToken ?? '', user: data });
@@ -245,14 +245,16 @@ export default function Settings() {
             <p className="text-xs text-slate-500">Update the admin profile and add verified contact details that can be used for password recovery.</p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <fieldset disabled={profileMutation.isPending} className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2"><label className="label">Admin name</label>
               <input className="input" value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} /></div>
-            <div><label className="label">Recovery email</label>
-              <input className="input" type="email" value={profile.recoveryEmail} onChange={(e) => setProfile({ ...profile, recoveryEmail: e.target.value })} /></div>
-            <div><label className="label">Recovery phone</label>
-              <input className="input" value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} /></div>
-          </div>
+            <div><label htmlFor="recovery-email" className="label">Recovery email</label>
+              <input className="input" id="recovery-email" type="email" value={profile.recoveryEmail} onChange={(e) => setProfile({ ...profile, recoveryEmail: e.target.value })} />
+              {profile.recoveryEmail && <button type="button" className="text-sm underline" onClick={() => setProfile({ ...profile, recoveryEmail: '' })}>Remove email</button>}</div>
+            <div><label htmlFor="recovery-phone" className="label">Recovery phone</label>
+              <input className="input" id="recovery-phone" type="tel" value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} />
+              {profile.phone && <button type="button" className="text-sm underline" onClick={() => setProfile({ ...profile, phone: '' })}>Remove phone</button>}</div>
+          </fieldset>
 
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn-secondary" onClick={() => profileMutation.mutate()} disabled={profileMutation.isPending}>Save profile</button>
@@ -269,6 +271,7 @@ export default function Settings() {
           </div>
 
           <Link className="btn-secondary inline-flex" to="/recover">Change password or PIN with OTP</Link>
+          {profileMutation.isSuccess && profile.name === authUser?.name && recoveryEmailSaved && profile.phone === (authUser?.phone ?? '') && <p role="status" className="text-sm">Profile saved.</p>}
           {profileMutation.isError && <p className="text-sm text-red-600">{errorMessage(profileMutation.error)}</p>}
           {verifyRecoveryMutation.isError && <p className="text-sm text-red-600">{errorMessage(verifyRecoveryMutation.error)}</p>}
           {emailVerificationSent && <div className="flex flex-wrap items-end gap-2">
