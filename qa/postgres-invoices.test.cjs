@@ -4,7 +4,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { createRequire } = require('node:module');
 const { randomBytes } = require('node:crypto');
-const requireApi = createRequire(path.resolve('apps/api/package.json'));
+const requireApi = createRequire(path.resolve('app/api/package.json'));
 const { PostgresInvoiceStore } = requireApi('@pos/invoice-store');
 const { Client } = requireApi('pg');
 const file = path.resolve('storage/postgresql-staging/invoice-databases.json');
@@ -42,7 +42,7 @@ test('PostgreSQL invoice authority, tenant isolation, stale-job protection and l
     assert.equal(legacyOrder.invoiceStatus, 'ready');
     assert.equal(legacyOrder.invoicePdfPath, 'current.pdf');
     process.env.STORAGE_DIR = path.resolve('qa/artifacts/postgres-invoices');
-    const requireWorker = createRequire(path.resolve('apps/pdf-worker/package.json'));
+    const requireWorker = createRequire(path.resolve('app/pdf-worker/package.json'));
     const WorkerStore = requireWorker('@pos/invoice-store').PostgresInvoiceStore;
     workerStore = new WorkerStore(registry);
     const { createProcessor } = requireWorker('./dist/queue/invoice.processor.js');

@@ -9,8 +9,8 @@ test('deployed sign-in and API proxy work together', async ({ page, request }) =
   expect(health.ok()).toBeTruthy();
   expect((await health.json()).database).toBe('connected');
   await page.goto('/login');
-  await expect(page.getByRole('heading', { name: 'Welcome back.' })).toBeVisible();
-  const hero = await request.get('/pos-sign-in.png');
+  await expect(page.getByRole('heading', { name: 'Log in to your account' })).toBeVisible();
+  const hero = await request.get('/smart-pos-storefront-banner.png');
   expect(hero.ok()).toBeTruthy();
   expect(hero.headers()['content-type']).toContain('image/png');
   await page.getByLabel('Email address').fill(`smoke-${Date.now()}@example.invalid`);
@@ -30,7 +30,7 @@ test('deployed recovery exposes only configured delivery channels', async ({ pag
   const options = await response.json();
   expect(typeof options.email).toBe('boolean'); expect(typeof options.whatsapp).toBe('boolean');
   await page.goto('/recover');
-  await expect(page.getByRole('heading', { name: 'Change or restore access' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recover account access' })).toBeVisible();
   if (options.whatsapp) await expect(page.locator('option[value="whatsapp"]')).toBeEnabled();
   else await expect(page.locator('option[value="whatsapp"]')).toBeDisabled();
   if (options.email) await expect(page.getByRole('button', { name: 'Send verification code', exact: true })).toBeEnabled();

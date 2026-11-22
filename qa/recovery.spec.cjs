@@ -1,5 +1,38 @@
 const path = require('node:path');
 const { test, expect } = require(require.resolve('@playwright/test', { paths: [path.dirname(process.argv[1])] }));
+for (const separator of ['#', '?']) {
+  test(`reset link with ${separator} protects the token and prevents repeat submissions`, async ({ page }) => {
+    let requests = 0;
+    let release;
+    const delay = new Promise(resolve => { release = resolve; });
+    await page.route('**/api/auth/reset-password', async route => {
+      requests++;
+      expect(route.request().headers().referer).toBeUndefined();
+      expect(route.request().postDataJSON()).toEqual({ token: 'fixture-token', newPassword: 'test-passphrase-123' });
+      await delay;
+      await route.fulfill({ json: { message: 'Password updated.' } });
+    });
+    await page.goto('/reset-password' + separator + 'token=fixture-token');
+    await page.getByLabel('New password', { exact: true }).fill('test-passphrase-123');
+    await page.getByLabel('Confirm password').fill('test-passphrase-123');
+    await page.getByRole('button', { name: 'Update password' }).click();
+    try {
+      await expect(page.getByRole('button', { name: 'Updating password' })).toBeDisabled();
+    } finally {
+      release();
+    }
+    await expect(page.getByRole('status')).toContainText('Password updated');
+    await expect(page.getByLabel('New password', { exact: true })).toHaveCount(0);
+    expect(requests).toBe(1);
+  });
+}
+
+test('missing reset token shows an actionable message immediately', async ({ page }) => {
+  await page.goto('/reset-password');
+  await expect(page.getByRole('alert')).toContainText('Open the link');
+  await expect(page.getByRole('link', { name: 'recover your account' })).toHaveAttribute('href', '/recover');
+  await expect(page.getByLabel('New password', { exact: true })).toHaveCount(0);
+});
 for (const width of [390, 1440]) {
   test(`${width}: email recovery verifies OTP, confirms password, and enforces resend delay`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });

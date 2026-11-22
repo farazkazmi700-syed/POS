@@ -1,0 +1,33 @@
+# Cloudflare Pages deployment for the KazmiOn POS web app.
+#
+# This config is stored in app/web so the Pages project can be created with
+# "Root directory: app/web" and the CLI finds it with --config.
+#
+# Set VITE_API_BASE_URL in the Pages dashboard (Settings > Environment variables)
+# to the public API origin, for example https://api.kazmion.example/api.
+name = "kazmion-pos-web"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-11-01"
+
+[build]
+  command = "npm ci && npm run build"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+# Single-page app: every unknown route falls back to index.html so deep links
+# such as /pos, /settings or /reset-password resolve inside React Router.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  from = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  from = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"

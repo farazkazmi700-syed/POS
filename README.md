@@ -6,43 +6,57 @@ KazmiOn POS manages sales, inventory, customer accounts, installments and tax in
 
 | Path | Responsibility |
 | --- | --- |
-| `apps/api/`, `apps/web/`, `apps/pdf-worker/` | Services shipped in the default image |
-| `packages/` | Shared types, contracts, configuration and invoice storage |
-| `docker/` | Container entrypoint, process supervision and health checks |
-| `infra/` | nginx configuration and PostgreSQL provisioning |
-| `database/postgresql/` | Versioned SQL migrations |
-| `scripts/` | Build, install, update, migration, backup and restore |
+| `app/web/` | React SPA (Vite + Tailwind) — also the Cloudflare Pages target |
+| `app/api/` | NestJS API |
+| `app/pdf-worker/` | BullMQ invoice worker |
+| `app/analytics-service/`, `app/chatbot-service/` | Future-service stubs |
+| `app/packages/` | Shared types, contracts, configuration and invoice storage |
+| `docker/` | `Dockerfile`, Compose files (`docker/compose/`), nginx, PostgreSQL bootstrap, supervisor and health checks |
+| `deploy/scripts/` | Build, install, update, migration, backup and restore |
+| `deploy/database/postgresql/` | Versioned SQL migrations |
+| `desktop/windows/` | Windows launcher scripts and installer sources |
 | `qa/` | Integration, browser and deployment tests |
 | `docs/` | API specification, migration reports and technical reference |
-| `KazmiOn-Launcher/` | Windows launcher installer sources |
 | `.github/workflows/` | Continuous integration |
 
-The root Dockerfile builds the production image. Compose uses `compose.yaml` by default. Existing launch scripts can use the compatibility Compose files. The standalone `docker-compose.postgres.yml` supports development and migration work.
+The Docker build context is the repository root. The image is defined at `docker/Dockerfile` and the default stack at `docker/compose/compose.yaml`; always pass the file explicitly, e.g. `docker compose -f docker/compose/compose.yaml up -d`. Existing launch scripts can use the compatibility Compose files. The standalone `docker/compose/docker-compose.postgres.yml` supports development and migration work.
 
 ## Windows installation
 
 For a new installation with Docker Desktop running, run the following command from the repository root.
 
 ```powershell
-.\scripts\install.ps1
+.\deploy\scripts\install.ps1
 ```
 
-Open the POS at `http://localhost:8080`. nginx exposes API documentation at `/api/docs` and application health at `/health`. Existing installations can start through `KazmiOn-Launch.bat`. Review the installation's volume mappings and backup procedure before upgrading.
+Open the POS at `http://localhost:8080`. nginx exposes API documentation at `/api/docs` and application health at `/health`. Existing installations can start through `desktop/windows/KazmiOn-Launch.bat`. Review the installation's volume mappings and backup procedure before upgrading.
 
 ## Development and verification
 
 CI uses Node.js 24. Each shipped service has an npm lockfile. Run these commands from the repository root.
 
 ```sh
-npm ci --prefix apps/api
-npm ci --prefix apps/pdf-worker
-npm ci --prefix apps/web
+npm ci --prefix app/api
+npm ci --prefix app/pdf-worker
+npm ci --prefix app/web
 npm run build
 npm run test:all
-docker compose config --quiet
+docker compose -f docker/compose/compose.yaml config --quiet
 ```
 
 Use `npm run dev:web` for the Vite development server on port 5173. Its default API proxy targets port 8080. Owners manage invoice taxes under **Settings > Tax and service charges**.
+
+## Cloudflare deployment
+
+The front end is a static SPA, so it can be hosted on Cloudflare Pages while the NestJS API, PostgreSQL, Redis and the invoice worker keep running in the Docker image. Pages serves static assets only; it cannot run this Node/PostgreSQL stack.
+
+1. Verify the build locally: `npm --prefix app/web ci && npm --prefix app/web run build`.
+2. Create a Pages project from this repository with **Root directory** `app/web`, **Build command** `npm ci && npm run build` and **Build output directory** `dist`. `app/web/wrangler.toml` already declares these values, the SPA fallback to `index.html` and immutable asset caching, so a CLI deploy can use `wrangler pages deploy --config app/web/wrangler.toml`.
+3. Set the Pages environment variable `VITE_API_BASE_URL` to the public API origin including `/api` (for example `https://api.example.com/api`). Leave it empty when the API shares the page's origin, as in the Docker/nginx deployment.
+4. Set the API `CORS_ORIGIN` to the Pages domain, and `PASSWORD_RESET_BASE_URL` to the Pages domain plus `/reset-password`.
+5. Expose the API over HTTPS (Cloudflare Tunnel or a TLS origin) — the container binds port 8080 to loopback by default.
+
+The SPA emits relative asset URLs and renders routes client-side, so it also works when hosted under a sub-path such as `/pos`. The `wrangler.toml` fallback rule keeps deep links such as `/pos` and `/reset-password` working on a static host.
 
 ## Technical reference
 
@@ -94,6 +108,6 @@ The [technical reference](docs/technical-reference.md) contains design decisions
 - <a id="ref-41"></a>[docs/TENANT_ISOLATION.md](docs/technical-reference.md#ref-41)
 - <a id="ref-42"></a>[docs/TEST_REPORT.md](docs/technical-reference.md#ref-42)
 - <a id="ref-43"></a>[docs/WINDOWS_INSTALLER.md](docs/technical-reference.md#ref-43)
-- <a id="ref-44"></a>[KazmiOn-Launcher/README.txt](docs/technical-reference.md#ref-44)
+- <a id="ref-44"></a>[desktop/windows/KazmiOn-Launcher/README.txt](docs/technical-reference.md#ref-44)
 
 </details>

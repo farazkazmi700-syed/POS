@@ -5,7 +5,7 @@ const { createRequire } = require('node:module');
 const { spawn } = require('node:child_process');
 const { randomUUID, randomBytes } = require('node:crypto');
 const root = path.resolve(__dirname, '..');
-const requireApi = createRequire(path.join(root, 'apps/api/package.json'));
+const requireApi = createRequire(path.join(root, 'app/api/package.json'));
 const mongoose = requireApi('mongoose');
 const bcrypt = requireApi('bcryptjs');
 const databaseName = `pos_spec_test_${Date.now()}_${randomBytes(4).toString('hex')}`;
@@ -41,7 +41,7 @@ async function main() {
   const owners = await Promise.all(tenants.map(async (tenant, index) => ({ _id: new mongoose.Types.ObjectId(), tenantId: tenant._id, name: `Owner ${index}`, email: `owner${index}@spec.test`, passwordHash: await bcrypt.hash('test-password-123', 4), pinHash: await bcrypt.hash('1234', 4), pinVersion: 0, sessionVersion: 0, pinRequiresChange: false, role: 'owner', isActive: true, superAdmin: false, branchIds: [] })));
   await database.collection('users').insertMany(owners);
   recoveryFixtures = await require('./recovery-fixtures.cjs').startRecoveryFixtures();
-  child = spawn(process.execPath, ['-r', path.join(root, 'qa/recovery-provider-hook.cjs'), 'dist/main.js'], { cwd: path.join(root, 'apps/api'), env: { ...process.env, PORT: String(port), DEV_ACCOUNT_EMAIL: 'provisioner@spec.test', DEV_ACCOUNT_PASSWORD_HASH: await bcrypt.hash(registrationPassword, 4), MONGO_URI: uri, REDIS_URL: 'redis://127.0.0.1:6379/0', BULL_PREFIX: prefix, JWT_ACCESS_SECRET: randomBytes(32).toString('hex'), JWT_REFRESH_SECRET: randomBytes(32).toString('hex'), PLATFORM_DEVELOPER_EMAIL: 'developer@spec.test', PLATFORM_DEVELOPER_SETUP_TOKEN: setupToken, CORS_ORIGIN: 'http://localhost:5173', THROTTLE_LIMIT: '10000', SMTP_HOST: '127.0.0.1', SMTP_PORT: String(recoveryFixtures.smtpPort), SMTP_SECURE: 'false', SMTP_USER: 'test@spec.test', SMTP_PASSWORD: randomBytes(16).toString('hex'), SMTP_FROM: 'test@spec.test', TWILIO_ACCOUNT_SID: 'AC-test', TWILIO_AUTH_TOKEN: 'test-only', TWILIO_WHATSAPP_FROM: '+15005550006', TWILIO_WHATSAPP_CONTENT_SID: 'HX-test', RECOVERY_TEST_PROVIDER: recoveryFixtures.whatsappUrl }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  child = spawn(process.execPath, ['-r', path.join(root, 'qa/recovery-provider-hook.cjs'), 'dist/main.js'], { cwd: path.join(root, 'app/api'), env: { ...process.env, PORT: String(port), DEV_ACCOUNT_EMAIL: 'provisioner@spec.test', DEV_ACCOUNT_PASSWORD_HASH: await bcrypt.hash(registrationPassword, 4), MONGO_URI: uri, REDIS_URL: 'redis://127.0.0.1:6379/0', BULL_PREFIX: prefix, JWT_ACCESS_SECRET: randomBytes(32).toString('hex'), JWT_REFRESH_SECRET: randomBytes(32).toString('hex'), PLATFORM_DEVELOPER_EMAIL: 'developer@spec.test', PLATFORM_DEVELOPER_SETUP_TOKEN: setupToken, CORS_ORIGIN: 'http://localhost:5173', THROTTLE_LIMIT: '10000', SMTP_HOST: '127.0.0.1', SMTP_PORT: String(recoveryFixtures.smtpPort), SMTP_SECURE: 'false', SMTP_USER: 'test@spec.test', SMTP_PASSWORD: randomBytes(16).toString('hex'), SMTP_FROM: 'test@spec.test', TWILIO_ACCOUNT_SID: 'AC-test', TWILIO_AUTH_TOKEN: 'test-only', TWILIO_WHATSAPP_FROM: '+15005550006', TWILIO_WHATSAPP_CONTENT_SID: 'HX-test', RECOVERY_TEST_PROVIDER: recoveryFixtures.whatsappUrl }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   child.stdout.on('data', (data) => { output = (output + data).slice(-18000); }); child.stderr.on('data', (data) => { output = (output + data).slice(-18000); });
   let ready = false;
   for (let attempt = 0; attempt < 80; attempt++) {
@@ -294,6 +294,20 @@ async function main() {
     assert.equal((await request('/auth/pin/reset', null, { email: owners[0].email, code, newPin: '6789' })).status, 201);
     assert.equal((await request('/auth/pin/reset', null, { email: owners[0].email, code, newPin: '9876' })).status, 400);
     const token = await login(owners[0].email, 'updated-password-123', '6789'); assert.ok(token);
+  });
+  await check('an emailed reset link changes the password once and revokes the previous session', async () => {
+    const email = 'reset-link@spec.test';
+    await database.collection('users').insertOne({ ...owners[0], _id: new mongoose.Types.ObjectId(), email });
+    const previousSession = await login(email);
+    assert.equal((await request('/auth/forgot-password', null, { email })).status, 201);
+    const message = recoveryFixtures.emails.at(-1).replace(/=\r\n/g, '').replace(/=3D/g, '=');
+    const token = /\/reset-password#token=([A-Za-z0-9_-]{43})/.exec(message)?.[1];
+    assert.ok(token, 'Expected reset link in local SMTP delivery');
+    const body = { token, newPassword: 'new-test-passphrase-123' };
+    assert.equal((await request('/auth/reset-password', null, body)).status, 201);
+    assert.equal((await request('/auth/reset-password', null, body)).status, 400);
+    assert.equal((await request('/auth/me', previousSession)).status, 401);
+    assert.ok(await login(email, body.newPassword));
   });
   console.log(`\n${checks} real API integration checks passed against ${databaseName}.`);
 }

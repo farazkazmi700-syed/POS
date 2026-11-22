@@ -1,7 +1,7 @@
 const { test, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const { createRequire } = require('node:module');
-const requireApi = createRequire(require('node:path').resolve('apps/api/package.json'));
+const requireApi = createRequire(require('node:path').resolve('app/api/package.json'));
 const { BackupDeliveryService } = requireApi('./dist/modules/developer/backup-delivery.service.js');
 const nodemailer = requireApi('nodemailer');
 const { unzipSync, strFromU8 } = requireApi('fflate');

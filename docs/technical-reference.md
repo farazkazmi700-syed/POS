@@ -6,11 +6,11 @@ TypeScript POS where any business (retail, restaurant, pharmacy, salon, ...) can
 
 | Part | Tech | Folder |
 |---|---|---|
-| API | NestJS 12, PostgreSQL 17 (FerretDB and Mongoose), JWT + roles, BullMQ | `apps/api` |
-| PDF worker | BullMQ worker, Handlebars template, Puppeteer (Chromium) | `apps/pdf-worker` |
-| Web app | React 19, Vite, Tailwind, React Query, Zustand | `apps/web` |
-| Shared contract | plain TypeScript interfaces | `packages/shared-types` |
-| Phase 2 (stubs) | FastAPI analytics + chatbot | `apps/analytics-service`, `apps/chatbot-service` |
+| API | NestJS 12, PostgreSQL 17 (FerretDB and Mongoose), JWT + roles, BullMQ | `app/api` |
+| PDF worker | BullMQ worker, Handlebars template, Puppeteer (Chromium) | `app/pdf-worker` |
+| Web app | React 19, Vite, Tailwind, React Query, Zustand | `app/web` |
+| Shared contract | plain TypeScript interfaces | `app/packages/shared-types` |
+| Phase 2 (stubs) | FastAPI analytics + chatbot | `app/analytics-service`, `app/chatbot-service` |
 
 See [Project structure and repository conventions](#ref-36) for directory ownership, generated files and verification commands.
 
@@ -37,7 +37,7 @@ docker compose up --build
 * Demo data (optional, with the stack running): `npm run seed`
   -> logins `npm run dev:api` / `restaurant@demo.test`, password `demo12345`
 
-Production: `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
+Production: `docker compose -f docker/compose/docker-compose.yml -f docker/compose/docker-compose.prod.yml up -d --build`
 (databases not exposed, secrets mandatory, restart policies; add TLS in front of the POS container).
 
 ## Frontend development
@@ -96,7 +96,7 @@ At the POS pick **Installment**, choose or add the customer (and guarantor), the
 Installment price = cash price + markup% (default set in *Settings*); the monthly amount is rounded up to a whole rupee
 and the last instalment absorbs the difference. Manage plans under **Installments**: collect payments, see overdue
 amounts, print the agreement and payment receipts (browser print / Save as PDF).
-To change the pricing rule edit `apps/api/src/modules/installment/calc/calculate-plan.ts`.
+To change the pricing rule edit `app/api/src/modules/installment/calc/calculate-plan.ts`.
 Installment sales cannot be voided in the app; handle returns manually.
 
 ## Roles
@@ -111,7 +111,7 @@ Installment sales cannot be voided in the app; handle returns manually.
 
 * **Tenant isolation**: every document has `tenantId`; every service query filters on the tenantId from the JWT, never from the request body.
 * **Taxes are data, not code**: rates live in each tenant's *Tax profile* (Settings). Products choose a *tax class* (standard / reduced / exempt). Defaults (18% / 5%) are only a starting point; set what your local law requires.
-* **Money math** is done in integer minor units and rounded per line (`apps/api/src/modules/order/calc`). The cart screen calls `POST /orders/preview`, so the screen and the receipt can never disagree.
+* **Money math** is done in integer minor units and rounded per line (`app/api/src/modules/order/calc`). The cart screen calls `POST /orders/preview`, so the screen and the receipt can never disagree.
 * **No oversell**: stock is decremented with a conditional atomic update (`stockQty >= qty`), with a compensating rollback if a later line fails. (Multi-document transactions would need a MongoDB replica set.)
 * **Invoice numbers** are sequential per tenant per year (`INV-2026-000001`) via an atomic counter.
 * **Async PDFs**: checkout never waits for Chromium. If the queue is down the sale still succeeds and the invoice can be regenerated.
@@ -120,14 +120,14 @@ Installment sales cannot be voided in the app; handle returns manually.
 ## Before going live: checklist
 
 - [ ] Replace the JWT secrets; use MongoDB authentication and a managed Redis/Mongo (e.g. Atlas).
-- [ ] **Tax compliance**: the QR code currently encodes invoice facts (`qrPayload()` in `apps/pdf-worker/src/services/invoice-renderer.ts`). If your tax authority requires integration (e.g. FBR POS integration in Pakistan), replace it with the authority-issued invoice number/QR, and confirm tax rules (service charges are not taxed here; some jurisdictions tax them).
-- [ ] Store PDFs in S3 / Cloudflare R2: only `apps/pdf-worker/src/services/storage.service.ts` and the API's `resolvePdfPath` change.
+- [ ] **Tax compliance**: the QR code currently encodes invoice facts (`qrPayload()` in `app/pdf-worker/src/services/invoice-renderer.ts`). If your tax authority requires integration (e.g. FBR POS integration in Pakistan), replace it with the authority-issued invoice number/QR, and confirm tax rules (service charges are not taxed here; some jurisdictions tax them).
+- [ ] Store PDFs in S3 / Cloudflare R2: only `app/pdf-worker/src/services/storage.service.ts` and the API's `resolvePdfPath` change.
 - [ ] Add HTTPS, backups, log shipping and monitoring (Sentry / Prometheus).
 - [ ] Refresh tokens are stateless (7 days); add a revocation list if you need instant logout-everywhere.
 
 ## Phase 2 (AI)
 
-`apps/analytics-service` (forecasting, anomaly detection, restock advice) and `apps/chatbot-service` (RAG over each tenant's own data) are stubs with `/health` endpoints. Install their Python packages with `apps/analytics-service/requirements.txt` inside a `venv`. Every query they run must filter by `tenantId`, like the API.
+`app/analytics-service` (forecasting, anomaly detection, restock advice) and `app/chatbot-service` (RAG over each tenant's own data) are stubs with `/health` endpoints. Install their Python packages with `app/analytics-service/requirements.txt` inside a `venv`. Every query they run must filter by `tenantId`, like the API.
 
 ## Consolidated documentation index
 
@@ -174,7 +174,7 @@ Installment sales cannot be voided in the app; handle returns manually.
 - [docs/TENANT_ISOLATION.md](#ref-41)
 - [docs/TEST_REPORT.md](#ref-42)
 - [docs/WINDOWS_INSTALLER.md](#ref-43)
-- [KazmiOn-Launcher/README.txt](#ref-44)
+- [desktop/windows/desktop/windows/KazmiOn-Launcher/README.txt](#ref-44)
 
 <a id="ref-01"></a>
 
@@ -188,23 +188,21 @@ Date: 2026-11-18 · Branch: `feature/single-container-production` · Working tre
 
 ```
 d:\pos
-├── KazmiOn-Start.ps1 / KazmiOn.iss      # Root launcher + Inno Setup script (points to compose.production.yaml — stale path)
-└── pos-system/                          # Main monorepo (git repo, branch main)
-    ├── apps/
+└── pos-system/                          # Main repository
+    ├── app/
+    │   ├── web/          # React 19 + Vite 8 SPA (dev:5173), Tailwind 4 — Cloudflare Pages target
     │   ├── api/          # NestJS 12 API (port 3000), JWT auth, Swagger at /api/docs
-    │   ├── web/          # React 19 + Vite 8 SPA (dev:5173), Tailwind 4
     │   ├── pdf-worker/   # BullMQ worker, Puppeteer/Chromium PDF invoices
-    │   ├── analytics-service/  # (check references — likely unused)
-    │   └── chatbot-service/    # (check references — likely unused)
-    ├── packages/ api-contracts, config, invoice-store, shared-types
-    ├── infra/    nginx/{default,single-container}.conf, postgres/{init-pos.sh,start-app.sh}
-    ├── scripts/  build.cjs, migrate/*, migration/*, backup/*, update-docker.ps1, verify-deployment.ps1, prepare-compose-env.ps1, seed.ts
-    ├── database/postgresql/migrations/ 001_initial_schema.sql, 002_installments.sql, 003_rls_policies.sql, 0001-source-staging.sql
+    │   ├── analytics-service/  # Phase 2 stub
+    │   ├── chatbot-service/    # Phase 2 stub
+    │   └── packages/     # api-contracts, config, invoice-store, shared-types
+    ├── docker/    Dockerfile, compose/compose.yaml (+ compatibility variants), nginx/{default,single-container}.conf, postgres/{init-pos.sh,start-app.sh}, supervisord.conf, entrypoint.sh, healthcheck.sh
+    ├── deploy/scripts/  build.cjs, migrate/*, migration/*, backup/*, install/start/stop/update/backup/restore/update-docker/verify-deployment.ps1, prepare-compose-env.ps1, seed.ts
+    ├── deploy/database/postgresql/migrations/ 001_initial_schema.sql, 002_installments.sql, 003_rls_policies.sql, 0001-source-staging.sql
     ├── qa/       api-integration.cjs, delivery-phase-checks.cjs, recovery-provider-hook.cjs
     ├── docs/     30+ docs incl. migration dossier + ADR 0001–0003
-    ├── Dockerfile.single, supervisord.pos-system.conf, single-container-entrypoint.sh
-    ├── docker-compose.yml (single service "pos-system"), .single/.prod/.postgres*/.legacy-mongo variants
-    ├── KazmiOn-Launch.bat, KazmiOn-Start.ps1, KazmiOn-Launcher/, backups/, storage/
+    ├── desktop/windows/  KazmiOn-Launch.bat, KazmiOn-Start.ps1, KazmiOn-Launcher/ (Inno Setup)
+    ├── backups/, storage/               # Local runtime data (not committed)
 ```
 
 ### 2. Runtime architecture (as found)
@@ -224,7 +222,7 @@ Startup: entrypoint generates per-install DB credentials into `PGDATA/secrets`, 
 
 Health: container HEALTHCHECK → `curl /health` → nginx → `/api/health`.
 
-### 3. Modules inventory (apps/api/src/modules)
+### 3. Modules inventory (app/api/src/modules)
 
 audit, auth, barcode, branch, customer, developer, health, installment, invoice, order, product, report, stock, super-admin, support, tenant.
 Web pages: Login, Register, Dashboard, POS, Products, Orders, Customers, Barcodes, Reports, Installments(+Detail, ModulePage), Recovery, Backup, Settings, Help, Spare, Support, SuperAdmin, Developer.
@@ -243,14 +241,14 @@ RBAC: JWT access/refresh, roles developer/owner/employee enforced in API guards;
 1. No top-level `compose.yaml`; container/image names differ (`pos-system`/`pos-system:postgres` vs `kazmion-pos`/`kazmion/pos:latest`).
 2. Port map `8080:80` not loopback-restricted; API port 3000 host-exposed.
 3. Missing `docker/entrypoint.sh`, `docker/supervisord.conf`, `docker/healthcheck.sh` layout (equivalents exist at repo root).
-4. Missing Windows scripts `scripts/{install,start,stop,update,backup,restore}.ps1` (partial: KazmiOn-Start.ps1 at repo root references stale `compose.production.yaml`).
-5. Obsolete compose variants (`legacy-mongo`, `postgres-invoices`, `postgres-staging`) and root `KazmiOn-Start.ps1` stale path — cleanup candidates.
-6. `apps/analytics-service`, `apps/chatbot-service` — must verify references before classification (uncertain).
+4. Missing Windows scripts `deploy/scripts/{install,start,stop,update,backup,restore}.ps1` (partial: desktop/windows/KazmiOn-Start.ps1 at repo root references stale `compose.production.yaml`).
+5. Obsolete compose variants (`legacy-mongo`, `postgres-invoices`, `postgres-staging`) and root `desktop/windows/KazmiOn-Start.ps1` stale path — cleanup candidates.
+6. `app/analytics-service`, `app/chatbot-service` — must verify references before classification (uncertain).
 7. Database-per-business tenant strategy: current design is shared PostgreSQL via DocumentDB extension with application-level tenant scoping (ADR 0003 explicitly documents why per-business physical DBs were not adopted). Changing this would violate "preserve existing functionality"; keep current isolation, document deviation.
 
 ### 6. Test status at audit time
 
-- `npm run test:api` (jest), `test:pdf`, `test:web:typecheck` available; qa/ scripts for integration checks; `scripts/verify-deployment.ps1` smoke test. Not yet executed on this branch — Phase 7 will run them and record actual results.
+- `npm run test:api` (jest), `test:pdf`, `test:web:typecheck` available; qa/ scripts for integration checks; `deploy/scripts/verify-deployment.ps1` smoke test. Not yet executed on this branch — Phase 7 will run them and record actual results.
 
 <a id="ref-02"></a>
 
@@ -289,28 +287,28 @@ Rule applied: delete only proven-obsolete files; no volumes, databases, backups,
 | `docker-compose.legacy-mongo.yml` | References the retired MongoDB container stack; superseded by the single-container PostgreSQL design (ADR 0003). |
 | `docker-compose.postgres-staging.yml` | Staging overlay for the interim Postgres migration phase; migration complete (docs/migration/08-reconciliation-report.md). |
 | `docker-compose.postgres-invoices.yml` | Interim invoice-store overlay; invoice store now built into the single image. |
-| `KazmiOn-Launcher-Files.zip` | Duplicate packaging artifact of `KazmiOn-Launcher/` (zip of the same files). |
+| `desktop/windows/KazmiOn-Launcher-Files.zip` | Duplicate packaging artifact of `desktop/windows/KazmiOn-Launcher/` (zip of the same files). |
 | `KazmiOn-startup.log`, `single-build.log` | Transient logs, regenerated on every run. |
 
 #### Kept — active
-- `docker-compose.yml` — original single-service compose; retained for continuity with `update-docker.ps1`/existing installs (name `pos-postgresql`). Candidate for later removal after all client installs migrate to `compose.yaml`.
-- `docker-compose.prod.yml` — small port overlay used by existing deployments.
-- `docker-compose.single.yml` — documented build path in ADR 0003 (include of docker-compose.yml).
-- `KazmiOn-Launcher/`, `KazmiOn-Launch.bat`, `KazmiOn-Start.ps1` — Windows client launcher (start script now points at `compose.yaml`).
-- `apps/analytics-service`, `apps/chatbot-service` — documented future-service stubs; referenced in README, module manifests (`ai-chatbot`, coming-soon), support module and QA tests. Removing them would break `qa/delivery-phase-checks.cjs` and the UI.
-- `scripts/migration/*` — data migration tooling incl. `copy-single-container.cjs`, required for existing-install cutover (ADR 0003). Its `node_modules/` is a local, non-committed cache.
-- `scripts/migrate/*`, `database/postgresql/migrations/*` — versioned migration history (protected).
+- `docker/compose/docker-compose.yml` — original single-service compose; retained for continuity with `update-docker.ps1`/existing installs (name `pos-postgresql`). Candidate for later removal after all client installs migrate to `compose.yaml`.
+- `docker/compose/docker-compose.prod.yml` — small port overlay used by existing deployments.
+- `docker/compose/docker-compose.single.yml` — documented build path in ADR 0003 (include of docker/compose/docker-compose.yml).
+- `desktop/windows/KazmiOn-Launcher/`, `desktop/windows/KazmiOn-Launch.bat`, `desktop/windows/KazmiOn-Start.ps1` — Windows client launcher (start script now points at `compose.yaml`).
+- `app/analytics-service`, `app/chatbot-service` — documented future-service stubs; referenced in README, module manifests (`ai-chatbot`, coming-soon), support module and QA tests. Removing them would break `qa/delivery-phase-checks.cjs` and the UI.
+- `deploy/scripts/migration/*` — data migration tooling incl. `copy-single-container.cjs`, required for existing-install cutover (ADR 0003). Its `node_modules/` is a local, non-committed cache.
+- `deploy/scripts/migrate/*`, `deploy/database/postgresql/migrations/*` — versioned migration history (protected).
 - `venv/` (repo root) — Python venv for the documented stub services; kept.
 - `backups/`, `storage/` — customer data (protected).
 
 #### Uncertain — NOT deleted, needs owner approval
-- `docker-compose.single.yml` vs `compose.yaml` duplication — consolidate after all installs use `compose.yaml`.
-- `apps/api/.gitignore`, `apps/pdf-worker/.gitignore` deleted in working tree (uncommitted change from prior work); verify intent before committing.
+- `docker/compose/docker-compose.single.yml` vs `compose.yaml` duplication — consolidate after all installs use `compose.yaml`.
+- `app/api/.gitignore`, `app/pdf-worker/.gitignore` deleted in working tree (uncommitted change from prior work); verify intent before committing.
 - Root `venv/` size vs. shipping in image — not part of the Docker build either way.
 
 ### Actions taken
 1. Removed the 5 files above (git rm) — see commit on this branch.
-2. Root `KazmiOn-Start.ps1` stale path `compose.production.yaml` fixed → `pos-system\compose.yaml`.
+2. Root `desktop/windows/KazmiOn-Start.ps1` stale path `compose.production.yaml` fixed → `pos-system\compose.yaml`.
 3. No docker volume, container, image or database was removed. No `docker system prune` or `compose down -v` was executed.
 
 ### Regression testing after cleanup
@@ -455,10 +453,10 @@ This deployment stores business documents in extension-managed PostgreSQL tables
 
 ### Existing installations
 
-Keep the current image, database, invoice files and Redis volume available until acceptance. Build the new image with `docker compose -f docker-compose.single.yml build`. Start a candidate with POS_SERVE=false and a separate PostgreSQL volume, Redis volume and invoice directory. This starts the database and gateway before the API can initialize default records. For a source created by the original single-container launcher, run the following against the two *distinct* container names.
+Keep the current image, database, invoice files and Redis volume available until acceptance. Build the new image with `docker compose -f docker/compose/docker-compose.single.yml build`. Start a candidate with POS_SERVE=false and a separate PostgreSQL volume, Redis volume and invoice directory. This starts the database and gateway before the API can initialize default records. For a source created by the original single-container launcher, run the following against the two *distinct* container names.
 
 ```sh
-node scripts/migration/copy-single-container.cjs <running-source> <postgres-candidate>
+node deploy/scripts/migration/copy-single-container.cjs <running-source> <postgres-candidate>
 ```
 
 The copier reads the source database configured in its container and writes through the candidate's loopback gateway. It preserves ObjectIds and verifies typed field values and collection counts. An existing record must match. It never removes source or destination records. Repeat against a quiescent source for cutover. Stop application writes and drain invoice jobs before the final verification. Review additional historical databases separately before merging overlapping identities.
@@ -481,7 +479,7 @@ Tenant logins have CONNECT on their own database, read access to its identity an
 
 ### Operations
 
-Run scripts/backup.ps1 for a management dump, invoice files and a separate invoice-state CSV per business. For a single export use scripts/business-backup.ps1 -BusinessId <id> -Directory <new-directory>. Use the same arguments with -Restore to import into a provisioned business with an empty invoice table. A failed import rolls back. For a coordinated recovery, pause writes and workers while taking the backups, preserve the management metadata and restore the matching PDF files. The business CSV covers invoice metadata only.
+Run deploy/scripts/backup.ps1 for a management dump, invoice files and a separate invoice-state CSV per business. For a single export use deploy/scripts/business-backup.ps1 -BusinessId <id> -Directory <new-directory>. Use the same arguments with -Restore to import into a provisioned business with an empty invoice table. A failed import rolls back. For a coordinated recovery, pause writes and workers while taking the backups, preserve the management metadata and restore the matching PDF files. The business CSV covers invoice metadata only.
 
 Retain the pre-upgrade management backup and previous image. After new invoices are issued, reconcile the per-business invoice status, generation and file paths before reverting to a shared-store image. Drain queued invoice jobs before changing invoice modes. Keep database volumes through rollback.
 
@@ -677,7 +675,7 @@ The raw OpenAPI spec is available at:
 | Feature | Dev (`npm run dev:web`, port 5173) | Docker (port 8080) |
 |---------|------|------|
 | Web server | Vite dev server (hot reload) | Nginx (production build) |
-| Source | `apps/web/src` live | Pre-built `dist/` in image |
+| Source | `app/web/src` live | Pre-built `dist/` in image |
 | API | `localhost:3000` (Vite proxy `/api`) | Nginx upstream `api:3000` |
 | Hot reload | ✓ | ✗ |
 | Auth / DB | Identical | Identical |
@@ -712,12 +710,12 @@ The raw OpenAPI spec is available at:
 
 ```
 pos-system/
-  apps/
+  app/
     api/           NestJS application (port 3000)
     web/           React SPA — Vite dev :5173 / Nginx prod :8080
     pdf-worker/    BullMQ worker — Puppeteer PDF generation
 
-  packages/
+  app/packages/
     shared-types/  Shared TypeScript types + module manifests
     invoice-store/ PostgreSQL invoice state (optional hybrid layer)
     api-contracts/ API contract types
@@ -727,19 +725,19 @@ pos-system/
     postgresql/
       migrations/  SQL migration files (001_initial_schema.sql)
 
-  scripts/
+  deploy/scripts/
     migrate/       MongoDB → PostgreSQL ETL scripts
     backup/        PowerShell backup scripts
 
   docs/            Architecture, API, operations documentation
 
-  docker-compose.yml              Full stack (prod)
-  docker-compose.postgres.yml     PostgreSQL-only (migration)
+  docker/compose/docker-compose.yml              Full stack (prod)
+  docker/compose/docker-compose.postgres.yml     PostgreSQL-only (migration)
 ```
 
 ### Module Architecture (NestJS)
 
-Each module in `apps/api/src/modules/` follows the pattern:
+Each module in `app/api/src/modules/` follows the pattern:
 - `*.module.ts` — NestJS module definition
 - `*.controller.ts` — HTTP endpoints, guard decorators
 - `*.service.ts` — Business logic, DB queries
@@ -806,7 +804,7 @@ JwtAuthGuard
 
 The KazmiOn POS is a multi-tenant, modular POS application built as a modular monolith.
 
-**Stack:** NestJS 12 + Mongoose (MongoDB) + BullMQ (Redis) + Passport JWT (API); React 19 + Vite + Tailwind (Web); Node.js + Puppeteer + Handlebars (PDF Worker); TypeScript interfaces (`packages/shared-types`); PostgreSQL client (`packages/invoice-store`) for hybrid invoice state.
+**Stack:** NestJS 12 + Mongoose (MongoDB) + BullMQ (Redis) + Passport JWT (API); React 19 + Vite + Tailwind (Web); Node.js + Puppeteer + Handlebars (PDF Worker); TypeScript interfaces (`app/packages/shared-types`); PostgreSQL client (`app/packages/invoice-store`) for hybrid invoice state.
 
 **Current data store:** MongoDB (primary), PostgreSQL (optional hybrid invoice state only)\
 **Target data store:** PostgreSQL (primary, per project objective)
@@ -826,7 +824,7 @@ The KazmiOn POS is a multi-tenant, modular POS application built as a modular mo
 
 ### 3. Module Inventory (API)
 
-All modules under `apps/api/src/modules/`:
+All modules under `app/api/src/modules/`:
 
 | Module | Responsibility | Key Entities | Guards |
 |--------|---------------|--------------|--------|
@@ -849,7 +847,7 @@ All modules under `apps/api/src/modules/`:
 
 ### 4. Module Inventory (Web)
 
-All pages under `apps/web/src/pages/`:
+All pages under `app/web/src/pages/`:
 
 | Page | Route | Auth Required | Roles |
 |------|-------|---------------|-------|
@@ -902,7 +900,7 @@ All pages under `apps/web/src/pages/`:
 | `JWT_ACCESS_TTL` | Access token TTL | No | 15m |
 | `JWT_REFRESH_TTL` | Refresh token TTL | No | 7d |
 | `CORS_ORIGIN` | Allowed CORS origins (comma-separated) | Yes | — |
-| `PASSWORD_RESET_BASE_URL` | Password reset link base URL | Yes | — |
+| `PASSWORD_RESET_BASE_URL` | Public frontend URL used for email reset links. Accepts the frontend origin or the full URL ending in `/reset-password`. | Yes | — |
 | `DEV_ACCOUNT_EMAIL` | Authorized developer email | No | — |
 | `DEV_ACCOUNT_PASSWORD_HASH` | Developer bcrypt hash | No | — |
 | `PLATFORM_DEVELOPER_EMAIL` | Platform developer email | No | — |
@@ -962,25 +960,25 @@ All pages under `apps/web/src/pages/`:
 
 | File | Purpose | Issues |
 |------|---------|--------|
-| `docker-compose.yml` | Dev/single-server stack | No web healthcheck, no restart policies, insecure secret defaults |
-| `docker-compose.prod.yml` | Production overlay | Good restart policies, mandatory secrets |
+| `docker/compose/docker-compose.yml` | Dev/single-server stack | No web healthcheck, no restart policies, insecure secret defaults |
+| `docker/compose/docker-compose.prod.yml` | Production overlay | Good restart policies, mandatory secrets |
 | `docker-compose.postgres-staging.yml` | Staging PostgreSQL | External network dependency |
 | `docker-compose.postgres-invoices.yml` | Hybrid invoice overlay | Secret file mounting |
-| `apps/api/Dockerfile` | API container image | Multi-stage build, non-root user |
-| `apps/web/Dockerfile` | Web container image | Nginx serving static build |
-| `apps/pdf-worker/Dockerfile` | PDF worker image | Chromium from Alpine |
+| `app/api/Dockerfile` | API container image | Multi-stage build, non-root user |
+| `app/web/Dockerfile` | Web container image | Nginx serving static build |
+| `app/pdf-worker/Dockerfile` | PDF worker image | Chromium from Alpine |
 
 ### 10. Files Modified in Previous Session (Critical Fixes)
 
 1. `.env` — Removed hardcoded token, added `PASSWORD_RESET_BASE_URL`
 2. `.env.example` — All secrets replaced with `REPLACE_ME_*` markers
-3. `apps/api/.env.example` — Same as above
-4. `apps/web/.env.example` — Documented dev-only Vite proxy
-5. `apps/api/src/main.ts` — Added `ConfigService`, `REQUIRED_ENV_VARS`, `validateRequiredEnv()`, CORS from env only
-6. `apps/api/src/modules/auth/password-recovery.service.ts` — Removed hardcoded reset URL, requires env var
-7. `docker-compose.yml` — Added `restart: unless-stopped`, web healthcheck, required secret syntax
-8. `infra/nginx/default.conf` — Added `/health` proxy to API
-9. `KazmiOn-Start.ps1` — Fixed compose file reference
+3. `app/api/.env.example` — Same as above
+4. `app/web/.env.example` — Documented dev-only Vite proxy
+5. `app/api/src/main.ts` — Added `ConfigService`, `REQUIRED_ENV_VARS`, `validateRequiredEnv()`, CORS from env only
+6. `app/api/src/modules/auth/password-recovery.service.ts` — Removed hardcoded reset URL, requires env var
+7. `docker/compose/docker-compose.yml` — Added `restart: unless-stopped`, web healthcheck, required secret syntax
+8. `docker/nginx/default.conf` — Added `/health` proxy to API
+9. `desktop/windows/KazmiOn-Start.ps1` — Fixed compose file reference
 10. `storage/postgresql-staging/invoice-databases.json` — Removed hardcoded credentials
 6. **Hardcoded credentials in `invoice-databases.json`** → Replaced with placeholder
 - `customers.tenant_id` → `tenants.id` (many-to-one)
@@ -1033,11 +1031,11 @@ Each client installation owns an **independent PostgreSQL database** on the clie
 
 ```
 kazmion/
-  apps/
+  app/
     web/                    # React 19 + Vite frontend
     api/                    # NestJS 12 API (modular monolith)
     developer-console/      # Developer/super-admin console
-  packages/
+  app/packages/
     ui/                     # Shared UI components
     api-contracts/          # Versioned OpenAPI/TypeScript contracts
     shared-types/           # Shared TypeScript interfaces
@@ -1047,7 +1045,7 @@ kazmion/
     installments/ reporting/ backups/
   infrastructure/
     docker/ postgres/ reverse-proxy/ deployment/ monitoring/
-  scripts/
+  deploy/scripts/
 
 ## 5. PostgreSQL Schema Design
 
@@ -1160,7 +1158,7 @@ CREATE TABLE subscription_plans (
 
 ### 6. Configuration Contract (Versioned)
 
-Single source of truth in `packages/config/`. Required env vars validated at startup:
+Single source of truth in `app/packages/config/`. Required env vars validated at startup:
 `DATABASE_URL`, `REDIS_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGIN`, `PASSWORD_RESET_BASE_URL`.
 
 All monetary values use `NUMERIC(12,2)` (never FLOAT). All timestamps use `TIMESTAMPTZ` (UTC).
@@ -1387,13 +1385,13 @@ All business data lives in MongoDB. Back this up regularly.
 
 ```powershell
 # Default settings — saves to .\backups\mongo\, retains last 7
-.\scripts\backup\mongo-backup.ps1
+.\deploy\scripts\backup\mongo-backup.ps1
 
 # Custom location, keep 14 days
-.\scripts\backup\mongo-backup.ps1 -BackupRoot "D:\KazmiOn-Backups" -KeepLast 14
+.\deploy\scripts\backup\mongo-backup.ps1 -BackupRoot "D:\KazmiOn-Backups" -KeepLast 14
 
 # Custom MongoDB URI
-.\scripts\backup\mongo-backup.ps1 -MongoUri "mongodb://localhost:27017/pos"
+.\deploy\scripts\backup\mongo-backup.ps1 -MongoUri "mongodb://localhost:27017/pos"
 ```
 
 **Output:** Timestamped `.zip` file, e.g. `.\backups\mongo\20261117_143000.zip`\
@@ -1427,10 +1425,10 @@ Only needed if using the PostgreSQL hybrid invoice store.
 ```powershell
 # Default settings — saves to .\backups\postgres\
 $env:POSTGRES_URL = "postgresql://kazmion:password@localhost:5432/kazmion"
-.\scripts\backup\pg-backup.ps1
+.\deploy\scripts\backup\pg-backup.ps1
 
 # Custom
-.\scripts\backup\pg-backup.ps1 -BackupRoot "D:\KazmiOn-Backups\pg" -KeepLast 14
+.\deploy\scripts\backup\pg-backup.ps1 -BackupRoot "D:\KazmiOn-Backups\pg" -KeepLast 14
 ```
 
 **Output:** `.dump` file in PostgreSQL custom format\
@@ -1454,7 +1452,7 @@ pg_restore `
 $trigger = New-ScheduledTaskTrigger -Daily -At "02:00"
 $action  = New-ScheduledTaskAction `
   -Execute "pwsh.exe" `
-  -Argument "-NonInteractive -File D:\kazmion\scripts\backup\mongo-backup.ps1"
+  -Argument "-NonInteractive -File D:\kazmion\deploy\scripts\backup\mongo-backup.ps1"
 $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Hours 1)
 
 Register-ScheduledTask `
@@ -1469,7 +1467,7 @@ Register-ScheduledTask `
 
 ### Backup Checklist (Before Any Major Change)
 
-- [ ] Run `.\scripts\backup\mongo-backup.ps1`
+- [ ] Run `.\deploy\scripts\backup\mongo-backup.ps1`
 - [ ] Confirm backup `.zip` file exists and size > 1 KB
 - [ ] Record the backup path in your change log
 - [ ] Optionally: test restore to a separate test database
@@ -1541,7 +1539,7 @@ Camera scanning supports 1D barcodes and QR codes containing a saved product bar
 
 ```powershell
 npm run build
-npm --prefix apps/api test -- --runInBand
+npm --prefix app/api test -- --runInBand
 node qa/api-integration.cjs
 npm exec --yes --package=@playwright/test -- playwright test --config=qa/barcodes.config.cjs
 ```
@@ -1769,7 +1767,7 @@ Installment purchase agreements — the most complex financial entity.
 
 ### PostgreSQL Schema (Target / Optional Hybrid)
 
-> See migration file: [`database/postgresql/migrations/001_initial_schema.sql`](../database/postgresql/migrations/001_initial_schema.sql)
+> See migration file: [`deploy/database/postgresql/migrations/001_initial_schema.sql`](../deploy/database/postgresql/migrations/001_initial_schema.sql)
 
 #### Entity Relationship Diagram (PostgreSQL)
 
@@ -1875,7 +1873,7 @@ One image (`kazmion/pos:latest`), one container (`kazmion-pos`) containing Postg
 
 ### Fresh installation
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy\scripts\install.ps1
 ```
 This creates `.env` with generated secrets, builds the image, starts the container and waits for health.
 
@@ -1890,8 +1888,8 @@ docker compose up -d
 ### Daily use
 | Action | Command / script |
 |---|---|
-| Start | `scripts\start.ps1` (or `KazmiOn-Launch.bat`) |
-| Stop | `scripts\stop.ps1` |
+| Start | `deploy\scripts\start.ps1` (or `desktop/windows/KazmiOn-Launch.bat`) |
+| Stop | `deploy\scripts\stop.ps1` |
 | Logs | `docker compose logs -f kazmion` |
 | Status | `docker compose ps` |
 | Health | `http://localhost:8080/health` |
@@ -1916,14 +1914,14 @@ PostgreSQL, FerretDB and Redis bind to the container loopback only; only port 80
 
 ### Upgrades (data-safe)
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\update.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy\scripts\update.ps1
 ```
 Takes a pre-update backup, rebuilds, replaces the container, never touches volumes. Image rebuild is required for any code/module change — modules ship inside the image.
 
 ### Backups / restore
 ```powershell
-scripts\backup.ps1 [-OutputDir <dir>]     # pg_dump + invoice files
-scripts\restore.ps1 -SqlFile backups\manual\pos-<stamp>.sql [-InvoicesDir backups\manual\invoices-<stamp>]
+deploy\scripts\backup.ps1 [-OutputDir <dir>]     # pg_dump + invoice files
+deploy\scripts\restore.ps1 -SqlFile backups\manual\pos-<stamp>.sql [-InvoicesDir backups\manual\invoices-<stamp>]
 ```
 
 ### Offline operation
@@ -1939,7 +1937,7 @@ After image build and first boot, the stack needs no internet. Avoid `docker com
 
 ## KazmiOn interface design
 
-The React interface uses `apps/web/src/styles/design-system.css` for the shared product theme and `PageHeading` for module headings. Provider design work can be incorporated once Canva and Figma are connected; no provider-generated designs are included in this implementation.
+The React interface uses `app/web/src/styles/design-system.css` for the shared product theme and `PageHeading` for module headings. Provider design work can be incorporated once Canva and Figma are connected; no provider-generated designs are included in this implementation.
 
 ### Typography
 
@@ -2043,7 +2041,7 @@ Run twice — once for JWT_ACCESS_SECRET, once for JWT_REFRESH_SECRET.
 | `npm run docker:start` | Start existing images |
 | `npm run docker:stop` | Stop all containers |
 | `npm run docker:logs` | Tail all container logs |
-| `.\scripts\verify-deployment.ps1` | Post-startup smoke test |
+| `.\deploy\scripts\verify-deployment.ps1` | Post-startup smoke test |
 
 ### Ports
 
@@ -2068,7 +2066,7 @@ Run twice — once for JWT_ACCESS_SECRET, once for JWT_REFRESH_SECRET.
 
 ```powershell
 # 1. Backup first (always!)
-.\scripts\backup\mongo-backup.ps1
+.\deploy\scripts\backup\mongo-backup.ps1
 
 # 2. Pull latest code
 git pull origin main
@@ -2077,7 +2075,7 @@ git pull origin main
 npm run docker:rebuild
 
 # 4. Verify
-.\scripts\verify-deployment.ps1
+.\deploy\scripts\verify-deployment.ps1
 ```
 
 ### Troubleshooting
@@ -2197,7 +2195,7 @@ work. This is a discovery report, not approval for production cutover.
 
 ### Existing architecture
 
-- API: TypeScript, NestJS, Mongoose, MongoDB. `apps/api/src/app.module.ts`
+- API: TypeScript, NestJS, Mongoose, MongoDB. `app/api/src/app.module.ts`
   creates one connection from `MONGO_URI`. Modules inject concrete Mongoose
   models; there is no interchangeable database repository layer.
 - Web: React, Vite, TypeScript, React Query and Zustand. API identifiers and
@@ -2284,7 +2282,7 @@ Generated from the current working tree on 2026-11-15. These are source declarat
 
 Includes schemas embedded in module/service files. Branch fields are also injected by `common/branch-scope.ts`.
 
-### apps/api/src/modules/customer/schemas/customer.schema.ts
+### app/api/src/modules/customer/schemas/customer.schema.ts
 
 ```text
 5:@Schema({ _id: false })
@@ -2307,7 +2305,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 30:CustomerSchema.index({ tenantId: 1, phone: 1 });
 ```
 
-### apps/api/src/modules/auth/schemas/user.schema.ts
+### app/api/src/modules/auth/schemas/user.schema.ts
 
 ```text
 5:@Schema({ timestamps: true })
@@ -2352,7 +2350,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 64:  partialFilterExpression: { superAdmin: true },
 ```
 
-### apps/api/src/modules/audit/audit.module.ts
+### app/api/src/modules/audit/audit.module.ts
 
 ```text
 10:@Schema({ timestamps: { createdAt: true, updatedAt: false } })
@@ -2370,7 +2368,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 59:export class AuditModule {}
 ```
 
-### apps/api/src/modules/tenant/schemas/tenant.schema.ts
+### app/api/src/modules/tenant/schemas/tenant.schema.ts
 
 ```text
 5:@Schema({ _id: false })
@@ -2426,7 +2424,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 73:  @Prop({ type: Types.ObjectId, ref: 'SubscriptionPlan', default: null }) subscriptionPlanId: Types.ObjectId | null;
 ```
 
-### apps/api/src/modules/auth/recovery.service.ts
+### app/api/src/modules/auth/recovery.service.ts
 
 ```text
 12:@Schema()
@@ -2444,7 +2442,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 28:export class RecoveryService {
 ```
 
-### apps/api/src/modules/branch/branch.module.ts
+### app/api/src/modules/branch/branch.module.ts
 
 ```text
 17:@Schema({ timestamps: true }) export class Branch {
@@ -2462,7 +2460,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 69:export class BranchModule {}
 ```
 
-### apps/api/src/modules/order/schemas/order.schema.ts
+### app/api/src/modules/order/schemas/order.schema.ts
 
 ```text
 6:@Schema({ _id: false })
@@ -2522,7 +2520,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 79:OrderSchema.index({ tenantId: 1, idempotencyKey: 1 }, { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } });
 ```
 
-### apps/api/src/modules/stock/stock.module.ts
+### app/api/src/modules/stock/stock.module.ts
 
 ```text
 15:@Schema({ timestamps: true }) class StockAdjustment {
@@ -2540,7 +2538,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 58:@Module({ imports: [ProductModule, MongooseModule.forFeature([{ name: StockAdjustment.name, schema }])], providers: [StockService], controllers: [StockController] }) export class StockModule {}
 ```
 
-### apps/api/src/modules/order/schemas/invoice-counter.schema.ts
+### app/api/src/modules/order/schemas/invoice-counter.schema.ts
 
 ```text
 5:@Schema()
@@ -2551,7 +2549,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 13:InvoiceCounterSchema.index({ tenantId: 1, year: 1 }, { unique: true });
 ```
 
-### apps/api/src/modules/order/schemas/checkout-request.schema.ts
+### app/api/src/modules/order/schemas/checkout-request.schema.ts
 
 ```text
 4:@Schema({ timestamps: true })
@@ -2564,7 +2562,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 13:CheckoutRequestSchema.index({ tenantId: 1, key: 1 }, { unique: true });
 ```
 
-### apps/api/src/modules/super-admin/schemas/subscription-plan.schema.ts
+### app/api/src/modules/super-admin/schemas/subscription-plan.schema.ts
 
 ```text
 4:@Schema({ _id: false })
@@ -2585,7 +2583,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 22:  @Prop({ default: true, index: true }) isActive: boolean;
 ```
 
-### apps/api/src/modules/super-admin/schemas/platform-module.schema.ts
+### app/api/src/modules/super-admin/schemas/platform-module.schema.ts
 
 ```text
 5:@Schema({ timestamps: true })
@@ -2596,7 +2594,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 13:  @Prop({ default: true, index: true }) isActive: boolean;
 ```
 
-### apps/api/src/modules/super-admin/schemas/admin-audit.schema.ts
+### app/api/src/modules/super-admin/schemas/admin-audit.schema.ts
 
 ```text
 4:@Schema({ timestamps: true })
@@ -2610,7 +2608,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 17:AdminAuditSchema.index({ createdAt: -1 });
 ```
 
-### apps/api/src/modules/product/schemas/product.schema.ts
+### app/api/src/modules/product/schemas/product.schema.ts
 
 ```text
 6:@Schema({ timestamps: true })
@@ -2639,7 +2637,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 39:ProductSchema.index({ tenantId: 1, branchId: 1, barcode: 1 }, { unique: true, partialFilterExpression: { barcode: { $type: 'string' } } });
 ```
 
-### apps/api/src/modules/installment/schemas/installment-sale.schema.ts
+### app/api/src/modules/installment/schemas/installment-sale.schema.ts
 
 ```text
 8:@Schema({ _id: false })
@@ -2686,7 +2684,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 60:InstallmentSaleSchema.index({ tenantId: 1, installmentProductId: 1 });
 ```
 
-### apps/api/src/modules/installment/schemas/installment-plan.schema.ts
+### app/api/src/modules/installment/schemas/installment-plan.schema.ts
 
 ```text
 7:@Schema({ _id: false })
@@ -2746,7 +2744,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 81:InstallmentPlanSchema.index({ tenantId: 1, orderId: 1 }, { unique: true });
 ```
 
-### apps/api/src/modules/installment/schemas/installment-product.schema.ts
+### app/api/src/modules/installment/schemas/installment-product.schema.ts
 
 ```text
 7:@Schema({ timestamps: true })
@@ -2769,7 +2767,7 @@ Includes schemas embedded in module/service files. Branch fields are also inject
 28:InstallmentProductSchema.index({ tenantId: 1, status: 1 });
 ```
 
-Raw recovery collections are accessed from `auth/password-recovery.service.ts`: `password_reset_tokens` and `recovery_codes`. Worker collection access is in `apps/pdf-worker/src/worker.ts`. No GridFS, change-stream or MongoDB session transaction calls were found in the source scan; this is not a claim about external clients.
+Raw recovery collections are accessed from `auth/password-recovery.service.ts`: `password_reset_tokens` and `recovery_codes`. Worker collection access is in `app/pdf-worker/src/worker.ts`. No GridFS, change-stream or MongoDB session transaction calls were found in the source scan; this is not a claim about external clients.
 
 <a id="ref-26"></a>
 
@@ -2787,7 +2785,7 @@ qa\api-integration.cjs:33:  const tenants = ['A', 'B'].map((name) => ({ _id: new
 qa\api-integration.cjs:34:  await database.collection('tenants').insertMany(tenants);
 qa\api-integration.cjs:35:  const owners = await Promise.all(tenants.map(async (tenant, index) => ({ _id: new mongoose.Types.ObjectId(), tenantId: tenant._id, name: `Owner ${index}`, email: `owner${index}@spec.test`, passwordHash: await bcrypt.hash('test-password-123', 4), pinHash: await bcrypt.hash('1234', 4), pinVersion: 0, sessionVersion: 0, pinRequiresChange: false, role: 'owner', isActive: true, superAdmin: false, branchIds: [] })));
 qa\api-integration.cjs:36:  await database.collection('users').insertMany(owners);
-qa\api-integration.cjs:38:  child = spawn(process.execPath, ['-r', path.join(root, 'qa/recovery-provider-hook.cjs'), 'dist/main.js'], { cwd: path.join(root, 'apps/api'), env: { ...process.env, PORT: String(port), MONGO_URI: uri, REDIS_URL: 'redis://127.0.0.1:6379/0', BULL_PREFIX: prefix, JWT_ACCESS_SECRET: randomBytes(32).toString('hex'), JWT_REFRESH_SECRET: randomBytes(32).toString('hex'), PLATFORM_DEVELOPER_EMAIL: 'developer@spec.test', PLATFORM_DEVELOPER_SETUP_TOKEN: setupToken, CORS_ORIGIN: 'http://localhost:5173', THROTTLE_LIMIT: '10000', SMTP_HOST: '127.0.0.1', SMTP_PORT: String(recoveryFixtures.smtpPort), SMTP_SECURE: 'false', SMTP_USER: 'test@spec.test', SMTP_PASSWORD: randomBytes(16).toString('hex'), SMTP_FROM: 'test@spec.test', TWILIO_ACCOUNT_SID: 'AC-test', TWILIO_AUTH_TOKEN: 'test-only', TWILIO_WHATSAPP_FROM: '+15005550006', TWILIO_WHATSAPP_CONTENT_SID: 'HX-test', RECOVERY_TEST_PROVIDER: recoveryFixtures.whatsappUrl }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+qa\api-integration.cjs:38:  child = spawn(process.execPath, ['-r', path.join(root, 'qa/recovery-provider-hook.cjs'), 'dist/main.js'], { cwd: path.join(root, 'app/api'), env: { ...process.env, PORT: String(port), MONGO_URI: uri, REDIS_URL: 'redis://127.0.0.1:6379/0', BULL_PREFIX: prefix, JWT_ACCESS_SECRET: randomBytes(32).toString('hex'), JWT_REFRESH_SECRET: randomBytes(32).toString('hex'), PLATFORM_DEVELOPER_EMAIL: 'developer@spec.test', PLATFORM_DEVELOPER_SETUP_TOKEN: setupToken, CORS_ORIGIN: 'http://localhost:5173', THROTTLE_LIMIT: '10000', SMTP_HOST: '127.0.0.1', SMTP_PORT: String(recoveryFixtures.smtpPort), SMTP_SECURE: 'false', SMTP_USER: 'test@spec.test', SMTP_PASSWORD: randomBytes(16).toString('hex'), SMTP_FROM: 'test@spec.test', TWILIO_ACCOUNT_SID: 'AC-test', TWILIO_AUTH_TOKEN: 'test-only', TWILIO_WHATSAPP_FROM: '+15005550006', TWILIO_WHATSAPP_CONTENT_SID: 'HX-test', RECOVERY_TEST_PROVIDER: recoveryFixtures.whatsappUrl }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
 qa\api-integration.cjs:70:    assert.equal(await database.collection('orders').countDocuments({ tenantId: tenants[0]._id }), 1);
 qa\api-integration.cjs:128:      await database.collection('tenants').updateOne({ _id: tenants[0]._id }, { $set: { 'featureFlags.inventory': false, 'featureFlags.pos': false } });
 qa\api-integration.cjs:131:      await database.collection('tenants').updateOne({ _id: tenants[0]._id }, { $set: { 'featureFlags.barcodes': false } });
@@ -2807,213 +2805,213 @@ qa\api-integration.cjs:256:    const account = await database.collection('users'
 qa\api-integration.cjs:257:    await database.collection('users').updateOne({ _id: account._id }, { $set: { phone: '+923001234568', phoneVerified: true, phoneVerifiedAt: new Date() } });
 qa\api-integration.cjs:272:    await database.collection('users').updateOne({ email: owners[0].email }, { $unset: { securityCodeRequestedAt: 1 } });
 qa\recovery-provider-hook.cjs:2:if (!/\/pos_spec_test_\d+_[a-f0-9]{8}$/.test(process.env.MONGO_URI || '') || !/^http:\/\/127\.0\.0\.1:\d+$/.test(process.env.RECOVERY_TEST_PROVIDER || '')) throw new Error('Recovery provider fixture requires a disposable test database and loopback sink.');
-apps\pdf-worker\src\worker.ts:5:import { MongoClient } from 'mongodb';
-apps\pdf-worker\src\worker.ts:13:  const mongo = new MongoClient(process.env.MONGO_URI || 'mongodb://localhost:27017/pos');
-apps\pdf-worker\src\worker.ts:15:  const orders = mongo.db().collection('orders');
-apps\api\src\common\pipes\parse-object-id.pipe.ts:2:import { isValidObjectId } from 'mongoose';
-apps\api\src\common\pipes\parse-object-id.pipe.ts:5:export class ParseObjectIdPipe implements PipeTransform<string, string> {
-apps\api\src\common\object-id.ts:1:import { Types } from 'mongoose';
-apps\api\src\cli\init-super-admin.ts:1:import mongoose from 'mongoose';
-apps\api\src\cli\init-super-admin.ts:4:  const mongoUri = process.env.MONGO_URI;
-apps\api\src\cli\init-super-admin.ts:6:  if (!mongoUri) throw new Error('MONGO_URI is required');
-apps\api\src\cli\init-super-admin.ts:9:  await mongoose.connect(mongoUri);
-apps\api\src\cli\init-super-admin.ts:11:    const users = mongoose.connection.collection('users');
-apps\api\src\cli\init-super-admin.ts:12:    await users.createIndex({ superAdmin: 1 }, {
-apps\api\src\cli\init-super-admin.ts:29:    await mongoose.disconnect();
-apps\api\src\modules\tenant\tenant.service.ts:2:import { InjectModel } from '@nestjs/mongoose';
-apps\api\src\modules\tenant\tenant.service.ts:3:import { Model } from 'mongoose';
-apps\api\src\modules\tenant\tenant.service.ts:10:  constructor(@InjectModel(Tenant.name) private readonly model: Model<Tenant>) {}
-apps\api\src\app.module.ts:5:import { MongooseModule } from '@nestjs/mongoose';
-apps\api\src\app.module.ts:37:      useFactory: (config: ConfigService) => ({ uri: config.getOrThrow<string>('MONGO_URI') }),
-apps\api\src\modules\stock\stock.module.ts:2:import { InjectModel, MongooseModule, Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\stock\stock.module.ts:4:import { IsMongoId, IsNumber, IsString, IsUUID, Length } from 'class-validator';
-apps\api\src\modules\stock\stock.module.ts:5:import { Model, Types } from 'mongoose';
-apps\api\src\modules\stock\stock.module.ts:25:class AdjustStockDto { @IsMongoId() productId: string; @IsUUID() idempotencyKey: string; @IsNumber({ maxDecimalPlaces: 3, allowNaN: false, allowInfinity: false }) delta: number; @IsString() @Length(3, 300) reason: string; }
-apps\api\src\modules\stock\stock.module.ts:27:  constructor(@InjectModel(StockAdjustment.name) private readonly adjustments: Model<StockAdjustment>, private readonly products: ProductService) {}
-apps\api\src\common\branch-scope.ts:2:import { Schema, Types } from 'mongoose';
-apps\pdf-worker\src\queue\invoice.processor.ts:2:import { Collection, ObjectId } from 'mongodb';
-apps\api\src\modules\report\report.service.ts:3:import { InjectModel } from '@nestjs/mongoose';
-apps\api\src\modules\report\report.service.ts:4:import { Model } from 'mongoose';
-apps\api\src\modules\report\report.service.ts:26:    @InjectModel(Order.name) private readonly orders: Model<OrderDocument>,
-apps\api\src\modules\report\report.service.ts:55:      this.orders.aggregate([
-apps\api\src\modules\report\report.service.ts:58:          $group: {
-apps\api\src\modules\report\report.service.ts:68:      this.orders.aggregate([
-apps\api\src\modules\report\report.service.ts:71:          $group: {
-apps\api\src\modules\report\report.service.ts:79:      this.orders.aggregate([
-apps\api\src\modules\report\report.service.ts:83:          $group: {
-apps\api\src\modules\report\report.service.ts:93:      this.orders.aggregate([
-apps\api\src\modules\report\report.service.ts:95:        { $group: { _id: '$paymentMode', orders: { $sum: 1 }, revenue: { $sum: '$grandTotal' } } },
-apps\api\src\modules\report\report.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
-apps\api\src\modules\installment\schemas\installment-sale.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\installment\schemas\installment-sale.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
-apps\api\src\modules\installment\schemas\installment-product.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\installment\schemas\installment-product.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
-apps\api\src\modules\installment\installment.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
-apps\api\src\modules\tenant\tenant.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
-apps\api\src\modules\installment\schemas\installment-plan.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\installment\schemas\installment-plan.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
-apps\api\src\modules\health\health.module.ts:2:import { InjectConnection } from '@nestjs/mongoose';
-apps\api\src\modules\health\health.module.ts:3:import { Connection } from 'mongoose';
-apps\api\src\modules\health\health.module.ts:9:  constructor(@InjectConnection() private readonly database: Connection) {}
-apps\api\src\modules\installment\installment.controller.ts:8:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
-apps\api\src\modules\installment\installment.controller.ts:57:  findProduct(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
-apps\api\src\modules\installment\installment.controller.ts:69:  updateProduct(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateInstallmentProductDto) {
-apps\api\src\modules\installment\installment.controller.ts:75:  removeProduct(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
-apps\api\src\modules\installment\installment.controller.ts:85:  findSale(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
-apps\api\src\modules\installment\installment.controller.ts:95:  paySale(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: RecordInstallmentSalePaymentDto) {
-apps\api\src\modules\installment\installment.controller.ts:100:  findOne(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
-apps\api\src\modules\installment\installment.controller.ts:105:  pay(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: RecordPaymentDto) {
-apps\api\src\modules\installment\installment.service.ts:3:import { InjectModel } from '@nestjs/mongoose';
-apps\api\src\modules\installment\installment.service.ts:4:import { Model } from 'mongoose';
-apps\api\src\modules\installment\installment.service.ts:45:    @InjectModel(InstallmentPlan.name) private readonly model: Model<InstallmentPlan>,
-apps\api\src\modules\installment\installment.service.ts:46:    @InjectModel(InstallmentProduct.name) private readonly productModel: Model<InstallmentProduct>,
-apps\api\src\modules\installment\installment.service.ts:47:    @InjectModel(InstallmentSale.name) private readonly saleModel: Model<InstallmentSale>,
-apps\api\src\modules\installment\dto\installment.dto.ts:5:  IsIn, IsInt, IsMongoId, IsNumber, IsObject, IsOptional, IsString, Length, Matches, Max, MaxLength, Min, ValidateNested,
-apps\api\src\modules\installment\dto\installment.dto.ts:13:  @ApiProperty() @IsMongoId() customerId: string;
-apps\api\src\modules\installment\dto\installment.dto.ts:41:  @ApiPropertyOptional() @IsOptional() @IsMongoId() customerId?: string;
-apps\api\src\modules\installment\dto\installment.dto.ts:71:  @ApiProperty() @IsMongoId() customerId: string;
-apps\api\src\modules\installment\dto\installment.dto.ts:72:  @ApiProperty() @IsMongoId() installmentProductId: string;
-apps\api\src\modules\installment\dto\installment.dto.ts:91:  @ApiPropertyOptional() @IsOptional() @IsMongoId() customerId?: string;
-apps\api\src\modules\developer\developer.controller.ts:9:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
-apps\api\src\modules\developer\developer.controller.ts:39:    @Param('id', ParseObjectIdPipe) id: string,
-apps\api\src\modules\developer\developer.controller.ts:48:    @Param('id', ParseObjectIdPipe) id: string,
-apps\api\src\modules\developer\developer.controller.ts:86:    @Param('id', ParseObjectIdPipe) id: string,
-apps\api\src\modules\developer\developer.controller.ts:95:    @Param('id', ParseObjectIdPipe) id: string,
-apps\api\src\modules\developer\developer.controller.ts:109:    @Param('id', ParseObjectIdPipe) id: string,
-apps\api\src\modules\developer\developer.controller.ts:118:    @Param('id', ParseObjectIdPipe) id: string,
-apps\api\src\modules\developer\developer.controller.ts:137:    @Param('id', ParseObjectIdPipe) id: string,
-apps\api\src\modules\tenant\schemas\tenant.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\tenant\schemas\tenant.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
-apps\api\src\modules\product\schemas\product.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\product\schemas\product.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
-apps\api\src\modules\customer\schemas\customer.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\customer\schemas\customer.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
-apps\api\src\modules\product\product.service.ts:2:import { InjectModel } from '@nestjs/mongoose';
-apps\api\src\modules\product\product.service.ts:3:import { Model } from 'mongoose';
-apps\api\src\modules\product\product.service.ts:11:  constructor(@InjectModel(Product.name) private readonly model: Model<Product>) {}
-apps\api\src\modules\product\product.service.ts:112:      { $inc: { stockQty: -qty } },
-apps\api\src\modules\product\product.service.ts:118:    await this.model.updateOne({ _id: productId, tenantId: oid(tenantId) }, { $inc: { stockQty: qty } });
-apps\api\src\modules\product\product.service.ts:123:    const result = await this.model.updateOne({ _id: productId, tenantId: oid(tenantId), restoredSaleEvents: { $ne: event } }, { $inc: { stockQty: qty }, $addToSet: { restoredSaleEvents: event } });
-apps\api\src\modules\product\product.service.ts:128:    const updated = await this.model.findOneAndUpdate({ _id: productId, tenantId: oid(tenantId), stockAdjustmentEvents: { $ne: key }, ...(delta < 0 ? { stockQty: { $gte: -delta } } : {}) }, { $inc: { stockQty: delta }, $addToSet: { stockAdjustmentEvents: key } }, { new: true });
-apps\api\src\modules\invoice\invoice.service.ts:4:import { InjectModel } from '@nestjs/mongoose';
-apps\api\src\modules\invoice\invoice.service.ts:8:import { Model } from 'mongoose';
-apps\api\src\modules\invoice\invoice.service.ts:22:    @InjectModel(Order.name) private readonly orders: Model<Order>,
-apps\api\src\modules\product\product.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
-apps\api\src\modules\product\product.controller.ts:8:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
-apps\api\src\modules\product\product.controller.ts:26:  findOne(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
-apps\api\src\modules\product\product.controller.ts:47:  update(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateProductDto) {
-apps\api\src\modules\product\product.controller.ts:54:  remove(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
-apps\api\src\modules\invoice\invoice.module.ts:3:import { MongooseModule } from '@nestjs/mongoose';
-apps\api\src\modules\customer\customer.service.ts:2:import { InjectModel } from '@nestjs/mongoose';
-apps\api\src\modules\customer\customer.service.ts:3:import { Model } from 'mongoose';
-apps\api\src\modules\customer\customer.service.ts:10:  constructor(@InjectModel(Customer.name) private readonly model: Model<Customer>) {}
-apps\api\src\modules\invoice\invoice.controller.ts:10:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
-apps\api\src\modules\invoice\invoice.controller.ts:22:  async status(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
-apps\api\src\modules\invoice\invoice.controller.ts:28:  async pdf(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
-apps\api\src\modules\invoice\invoice.controller.ts:40:  regenerate(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
-apps\api\src\modules\customer\customer.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
-apps\api\src\modules\customer\customer.controller.ts:6:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
-apps\api\src\modules\customer\customer.controller.ts:23:  findOne(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
-apps\api\src\modules\customer\customer.controller.ts:33:  update(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateCustomerDto) {
-apps\api\src\modules\super-admin\schemas\subscription-plan.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\super-admin\schemas\subscription-plan.schema.ts:2:import { HydratedDocument } from 'mongoose';
-apps\api\src\modules\super-admin\super-admin.service.ts:3:import { InjectModel } from '@nestjs/mongoose';
-apps\api\src\modules\super-admin\super-admin.service.ts:5:import { Model, Types } from 'mongoose';
-apps\api\src\modules\super-admin\super-admin.service.ts:23:    @InjectModel(Tenant.name) private readonly tenants: Model<Tenant>,
-apps\api\src\modules\super-admin\super-admin.service.ts:24:    @InjectModel(User.name) private readonly users: Model<User>,
-apps\api\src\modules\super-admin\super-admin.service.ts:25:    @InjectModel(SubscriptionPlan.name) private readonly plans: Model<SubscriptionPlan>,
-apps\api\src\modules\super-admin\super-admin.service.ts:26:    @InjectModel(AdminAudit.name) private readonly audits: Model<AdminAudit>,
-apps\api\src\modules\super-admin\super-admin.service.ts:27:    @InjectModel(PlatformModule.name) private readonly platformModules: Model<PlatformModule>,
-apps\api\src\modules\branch\branch.module.ts:3:import { InjectModel, MongooseModule, Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\branch\branch.module.ts:6:import { Model, Types } from 'mongoose';
-apps\api\src\modules\branch\branch.module.ts:12:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
-apps\api\src\modules\branch\branch.module.ts:30:  constructor(@InjectModel(Branch.name) private readonly branches: Model<Branch>, @InjectModel(Tenant.name) private readonly tenants: Model<Tenant>) {}
-apps\api\src\modules\branch\branch.module.ts:35:    const tenant = await this.tenants.findOneAndUpdate({ _id: user.tenantId, $expr: { $lt: [{ $ifNull: ['$branchCount', 0] }, { $ifNull: ['$branchLimit', 1] }] } }, { $inc: { branchCount: 1 } }, { new: true });
-apps\api\src\modules\branch\branch.module.ts:41:    } catch (error) { await this.tenants.updateOne({ _id: tenant._id }, { $inc: { branchCount: -1 } }); if ((error as { code?: number }).code === 11000) throw new ConflictException('Branch code already exists'); throw error; }
-apps\api\src\modules\branch\branch.module.ts:65:  @Patch(':id') @Roles(Role.Owner, Role.Admin) update(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateBranchDto) { return this.branches.update(user, id, dto); }
-apps\api\src\modules\super-admin\schemas\platform-module.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\super-admin\schemas\platform-module.schema.ts:2:import { HydratedDocument } from 'mongoose';
-apps\api\src\modules\super-admin\super-admin.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
-apps\api\src\modules\super-admin\schemas\admin-audit.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\super-admin\schemas\admin-audit.schema.ts:2:import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
-apps\api\src\modules\order\schemas\order.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\order\schemas\order.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
-apps\api\src\modules\super-admin\super-admin.controller.ts:7:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
-apps\api\src\modules\super-admin\super-admin.controller.ts:37:    @Param('id', ParseObjectIdPipe) id: string,
-apps\api\src\modules\super-admin\super-admin.controller.ts:46:    @Param('id', ParseObjectIdPipe) id: string,
-apps\api\src\modules\order\schemas\invoice-counter.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\order\schemas\invoice-counter.schema.ts:2:import { Types } from 'mongoose';
-apps\api\src\modules\order\schemas\checkout-request.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\order\schemas\checkout-request.schema.ts:2:import { Types } from 'mongoose';
-apps\api\src\modules\super-admin\dto\super-admin.dto.ts:4:  IsBoolean, IsEmail, IsEnum, IsMongoId, IsNumber, IsObject, IsOptional, IsString, Length, Max,
-apps\api\src\modules\super-admin\dto\super-admin.dto.ts:43:  @IsOptional() @IsMongoId() initialPlanId?: string;
-apps\api\src\modules\super-admin\dto\super-admin.dto.ts:76:  @IsMongoId() subscriptionPlanId: string;
-apps\api\src\modules\order\order.service.ts:3:import { InjectModel } from '@nestjs/mongoose';
-apps\api\src\modules\order\order.service.ts:4:import { Model } from 'mongoose';
-apps\api\src\modules\order\order.service.ts:25:    @InjectModel(Order.name) private readonly orders: Model<Order>,
-apps\api\src\modules\order\order.service.ts:26:    @InjectModel(InvoiceCounter.name) private readonly counters: Model<InvoiceCounter>,
-apps\api\src\modules\order\order.service.ts:27:    @InjectModel(CheckoutRequest.name) private readonly checkouts: Model<CheckoutRequest>,
-apps\api\src\modules\order\order.service.ts:177:      this.orders.aggregate([
-apps\api\src\modules\order\order.service.ts:179:        { $group: { _id: null, revenue: { $sum: '$grandTotal' }, orders: { $sum: 1 }, tax: { $sum: '$taxTotal' }, discounts: { $sum: '$discountTotal' } } },
-apps\api\src\modules\order\order.service.ts:181:      this.orders.aggregate([
-apps\api\src\modules\order\order.service.ts:183:        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone } }, revenue: { $sum: '$grandTotal' }, orders: { $sum: 1 } } },
-apps\api\src\modules\order\order.service.ts:186:      this.orders.aggregate([
-apps\api\src\modules\order\order.service.ts:189:        { $group: { _id: '$items.productId', name: { $first: '$items.name' }, qty: { $sum: '$items.qty' }, revenue: { $sum: '$items.lineTotal' } } },
-apps\api\src\modules\order\order.service.ts:226:      { $inc: { lastNumber: 1 } },
-apps\api\src\modules\barcode\barcode.dto.ts:3:import { IsBoolean, IsIn, IsInt, IsMongoId, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
-apps\api\src\modules\barcode\barcode.dto.ts:10:  @ApiPropertyOptional() @IsOptional() @IsMongoId() productId?: string;
-apps\api\src\modules\order\dto\order.dto.ts:4:  ArrayMaxSize, ArrayMinSize, IsArray, IsDefined, IsEnum, IsMongoId, IsNumber, IsOptional, IsString, Max, MaxLength, Min,
-apps\api\src\modules\order\dto\order.dto.ts:11:  @ApiProperty() @IsMongoId() productId: string;
-apps\api\src\modules\order\order.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
-apps\api\src\modules\auth\schemas\user.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\auth\schemas\user.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
-apps\api\src\modules\order\order.controller.ts:8:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
-apps\api\src\modules\order\order.controller.ts:44:  findOne(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
-apps\api\src\modules\order\order.controller.ts:50:  void(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
-apps\api\src\modules\order\order.controller.ts:55:  refund(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: RefundOrderDto) { return this.orders.refund(user, id, dto.reason); }
-apps\api\src\modules\auth\recovery.service.ts:3:import { InjectModel } from '@nestjs/mongoose';
-apps\api\src\modules\auth\recovery.service.ts:4:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\auth\recovery.service.ts:5:import { Model, Types } from 'mongoose';
-apps\api\src\modules\auth\recovery.service.ts:29:  constructor(@InjectModel(User.name) private readonly users: Model<User>, @InjectModel(RecoveryChallenge.name) private readonly challenges: Model<RecoveryChallenge>, private readonly config: ConfigService, private readonly email: EmailService) {}
-apps\api\src\modules\auth\recovery.service.ts:86:    const challenge = await this.challenges.findOneAndUpdate({ challengeId: dto.challengeId, expiresAt: { $gt: new Date() }, attempts: { $lt: 5 }, ...(phoneUserId ? { userId: new Types.ObjectId(phoneUserId), purpose: 'phone-verification' } : { purpose: { $ne: 'phone-verification' } }) }, { $inc: { attempts: 1 } }, { new: true }).select('+codeHash');
-apps\api\src\modules\auth\recovery.service.ts:100:    const updated = await this.users.updateOne({ _id: user._id, isActive: true, ...this.versions(challenge), email: user.email, recoveryEmail: user.recoveryEmail ?? null, phone: user.phone ?? null, emailVerifiedAt: user.emailVerifiedAt ?? null, phoneVerifiedAt: user.phoneVerifiedAt ?? null }, { $set: { [field]: hash, pinFailedAttempts: 0, pinLockedUntil: null, ...(field === 'pinHash' ? { pinRequiresChange: false, pinEnabled: true } : {}) }, $inc: { sessionVersion: 1, developerSessionVersion: 1, pinVersion: 1 }, $unset: { pinChallengeId: 1, pinResetCodeHash: 1, pinResetExpiresAt: 1, emailVerificationCodeHash: 1, emailVerificationExpiresAt: 1 } });
-apps\api\src\modules\auth\dto\auth.dto.ts:2:import { ArrayMaxSize, IsArray, IsBoolean, IsEmail, IsEnum, IsIn, IsMongoId, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from 'class-validator';
-apps\api\src\modules\auth\dto\auth.dto.ts:69:  @IsOptional() @IsArray() @ArrayMaxSize(100) @IsMongoId({ each: true }) branchIds?: string[];
-apps\api\src\modules\auth\dto\auth.dto.ts:81:  @IsOptional() @IsArray() @ArrayMaxSize(100) @IsMongoId({ each: true }) branchIds?: string[];
-apps\api\src\modules\auth\dto\auth.dto.ts:116:  @ApiProperty() @IsMongoId() staffId: string;
-apps\api\src\modules\audit\audit.module.ts:3:import { InjectModel, MongooseModule, Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-apps\api\src\modules\audit\audit.module.ts:5:import { Model, Types } from 'mongoose';
-apps\api\src\modules\audit\audit.module.ts:25:  constructor(@InjectModel(AuditEvent.name) private readonly events: Model<AuditEvent>) {}
-apps\api\src\modules\auth\jwt.strategy.ts:1:import { InjectModel } from '@nestjs/mongoose';
-apps\api\src\modules\auth\jwt.strategy.ts:5:import { Model } from 'mongoose';
-apps\api\src\modules\auth\jwt.strategy.ts:21:    @InjectModel(User.name) private readonly users: Model<User>,
-apps\api\src\modules\auth\auth.module.ts:3:import { MongooseModule } from '@nestjs/mongoose';
-apps\api\src\modules\auth\password-recovery.service.ts:10:import { InjectModel } from "@nestjs/mongoose";
-apps\api\src\modules\auth\password-recovery.service.ts:11:import { Model, Schema, Types } from "mongoose";
-apps\api\src\modules\auth\password-recovery.service.ts:98:    @InjectModel(User.name) private readonly users: Model<User>,
-apps\api\src\modules\auth\password-recovery.service.ts:105:    this.tokens = userModel.collection.conn.collection('password_reset_tokens') as never as {
-apps\api\src\modules\auth\password-recovery.service.ts:109:    this.codes = userModel.collection.conn.collection('recovery_codes') as never as {
-apps\api\src\modules\auth\password-recovery.service.ts:124:    return this.users.collection.conn.collection('password_reset_tokens');
-apps\api\src\modules\auth\password-recovery.service.ts:128:    return this.users.collection.conn.collection('recovery_codes');
-apps\api\src\modules\auth\password-recovery.service.ts:190:        $inc: { sessionVersion: 1, developerSessionVersion: 1, pinVersion: 1 },
-apps\api\src\modules\auth\password-recovery.service.ts:254:        $inc: { sessionVersion: 1, developerSessionVersion: 1, pinVersion: 1 },
-apps\api\src\modules\auth\password-recovery.service.ts:297:        $inc: { sessionVersion: 1, developerSessionVersion: 1, pinVersion: 1 },
-apps\api\src\modules\auth\auth.controller.ts:2:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
-apps\api\src\modules\auth\auth.controller.ts:125:  updateStaffRights(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateStaffRightsDto) {
-apps\api\src\modules\auth\auth.controller.ts:130:  updateStaffStatus(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateStaffStatusDto) { return this.auth.updateStaffStatus(user, id, dto.isActive); }
-apps\api\src\modules\auth\auth.service.ts:7:import { InjectModel } from '@nestjs/mongoose';
-apps\api\src\modules\auth\auth.service.ts:10:import { Model } from 'mongoose';
-apps\api\src\modules\auth\auth.service.ts:37:    @InjectModel(User.name) private readonly users: Model<User>,
-apps\api\src\modules\auth\auth.service.ts:133:      await this.users.updateOne({ _id: user._id }, { $inc: { pinFailedAttempts: 1 }, ...(failed >= 5 ? { $set: { pinLockedUntil: new Date(Date.now() + 15 * 60_000) } } : {}) });
-apps\api\src\modules\auth\auth.service.ts:162:    await this.users.updateOne({ _id: user._id }, { $inc: { developerSessionVersion: 1 } });
-apps\api\src\modules\auth\auth.service.ts:222:        ...(dto.newPin ? { $inc: { pinVersion: 1 } } : {}),
-apps\api\src\modules\auth\auth.service.ts:323:    const staff = await this.users.findOneAndUpdate({ _id: staffId, tenantId: oid(actor.tenantId), role: { $ne: Role.Owner }, superAdmin: { $ne: true } }, { $set: { isActive }, $inc: { sessionVersion: 1 } }, { new: true });
-apps\api\src\modules\auth\auth.service.ts:329:    await this.users.updateOne({ _id: userId }, { $inc: { sessionVersion: 1, developerSessionVersion: 1 } });
-apps\api\src\modules\auth\auth.service.ts:345:        $inc: { sessionVersion: 1, developerSessionVersion: 1, pinVersion: 1 },
-apps\api\src\modules\auth\recovery.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
+app\pdf-worker\src\worker.ts:5:import { MongoClient } from 'mongodb';
+app\pdf-worker\src\worker.ts:13:  const mongo = new MongoClient(process.env.MONGO_URI || 'mongodb://localhost:27017/pos');
+app\pdf-worker\src\worker.ts:15:  const orders = mongo.db().collection('orders');
+app\api\src\common\pipes\parse-object-id.pipe.ts:2:import { isValidObjectId } from 'mongoose';
+app\api\src\common\pipes\parse-object-id.pipe.ts:5:export class ParseObjectIdPipe implements PipeTransform<string, string> {
+app\api\src\common\object-id.ts:1:import { Types } from 'mongoose';
+app\api\src\cli\init-super-admin.ts:1:import mongoose from 'mongoose';
+app\api\src\cli\init-super-admin.ts:4:  const mongoUri = process.env.MONGO_URI;
+app\api\src\cli\init-super-admin.ts:6:  if (!mongoUri) throw new Error('MONGO_URI is required');
+app\api\src\cli\init-super-admin.ts:9:  await mongoose.connect(mongoUri);
+app\api\src\cli\init-super-admin.ts:11:    const users = mongoose.connection.collection('users');
+app\api\src\cli\init-super-admin.ts:12:    await users.createIndex({ superAdmin: 1 }, {
+app\api\src\cli\init-super-admin.ts:29:    await mongoose.disconnect();
+app\api\src\modules\tenant\tenant.service.ts:2:import { InjectModel } from '@nestjs/mongoose';
+app\api\src\modules\tenant\tenant.service.ts:3:import { Model } from 'mongoose';
+app\api\src\modules\tenant\tenant.service.ts:10:  constructor(@InjectModel(Tenant.name) private readonly model: Model<Tenant>) {}
+app\api\src\app.module.ts:5:import { MongooseModule } from '@nestjs/mongoose';
+app\api\src\app.module.ts:37:      useFactory: (config: ConfigService) => ({ uri: config.getOrThrow<string>('MONGO_URI') }),
+app\api\src\modules\stock\stock.module.ts:2:import { InjectModel, MongooseModule, Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\stock\stock.module.ts:4:import { IsMongoId, IsNumber, IsString, IsUUID, Length } from 'class-validator';
+app\api\src\modules\stock\stock.module.ts:5:import { Model, Types } from 'mongoose';
+app\api\src\modules\stock\stock.module.ts:25:class AdjustStockDto { @IsMongoId() productId: string; @IsUUID() idempotencyKey: string; @IsNumber({ maxDecimalPlaces: 3, allowNaN: false, allowInfinity: false }) delta: number; @IsString() @Length(3, 300) reason: string; }
+app\api\src\modules\stock\stock.module.ts:27:  constructor(@InjectModel(StockAdjustment.name) private readonly adjustments: Model<StockAdjustment>, private readonly products: ProductService) {}
+app\api\src\common\branch-scope.ts:2:import { Schema, Types } from 'mongoose';
+app\pdf-worker\src\queue\invoice.processor.ts:2:import { Collection, ObjectId } from 'mongodb';
+app\api\src\modules\report\report.service.ts:3:import { InjectModel } from '@nestjs/mongoose';
+app\api\src\modules\report\report.service.ts:4:import { Model } from 'mongoose';
+app\api\src\modules\report\report.service.ts:26:    @InjectModel(Order.name) private readonly orders: Model<OrderDocument>,
+app\api\src\modules\report\report.service.ts:55:      this.orders.aggregate([
+app\api\src\modules\report\report.service.ts:58:          $group: {
+app\api\src\modules\report\report.service.ts:68:      this.orders.aggregate([
+app\api\src\modules\report\report.service.ts:71:          $group: {
+app\api\src\modules\report\report.service.ts:79:      this.orders.aggregate([
+app\api\src\modules\report\report.service.ts:83:          $group: {
+app\api\src\modules\report\report.service.ts:93:      this.orders.aggregate([
+app\api\src\modules\report\report.service.ts:95:        { $group: { _id: '$paymentMode', orders: { $sum: 1 }, revenue: { $sum: '$grandTotal' } } },
+app\api\src\modules\report\report.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
+app\api\src\modules\installment\schemas\installment-sale.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\installment\schemas\installment-sale.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
+app\api\src\modules\installment\schemas\installment-product.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\installment\schemas\installment-product.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
+app\api\src\modules\installment\installment.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
+app\api\src\modules\tenant\tenant.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
+app\api\src\modules\installment\schemas\installment-plan.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\installment\schemas\installment-plan.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
+app\api\src\modules\health\health.module.ts:2:import { InjectConnection } from '@nestjs/mongoose';
+app\api\src\modules\health\health.module.ts:3:import { Connection } from 'mongoose';
+app\api\src\modules\health\health.module.ts:9:  constructor(@InjectConnection() private readonly database: Connection) {}
+app\api\src\modules\installment\installment.controller.ts:8:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
+app\api\src\modules\installment\installment.controller.ts:57:  findProduct(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
+app\api\src\modules\installment\installment.controller.ts:69:  updateProduct(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateInstallmentProductDto) {
+app\api\src\modules\installment\installment.controller.ts:75:  removeProduct(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
+app\api\src\modules\installment\installment.controller.ts:85:  findSale(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
+app\api\src\modules\installment\installment.controller.ts:95:  paySale(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: RecordInstallmentSalePaymentDto) {
+app\api\src\modules\installment\installment.controller.ts:100:  findOne(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
+app\api\src\modules\installment\installment.controller.ts:105:  pay(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: RecordPaymentDto) {
+app\api\src\modules\installment\installment.service.ts:3:import { InjectModel } from '@nestjs/mongoose';
+app\api\src\modules\installment\installment.service.ts:4:import { Model } from 'mongoose';
+app\api\src\modules\installment\installment.service.ts:45:    @InjectModel(InstallmentPlan.name) private readonly model: Model<InstallmentPlan>,
+app\api\src\modules\installment\installment.service.ts:46:    @InjectModel(InstallmentProduct.name) private readonly productModel: Model<InstallmentProduct>,
+app\api\src\modules\installment\installment.service.ts:47:    @InjectModel(InstallmentSale.name) private readonly saleModel: Model<InstallmentSale>,
+app\api\src\modules\installment\dto\installment.dto.ts:5:  IsIn, IsInt, IsMongoId, IsNumber, IsObject, IsOptional, IsString, Length, Matches, Max, MaxLength, Min, ValidateNested,
+app\api\src\modules\installment\dto\installment.dto.ts:13:  @ApiProperty() @IsMongoId() customerId: string;
+app\api\src\modules\installment\dto\installment.dto.ts:41:  @ApiPropertyOptional() @IsOptional() @IsMongoId() customerId?: string;
+app\api\src\modules\installment\dto\installment.dto.ts:71:  @ApiProperty() @IsMongoId() customerId: string;
+app\api\src\modules\installment\dto\installment.dto.ts:72:  @ApiProperty() @IsMongoId() installmentProductId: string;
+app\api\src\modules\installment\dto\installment.dto.ts:91:  @ApiPropertyOptional() @IsOptional() @IsMongoId() customerId?: string;
+app\api\src\modules\developer\developer.controller.ts:9:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
+app\api\src\modules\developer\developer.controller.ts:39:    @Param('id', ParseObjectIdPipe) id: string,
+app\api\src\modules\developer\developer.controller.ts:48:    @Param('id', ParseObjectIdPipe) id: string,
+app\api\src\modules\developer\developer.controller.ts:86:    @Param('id', ParseObjectIdPipe) id: string,
+app\api\src\modules\developer\developer.controller.ts:95:    @Param('id', ParseObjectIdPipe) id: string,
+app\api\src\modules\developer\developer.controller.ts:109:    @Param('id', ParseObjectIdPipe) id: string,
+app\api\src\modules\developer\developer.controller.ts:118:    @Param('id', ParseObjectIdPipe) id: string,
+app\api\src\modules\developer\developer.controller.ts:137:    @Param('id', ParseObjectIdPipe) id: string,
+app\api\src\modules\tenant\schemas\tenant.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\tenant\schemas\tenant.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
+app\api\src\modules\product\schemas\product.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\product\schemas\product.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
+app\api\src\modules\customer\schemas\customer.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\customer\schemas\customer.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
+app\api\src\modules\product\product.service.ts:2:import { InjectModel } from '@nestjs/mongoose';
+app\api\src\modules\product\product.service.ts:3:import { Model } from 'mongoose';
+app\api\src\modules\product\product.service.ts:11:  constructor(@InjectModel(Product.name) private readonly model: Model<Product>) {}
+app\api\src\modules\product\product.service.ts:112:      { $inc: { stockQty: -qty } },
+app\api\src\modules\product\product.service.ts:118:    await this.model.updateOne({ _id: productId, tenantId: oid(tenantId) }, { $inc: { stockQty: qty } });
+app\api\src\modules\product\product.service.ts:123:    const result = await this.model.updateOne({ _id: productId, tenantId: oid(tenantId), restoredSaleEvents: { $ne: event } }, { $inc: { stockQty: qty }, $addToSet: { restoredSaleEvents: event } });
+app\api\src\modules\product\product.service.ts:128:    const updated = await this.model.findOneAndUpdate({ _id: productId, tenantId: oid(tenantId), stockAdjustmentEvents: { $ne: key }, ...(delta < 0 ? { stockQty: { $gte: -delta } } : {}) }, { $inc: { stockQty: delta }, $addToSet: { stockAdjustmentEvents: key } }, { new: true });
+app\api\src\modules\invoice\invoice.service.ts:4:import { InjectModel } from '@nestjs/mongoose';
+app\api\src\modules\invoice\invoice.service.ts:8:import { Model } from 'mongoose';
+app\api\src\modules\invoice\invoice.service.ts:22:    @InjectModel(Order.name) private readonly orders: Model<Order>,
+app\api\src\modules\product\product.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
+app\api\src\modules\product\product.controller.ts:8:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
+app\api\src\modules\product\product.controller.ts:26:  findOne(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
+app\api\src\modules\product\product.controller.ts:47:  update(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateProductDto) {
+app\api\src\modules\product\product.controller.ts:54:  remove(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
+app\api\src\modules\invoice\invoice.module.ts:3:import { MongooseModule } from '@nestjs/mongoose';
+app\api\src\modules\customer\customer.service.ts:2:import { InjectModel } from '@nestjs/mongoose';
+app\api\src\modules\customer\customer.service.ts:3:import { Model } from 'mongoose';
+app\api\src\modules\customer\customer.service.ts:10:  constructor(@InjectModel(Customer.name) private readonly model: Model<Customer>) {}
+app\api\src\modules\invoice\invoice.controller.ts:10:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
+app\api\src\modules\invoice\invoice.controller.ts:22:  async status(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
+app\api\src\modules\invoice\invoice.controller.ts:28:  async pdf(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
+app\api\src\modules\invoice\invoice.controller.ts:40:  regenerate(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
+app\api\src\modules\customer\customer.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
+app\api\src\modules\customer\customer.controller.ts:6:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
+app\api\src\modules\customer\customer.controller.ts:23:  findOne(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
+app\api\src\modules\customer\customer.controller.ts:33:  update(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateCustomerDto) {
+app\api\src\modules\super-admin\schemas\subscription-plan.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\super-admin\schemas\subscription-plan.schema.ts:2:import { HydratedDocument } from 'mongoose';
+app\api\src\modules\super-admin\super-admin.service.ts:3:import { InjectModel } from '@nestjs/mongoose';
+app\api\src\modules\super-admin\super-admin.service.ts:5:import { Model, Types } from 'mongoose';
+app\api\src\modules\super-admin\super-admin.service.ts:23:    @InjectModel(Tenant.name) private readonly tenants: Model<Tenant>,
+app\api\src\modules\super-admin\super-admin.service.ts:24:    @InjectModel(User.name) private readonly users: Model<User>,
+app\api\src\modules\super-admin\super-admin.service.ts:25:    @InjectModel(SubscriptionPlan.name) private readonly plans: Model<SubscriptionPlan>,
+app\api\src\modules\super-admin\super-admin.service.ts:26:    @InjectModel(AdminAudit.name) private readonly audits: Model<AdminAudit>,
+app\api\src\modules\super-admin\super-admin.service.ts:27:    @InjectModel(PlatformModule.name) private readonly platformModules: Model<PlatformModule>,
+app\api\src\modules\branch\branch.module.ts:3:import { InjectModel, MongooseModule, Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\branch\branch.module.ts:6:import { Model, Types } from 'mongoose';
+app\api\src\modules\branch\branch.module.ts:12:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
+app\api\src\modules\branch\branch.module.ts:30:  constructor(@InjectModel(Branch.name) private readonly branches: Model<Branch>, @InjectModel(Tenant.name) private readonly tenants: Model<Tenant>) {}
+app\api\src\modules\branch\branch.module.ts:35:    const tenant = await this.tenants.findOneAndUpdate({ _id: user.tenantId, $expr: { $lt: [{ $ifNull: ['$branchCount', 0] }, { $ifNull: ['$branchLimit', 1] }] } }, { $inc: { branchCount: 1 } }, { new: true });
+app\api\src\modules\branch\branch.module.ts:41:    } catch (error) { await this.tenants.updateOne({ _id: tenant._id }, { $inc: { branchCount: -1 } }); if ((error as { code?: number }).code === 11000) throw new ConflictException('Branch code already exists'); throw error; }
+app\api\src\modules\branch\branch.module.ts:65:  @Patch(':id') @Roles(Role.Owner, Role.Admin) update(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateBranchDto) { return this.branches.update(user, id, dto); }
+app\api\src\modules\super-admin\schemas\platform-module.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\super-admin\schemas\platform-module.schema.ts:2:import { HydratedDocument } from 'mongoose';
+app\api\src\modules\super-admin\super-admin.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
+app\api\src\modules\super-admin\schemas\admin-audit.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\super-admin\schemas\admin-audit.schema.ts:2:import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
+app\api\src\modules\order\schemas\order.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\order\schemas\order.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
+app\api\src\modules\super-admin\super-admin.controller.ts:7:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
+app\api\src\modules\super-admin\super-admin.controller.ts:37:    @Param('id', ParseObjectIdPipe) id: string,
+app\api\src\modules\super-admin\super-admin.controller.ts:46:    @Param('id', ParseObjectIdPipe) id: string,
+app\api\src\modules\order\schemas\invoice-counter.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\order\schemas\invoice-counter.schema.ts:2:import { Types } from 'mongoose';
+app\api\src\modules\order\schemas\checkout-request.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\order\schemas\checkout-request.schema.ts:2:import { Types } from 'mongoose';
+app\api\src\modules\super-admin\dto\super-admin.dto.ts:4:  IsBoolean, IsEmail, IsEnum, IsMongoId, IsNumber, IsObject, IsOptional, IsString, Length, Max,
+app\api\src\modules\super-admin\dto\super-admin.dto.ts:43:  @IsOptional() @IsMongoId() initialPlanId?: string;
+app\api\src\modules\super-admin\dto\super-admin.dto.ts:76:  @IsMongoId() subscriptionPlanId: string;
+app\api\src\modules\order\order.service.ts:3:import { InjectModel } from '@nestjs/mongoose';
+app\api\src\modules\order\order.service.ts:4:import { Model } from 'mongoose';
+app\api\src\modules\order\order.service.ts:25:    @InjectModel(Order.name) private readonly orders: Model<Order>,
+app\api\src\modules\order\order.service.ts:26:    @InjectModel(InvoiceCounter.name) private readonly counters: Model<InvoiceCounter>,
+app\api\src\modules\order\order.service.ts:27:    @InjectModel(CheckoutRequest.name) private readonly checkouts: Model<CheckoutRequest>,
+app\api\src\modules\order\order.service.ts:177:      this.orders.aggregate([
+app\api\src\modules\order\order.service.ts:179:        { $group: { _id: null, revenue: { $sum: '$grandTotal' }, orders: { $sum: 1 }, tax: { $sum: '$taxTotal' }, discounts: { $sum: '$discountTotal' } } },
+app\api\src\modules\order\order.service.ts:181:      this.orders.aggregate([
+app\api\src\modules\order\order.service.ts:183:        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone } }, revenue: { $sum: '$grandTotal' }, orders: { $sum: 1 } } },
+app\api\src\modules\order\order.service.ts:186:      this.orders.aggregate([
+app\api\src\modules\order\order.service.ts:189:        { $group: { _id: '$items.productId', name: { $first: '$items.name' }, qty: { $sum: '$items.qty' }, revenue: { $sum: '$items.lineTotal' } } },
+app\api\src\modules\order\order.service.ts:226:      { $inc: { lastNumber: 1 } },
+app\api\src\modules\barcode\barcode.dto.ts:3:import { IsBoolean, IsIn, IsInt, IsMongoId, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
+app\api\src\modules\barcode\barcode.dto.ts:10:  @ApiPropertyOptional() @IsOptional() @IsMongoId() productId?: string;
+app\api\src\modules\order\dto\order.dto.ts:4:  ArrayMaxSize, ArrayMinSize, IsArray, IsDefined, IsEnum, IsMongoId, IsNumber, IsOptional, IsString, Max, MaxLength, Min,
+app\api\src\modules\order\dto\order.dto.ts:11:  @ApiProperty() @IsMongoId() productId: string;
+app\api\src\modules\order\order.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
+app\api\src\modules\auth\schemas\user.schema.ts:1:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\auth\schemas\user.schema.ts:2:import { HydratedDocument, Types } from 'mongoose';
+app\api\src\modules\order\order.controller.ts:8:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
+app\api\src\modules\order\order.controller.ts:44:  findOne(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
+app\api\src\modules\order\order.controller.ts:50:  void(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
+app\api\src\modules\order\order.controller.ts:55:  refund(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: RefundOrderDto) { return this.orders.refund(user, id, dto.reason); }
+app\api\src\modules\auth\recovery.service.ts:3:import { InjectModel } from '@nestjs/mongoose';
+app\api\src\modules\auth\recovery.service.ts:4:import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\auth\recovery.service.ts:5:import { Model, Types } from 'mongoose';
+app\api\src\modules\auth\recovery.service.ts:29:  constructor(@InjectModel(User.name) private readonly users: Model<User>, @InjectModel(RecoveryChallenge.name) private readonly challenges: Model<RecoveryChallenge>, private readonly config: ConfigService, private readonly email: EmailService) {}
+app\api\src\modules\auth\recovery.service.ts:86:    const challenge = await this.challenges.findOneAndUpdate({ challengeId: dto.challengeId, expiresAt: { $gt: new Date() }, attempts: { $lt: 5 }, ...(phoneUserId ? { userId: new Types.ObjectId(phoneUserId), purpose: 'phone-verification' } : { purpose: { $ne: 'phone-verification' } }) }, { $inc: { attempts: 1 } }, { new: true }).select('+codeHash');
+app\api\src\modules\auth\recovery.service.ts:100:    const updated = await this.users.updateOne({ _id: user._id, isActive: true, ...this.versions(challenge), email: user.email, recoveryEmail: user.recoveryEmail ?? null, phone: user.phone ?? null, emailVerifiedAt: user.emailVerifiedAt ?? null, phoneVerifiedAt: user.phoneVerifiedAt ?? null }, { $set: { [field]: hash, pinFailedAttempts: 0, pinLockedUntil: null, ...(field === 'pinHash' ? { pinRequiresChange: false, pinEnabled: true } : {}) }, $inc: { sessionVersion: 1, developerSessionVersion: 1, pinVersion: 1 }, $unset: { pinChallengeId: 1, pinResetCodeHash: 1, pinResetExpiresAt: 1, emailVerificationCodeHash: 1, emailVerificationExpiresAt: 1 } });
+app\api\src\modules\auth\dto\auth.dto.ts:2:import { ArrayMaxSize, IsArray, IsBoolean, IsEmail, IsEnum, IsIn, IsMongoId, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from 'class-validator';
+app\api\src\modules\auth\dto\auth.dto.ts:69:  @IsOptional() @IsArray() @ArrayMaxSize(100) @IsMongoId({ each: true }) branchIds?: string[];
+app\api\src\modules\auth\dto\auth.dto.ts:81:  @IsOptional() @IsArray() @ArrayMaxSize(100) @IsMongoId({ each: true }) branchIds?: string[];
+app\api\src\modules\auth\dto\auth.dto.ts:116:  @ApiProperty() @IsMongoId() staffId: string;
+app\api\src\modules\audit\audit.module.ts:3:import { InjectModel, MongooseModule, Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+app\api\src\modules\audit\audit.module.ts:5:import { Model, Types } from 'mongoose';
+app\api\src\modules\audit\audit.module.ts:25:  constructor(@InjectModel(AuditEvent.name) private readonly events: Model<AuditEvent>) {}
+app\api\src\modules\auth\jwt.strategy.ts:1:import { InjectModel } from '@nestjs/mongoose';
+app\api\src\modules\auth\jwt.strategy.ts:5:import { Model } from 'mongoose';
+app\api\src\modules\auth\jwt.strategy.ts:21:    @InjectModel(User.name) private readonly users: Model<User>,
+app\api\src\modules\auth\auth.module.ts:3:import { MongooseModule } from '@nestjs/mongoose';
+app\api\src\modules\auth\password-recovery.service.ts:10:import { InjectModel } from "@nestjs/mongoose";
+app\api\src\modules\auth\password-recovery.service.ts:11:import { Model, Schema, Types } from "mongoose";
+app\api\src\modules\auth\password-recovery.service.ts:98:    @InjectModel(User.name) private readonly users: Model<User>,
+app\api\src\modules\auth\password-recovery.service.ts:105:    this.tokens = userModel.collection.conn.collection('password_reset_tokens') as never as {
+app\api\src\modules\auth\password-recovery.service.ts:109:    this.codes = userModel.collection.conn.collection('recovery_codes') as never as {
+app\api\src\modules\auth\password-recovery.service.ts:124:    return this.users.collection.conn.collection('password_reset_tokens');
+app\api\src\modules\auth\password-recovery.service.ts:128:    return this.users.collection.conn.collection('recovery_codes');
+app\api\src\modules\auth\password-recovery.service.ts:190:        $inc: { sessionVersion: 1, developerSessionVersion: 1, pinVersion: 1 },
+app\api\src\modules\auth\password-recovery.service.ts:254:        $inc: { sessionVersion: 1, developerSessionVersion: 1, pinVersion: 1 },
+app\api\src\modules\auth\password-recovery.service.ts:297:        $inc: { sessionVersion: 1, developerSessionVersion: 1, pinVersion: 1 },
+app\api\src\modules\auth\auth.controller.ts:2:import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
+app\api\src\modules\auth\auth.controller.ts:125:  updateStaffRights(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateStaffRightsDto) {
+app\api\src\modules\auth\auth.controller.ts:130:  updateStaffStatus(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateStaffStatusDto) { return this.auth.updateStaffStatus(user, id, dto.isActive); }
+app\api\src\modules\auth\auth.service.ts:7:import { InjectModel } from '@nestjs/mongoose';
+app\api\src\modules\auth\auth.service.ts:10:import { Model } from 'mongoose';
+app\api\src\modules\auth\auth.service.ts:37:    @InjectModel(User.name) private readonly users: Model<User>,
+app\api\src\modules\auth\auth.service.ts:133:      await this.users.updateOne({ _id: user._id }, { $inc: { pinFailedAttempts: 1 }, ...(failed >= 5 ? { $set: { pinLockedUntil: new Date(Date.now() + 15 * 60_000) } } : {}) });
+app\api\src\modules\auth\auth.service.ts:162:    await this.users.updateOne({ _id: user._id }, { $inc: { developerSessionVersion: 1 } });
+app\api\src\modules\auth\auth.service.ts:222:        ...(dto.newPin ? { $inc: { pinVersion: 1 } } : {}),
+app\api\src\modules\auth\auth.service.ts:323:    const staff = await this.users.findOneAndUpdate({ _id: staffId, tenantId: oid(actor.tenantId), role: { $ne: Role.Owner }, superAdmin: { $ne: true } }, { $set: { isActive }, $inc: { sessionVersion: 1 } }, { new: true });
+app\api\src\modules\auth\auth.service.ts:329:    await this.users.updateOne({ _id: userId }, { $inc: { sessionVersion: 1, developerSessionVersion: 1 } });
+app\api\src\modules\auth\auth.service.ts:345:        $inc: { sessionVersion: 1, developerSessionVersion: 1, pinVersion: 1 },
+app\api\src\modules\auth\recovery.module.ts:2:import { MongooseModule } from '@nestjs/mongoose';
 ```
 
-Deployment/configuration dependencies: `docker-compose.yml`, `docker-compose.prod.yml`, `.env.example`, application environment examples, API/PDF-worker package manifests and lockfiles, Dockerfiles, `.github/workflows/ci.yml`, `scripts/seed.ts`, `docs/erd.md` and `docs/api-spec.yaml`. Existing CI integration fixtures use disposable MongoDB databases and must be ported to isolated PostgreSQL databases. Runtime health checks also depend on the Mongoose connection.
+Deployment/configuration dependencies: `docker/compose/docker-compose.yml`, `docker/compose/docker-compose.prod.yml`, `.env.example`, application environment examples, API/PDF-worker package manifests and lockfiles, Dockerfiles, `.github/workflows/ci.yml`, `deploy/scripts/seed.ts`, `docs/erd.md` and `docs/api-spec.yaml`. Existing CI integration fixtures use disposable MongoDB databases and must be ported to isolated PostgreSQL databases. Runtime health checks also depend on the Mongoose connection.
 
 <a id="ref-27"></a>
 
@@ -3054,7 +3052,7 @@ platform account tenant before distribution. No source tenant is discarded.
 ### Repeat discovery (PowerShell, repository root)
 
 ```powershell
-Get-Content scripts/migration/profile-mongodb.js -Raw |
+Get-Content deploy/scripts/migration/profile-mongodb.js -Raw |
   docker compose exec -T mongo mongosh --quiet --file /dev/stdin
 ```
 
@@ -3150,11 +3148,11 @@ print or share it. The migration account is an administrator only on this stagin
 server. Per-business least-privilege runtime credentials are not yet provisioned.
 
 ```powershell
-npm --prefix scripts/migration ci --ignore-scripts
+npm --prefix deploy/scripts/migration ci --ignore-scripts
 docker compose -f docker-compose.postgres-staging.yml up -d --wait
-npm --prefix scripts/migration test
-node scripts/migration/stage-postgresql.cjs --dry-run
-node scripts/migration/stage-postgresql.cjs --staging
+npm --prefix deploy/scripts/migration test
+node deploy/scripts/migration/stage-postgresql.cjs --dry-run
+node deploy/scripts/migration/stage-postgresql.cjs --staging
 ```
 
 The local secret must exist before starting a fresh installation. Generate it
@@ -3291,7 +3289,7 @@ connections per configured business, with at most 32 businesses per registry.
 
 ```powershell
 docker compose -f docker-compose.postgres-staging.yml up -d --wait
-node scripts/migration/prepare-invoice-store.cjs --prepare
+node deploy/scripts/migration/prepare-invoice-store.cjs --prepare
 npm run build
 node --test qa/postgres-invoices.test.cjs
 ```
@@ -3326,7 +3324,7 @@ Production activation has not been performed. Before changing the live processes
 The prepared Compose overlay is applied with:
 
 ```powershell
-docker compose -f docker-compose.yml -f docker-compose.postgres-invoices.yml up -d --build api pdf-worker
+docker compose -f docker/compose/docker-compose.yml -f docker-compose.postgres-invoices.yml up -d --build api pdf-worker
 ```
 
 The external PostgreSQL network must already exist. This changes invoice persistence
@@ -3392,8 +3390,8 @@ findings (four low, sixteen moderate); dependency remediation was not performed.
 
 **Tasks:**
 - [ ] Provision PostgreSQL 16 instance (local dev + Docker + staging)
-- [ ] Create `packages/config/` configuration schema with validation
-- [ ] Write `scripts/migrate/` ETL skeleton (idempotent, field-by-field mapping)
+- [ ] Create `app/packages/config/` configuration schema with validation
+- [ ] Write `deploy/scripts/migrate/` ETL skeleton (idempotent, field-by-field mapping)
 
 #### Phase 1: Schema and Dual-Write (Checkpoint CP-1)
 
@@ -3510,7 +3508,7 @@ pg_dump "$DATABASE_URL" > "backups/postgres/pre-migration-$(date +%Y%m%d-%H%M%S)
 ### 4. ETL Script Structure
 
 ```
-scripts/migrate/
+deploy/scripts/migrate/
   migrate-01-reference.ts    # tenants, users, products, customers
   migrate-02-transactions.ts # orders, order_items, installments
   migrate-03-supporting.ts   # stock_adjustments, audit_events, counters
@@ -3546,8 +3544,8 @@ Each script:
 **Exit Criteria:** All transactional data in PostgreSQL, counts match, financial totals match, sample records verified.
 
 **Rollback:** Revert to MongoDB reads. PostgreSQL data preserved for debugging.
-- [ ] Create backup script: `scripts/backup/pg-backup.sh` and `scripts/backup/mongo-backup.sh`
-- [ ] Create restore script: `scripts/restore/pg-restore.sh` and `scripts/restore/mongo-restore.sh`
+- [ ] Create backup script: `deploy/scripts/backup/pg-backup.sh` and `deploy/scripts/backup/mongo-backup.sh`
+- [ ] Create restore script: `deploy/scripts/restore/pg-restore.sh` and `deploy/scripts/restore/mongo-restore.sh`
 - [ ] Set up connection pooling (sized for deployment: 10-20 connections)
 - [ ] Verify backups are restorable
 
@@ -3563,7 +3561,7 @@ Each script:
 
 The developer console reads its module catalog from `GET /api/developer/features`. Registered features appear in its subscription and account controls without another hardcoded UI list change. This endpoint is developer-only.
 
-To implement a new module, register its key and label in `apps/api/src/common/features.ts`, add its validated feature fields to the plan/tenant DTOs and schemas, and add its shared frontend type/navigation entry. Protect its routes with feature, action, and module permissions. A source file alone is not a registered feature.
+To implement a new module, register its key and label in `app/api/src/common/features.ts`, add its validated feature fields to the plan/tenant DTOs and schemas, and add its shared frontend type/navigation entry. Protect its routes with feature, action, and module permissions. A source file alone is not a registered feature.
 
 Subscription feature normalization defaults missing plan values to false. Assigning a plan copies its features to the business. Editing a plan's features updates all businesses assigned to that plan; those subscription settings replace individual feature overrides for those businesses. Staff permissions still apply within the business entitlement.
 
@@ -3583,7 +3581,7 @@ Modules are the unit of business functionality in KazmiOn. Each module correspon
 
 ### Module Catalog
 
-Modules are registered at **build time** in `packages/shared-types/src/module-manifests.ts`.
+Modules are registered at **build time** in `app/packages/shared-types/src/module-manifests.ts`.
 
 Each module definition:
 
@@ -3615,7 +3613,7 @@ Each module definition:
 
 ### Navigation Source of Truth
 
-`TENANT_NAVIGATION_ITEMS` in `packages/shared-types` drives:
+`TENANT_NAVIGATION_ITEMS` in `app/packages/shared-types` drives:
 - Sidebar navigation rendering
 - Breadcrumb generation
 - Route-to-module mapping for entitlement checks
@@ -3625,8 +3623,8 @@ Each module definition:
 ### Adding a New Module
 
 1. Add entry to `module-manifests.ts` with a new unique `MOD-*` ID
-2. Add to `TENANT_NAVIGATION_ITEMS` in `packages/shared-types`
-3. Create NestJS module: `apps/api/src/modules/<name>/`
+2. Add to `TENANT_NAVIGATION_ITEMS` in `app/packages/shared-types`
+3. Create NestJS module: `app/api/src/modules/<name>/`
    ```
    <name>.module.ts
    <name>.controller.ts    ← apply @ModuleRights('MOD-NAME')
@@ -3636,7 +3634,7 @@ Each module definition:
    <name>.spec.ts
    ```
 4. Register in `AppModule` imports
-5. Add frontend route in `apps/web/src/App.tsx`
+5. Add frontend route in `app/web/src/App.tsx`
 6. If paid: add to subscription plan definitions
 
 ### Guard Enforcement
@@ -3694,10 +3692,10 @@ Phase CP-4: Decommission       — MongoDB archived (requires explicit approval)
 
 ### Prerequisites
 
-1. PostgreSQL 16 running (via `docker-compose.postgres.yml`)
+1. PostgreSQL 16 running (via `docker/compose/docker-compose.postgres.yml`)
 2. `pg` and migration CLI available: `npm install pg`
 3. Environment variable set: `POSTGRES_URL=postgresql://kazmion:pass@localhost:5432/kazmion`
-4. MongoDB backup taken: `.\scripts\backup\mongo-backup.ps1`
+4. MongoDB backup taken: `.\deploy\scripts\backup\mongo-backup.ps1`
 
 ---
 
@@ -3708,10 +3706,10 @@ Phase CP-4: Decommission       — MongoDB archived (requires explicit approval)
 # POSTGRES_PASSWORD=your_secure_password
 
 # Start PostgreSQL container
-docker compose -f docker-compose.postgres.yml up -d
+docker compose -f docker/compose/docker-compose.postgres.yml up -d
 
 # Verify it's healthy
-docker compose -f docker-compose.postgres.yml ps
+docker compose -f docker/compose/docker-compose.postgres.yml ps
 ```
 
 ---
@@ -3720,10 +3718,10 @@ docker compose -f docker-compose.postgres.yml ps
 
 ```powershell
 $env:POSTGRES_URL = "postgresql://kazmion:your_password@localhost:5432/kazmion"
-node scripts/migrate/run-migrations.cjs
+node deploy/scripts/migrate/run-migrations.cjs
 ```
 
-This applies `database/postgresql/migrations/001_initial_schema.sql` and records the migration in `schema_migrations`.
+This applies `deploy/database/postgresql/migrations/001_initial_schema.sql` and records the migration in `schema_migrations`.
 
 **Expected output:**
 ```
@@ -3744,13 +3742,13 @@ $env:MONGO_URI    = "mongodb://localhost:27017/pos"
 $env:POSTGRES_URL = "postgresql://kazmion:your_password@localhost:5432/kazmion"
 
 # Phase 1: Reference data (tenants, users, products, customers)
-node scripts/migrate/migrate-01-reference.cjs --dry-run
+node deploy/scripts/migrate/migrate-01-reference.cjs --dry-run
 
 # Phase 2: Transactions (orders, installments)
-node scripts/migrate/migrate-02-transactions.cjs --dry-run
+node deploy/scripts/migrate/migrate-02-transactions.cjs --dry-run
 
 # Phase 3: Supporting data (stock, audit, counters)
-node scripts/migrate/migrate-03-supporting.cjs --dry-run
+node deploy/scripts/migrate/migrate-03-supporting.cjs --dry-run
 ```
 
 Each script outputs a summary:
@@ -3767,13 +3765,13 @@ Each script outputs a summary:
 ### Phase CP-3 — Live ETL Migration
 
 > [!WARNING]
-> **Back up MongoDB before this step:** `.\scripts\backup\mongo-backup.ps1`
+> **Back up MongoDB before this step:** `.\deploy\scripts\backup\mongo-backup.ps1`
 
 ```powershell
 # Remove --dry-run flag for live migration
-node scripts/migrate/migrate-01-reference.cjs
-node scripts/migrate/migrate-02-transactions.cjs
-node scripts/migrate/migrate-03-supporting.cjs
+node deploy/scripts/migrate/migrate-01-reference.cjs
+node deploy/scripts/migrate/migrate-02-transactions.cjs
+node deploy/scripts/migrate/migrate-03-supporting.cjs
 ```
 
 All scripts are **idempotent** — safe to re-run if interrupted. Uses `ON CONFLICT DO UPDATE`.
@@ -3783,7 +3781,7 @@ All scripts are **idempotent** — safe to re-run if interrupted. Uses `ON CONFL
 ### Phase CP-4 — Validation
 
 ```powershell
-node scripts/migrate/validate-migration.cjs
+node deploy/scripts/migrate/validate-migration.cjs
 ```
 
 Checks:
@@ -3825,7 +3823,7 @@ The MongoDB database is **never touched** by the ETL scripts. Rolling back is si
 
 ```powershell
 # Stop PostgreSQL (doesn't delete data)
-docker compose -f docker-compose.postgres.yml down
+docker compose -f docker/compose/docker-compose.postgres.yml down
 
 # Restore MongoDB from backup if needed
 Expand-Archive ".\backups\mongo\<timestamp>.zip" -DestinationPath ".\restore-tmp"
@@ -3873,18 +3871,18 @@ local workspace, not another application or npm package.
 ```text
 pos-system/
   .github/workflows/       CI workflows
-  apps/
+  app/
     api/                  NestJS API and colocated unit tests
     web/                  React application and public assets
     pdf-worker/           Invoice queue worker, templates and renderer tests
     analytics-service/    Planned Python analytics service (stub)
     chatbot-service/      Planned Python chatbot service (stub)
-  packages/
+  app/packages/
     shared-types/         Shared TypeScript contracts
     invoice-store/        Shared PostgreSQL invoice persistence
-  database/postgresql/    Versioned PostgreSQL migration SQL
-  infra/nginx/            Web server configuration
-  scripts/                Repository build and seed commands
+  deploy/database/postgresql/    Versioned PostgreSQL migration SQL
+  docker/nginx/            Web server configuration
+  deploy/scripts/                Repository build and seed commands
     migration/            Isolated database migration tooling and tests
   qa/                     Integration tests, browser tests and fixtures
   docs/                   Architecture, API contracts and feature guides
@@ -3903,17 +3901,17 @@ future-service stubs retained intentionally.
 
 ### Placement conventions
 
-- Add API features under `apps/api/src/modules/<feature>/`; put shared guards,
-  decorators and authorization helpers in `apps/api/src/common/`.
-- Keep web routes in `apps/web/src/pages/`, reusable UI in `components/`, HTTP
+- Add API features under `app/api/src/modules/<feature>/`; put shared guards,
+  decorators and authorization helpers in `app/api/src/common/`.
+- Keep web routes in `app/web/src/pages/`, reusable UI in `components/`, HTTP
   integration in `api/`, state in `store/`, hooks in `hooks/` and helpers in `utils/`.
-- Keep invoice templates and rendering logic in `apps/pdf-worker/src/`.
+- Keep invoice templates and rendering logic in `app/pdf-worker/src/`.
 - Keep unit tests beside the code they exercise. Cross-application integration
-  and browser tests belong in `qa/`; reusable automation belongs in `scripts/`.
-- Keep cross-application contracts in `packages/shared-types/`. Retain each app's
+  and browser tests belong in `qa/`; reusable automation belongs in `deploy/scripts/`.
+- Keep cross-application contracts in `app/packages/shared-types/`. Retain each app's
   lockfile; this repository uses per-app installs, not npm workspaces.
-- Keep shared invoice persistence in `packages/invoice-store/`; keep the separate
-  migration tool's package and lockfile under `scripts/migration/`.
+- Keep shared invoice persistence in `app/packages/invoice-store/`; keep the separate
+  migration tool's package and lockfile under `deploy/scripts/migration/`.
 - Put machine-readable migration reports under `docs/migration/reports/`; keep
   human-readable migration guides directly under `docs/migration/`. Reports are
   retained evidence, not disposable test output.
@@ -3930,7 +3928,7 @@ future-service stubs retained intentionally.
 | Dependencies | Each application's `node_modules/` | Local, ignored |
 | Compiled output | Each application's `dist/` | Generated by the build, ignored |
 | Browser screenshots and traces | `qa/artifacts/` | Generated by QA, ignored |
-| Invoice previews | `apps/pdf-worker/artifacts/` | Generated by `render:sample`, ignored |
+| Invoice previews | `app/pdf-worker/artifacts/` | Generated by `render:sample`, ignored |
 | Runtime invoices and uploads | `storage/` or configured storage path | Persistent data; never treat as cleanup output |
 | Database backups | `backups/` | Local operational data, ignored |
 | Python environments | `venv/` or `.venv/` | Local, ignored; do not relocate installed environments |
@@ -3949,10 +3947,10 @@ Run from the repository root:
 
 ```sh
 npm run build
-npm --prefix apps/api test -- --runInBand
-node --test apps/pdf-worker/dist/services/invoice-renderer.test.js
+npm --prefix app/api test -- --runInBand
+node --test app/pdf-worker/dist/services/invoice-renderer.test.js
 node --test qa/backup-delivery.test.cjs
-npm --prefix apps/pdf-worker run render:sample
+npm --prefix app/pdf-worker run render:sample
 ```
 
 The build must run before tests that import compiled `dist/` modules. API
@@ -4017,7 +4015,7 @@ Use this checklist before every deployment or update.
 
 - [ ] `npm run test:all` passes — 60/60 API tests, 6/6 PDF tests
 - [ ] `npm run test:web:typecheck` passes — 0 TypeScript errors
-- [ ] `npm --prefix apps/api run build` succeeds
+- [ ] `npm --prefix app/api run build` succeeds
 - [ ] No secrets or credentials committed to git (`git log --all -p | grep -i password`)
 - [ ] `.env.example` updated for any new environment variables
 
@@ -4026,7 +4024,7 @@ Use this checklist before every deployment or update.
 ### 2. Docker Build & Health
 
 - [ ] `npm run docker:rebuild` completes without error
-- [ ] `.\scripts\verify-deployment.ps1` — all checks pass
+- [ ] `.\deploy\scripts\verify-deployment.ps1` — all checks pass
 - [ ] `GET http://localhost:3000/api/health` → `{"status":"ok"}`
 - [ ] `http://localhost:8080` → login page renders
 - [ ] All containers show `healthy` in `docker compose ps`
@@ -4085,7 +4083,7 @@ Use this checklist before every deployment or update.
 
 ### 5. Database
 
-- [ ] MongoDB backup taken: `.\scripts\backup\mongo-backup.ps1`
+- [ ] MongoDB backup taken: `.\deploy\scripts\backup\mongo-backup.ps1`
 - [ ] Backup file exists in `.\backups\mongo\` with size > 10 KB
 - [ ] Invoice counters are intact (sequential invoice numbers not reset)
 
@@ -4106,7 +4104,7 @@ Use this checklist before every deployment or update.
 
 ```powershell
 # 1. Backup
-.\scripts\backup\mongo-backup.ps1
+.\deploy\scripts\backup\mongo-backup.ps1
 
 # 2. Pull latest
 git pull origin main
@@ -4115,7 +4113,7 @@ git pull origin main
 npm run docker:rebuild
 
 # 4. Verify
-.\scripts\verify-deployment.ps1
+.\deploy\scripts\verify-deployment.ps1
 
 # 5. Manual smoke test (see section 3 above)
 ```
@@ -4190,7 +4188,7 @@ docker compose up -d
 ### Rollback after a restore went wrong
 `backup.ps1` writes `pg_dump` archives. To return to a pre-restore state, restore the most recent backup taken before the bad one:
 ```powershell
-scripts\restore.ps1 -SqlFile backups\manual\pos-<earlier-stamp>.sql
+deploy\scripts\restore.ps1 -SqlFile backups\manual\pos-<earlier-stamp>.sql
 ```
 
 ### Disaster recovery (lost container, volumes intact)
@@ -4202,8 +4200,8 @@ docker compose up -d      # container recreates against existing volumes
 Restore from a full backup:
 1. `docker compose down` (do NOT use `-v` unless discarding data intentionally).
 2. Recreate empty volumes, start container once to initialize cluster, stop it.
-3. `scripts\restore.ps1 -SqlFile <backup>.sql -InvoicesDir <invoices-backup>`
-4. `scripts\start.ps1`
+3. `deploy\scripts\restore.ps1 -SqlFile <backup>.sql -InvoicesDir <invoices-backup>`
+4. `deploy\scripts\start.ps1`
 
 ### Critical rules
 - Never run `docker compose down -v` or `docker system prune --volumes` on a client machine — that deletes all business data.
@@ -4265,12 +4263,12 @@ No transaction is marked FBR-confirmed. Existing invoice QR codes contain local 
 ### Verification commands
 
 ```powershell
-npm --prefix apps/api test -- --runInBand
-npm --prefix apps/api run build
+npm --prefix app/api test -- --runInBand
+npm --prefix app/api run build
 node qa/api-integration.cjs
-npm --prefix apps/pdf-worker run build
-node --test apps/pdf-worker/dist/services/invoice-renderer.test.js
-npm --prefix apps/web run build
+npm --prefix app/pdf-worker run build
+node --test app/pdf-worker/dist/services/invoice-renderer.test.js
+npm --prefix app/web run build
 npm exec --yes --package=@playwright/test -- playwright test --config=qa/playwright.config.cjs
 docker compose up -d --build api pdf-worker web
 npm exec --yes --package=@playwright/test -- playwright test --config=qa/runtime.config.cjs
@@ -4436,7 +4434,7 @@ Time:         ~12s
 ```powershell
 npm run test:api
 # or
-npm --prefix apps/api test
+npm --prefix app/api test
 ```
 
 #### Test Suites
@@ -4470,7 +4468,7 @@ Time:   ~3s
 ```powershell
 npm run test:pdf
 # or
-npm --prefix apps/pdf-worker test
+npm --prefix app/pdf-worker test
 # which runs: tsx --test src/services/invoice-renderer.test.ts src/services/paper.test.ts
 ```
 
@@ -4485,9 +4483,9 @@ npm --prefix apps/pdf-worker test
 
 | Package | Command | Status |
 |---------|---------|--------|
-| `apps/api` | `npm --prefix apps/api run build` | ✓ 0 errors |
-| `apps/web` | `npm --prefix apps/web run typecheck` | ✓ 0 errors |
-| `apps/pdf-worker` | `tsc -p apps/pdf-worker/tsconfig.json` | ✓ 0 errors |
+| `app/api` | `npm --prefix app/api run build` | ✓ 0 errors |
+| `app/web` | `npm --prefix app/web run typecheck` | ✓ 0 errors |
+| `app/pdf-worker` | `tsc -p app/pdf-worker/tsconfig.json` | ✓ 0 errors |
 
 **Run all type checks:**
 ```powershell
@@ -4522,7 +4520,7 @@ None at time of last verification (2026-11-17).
 
 ---
 
-### Jest Configuration (apps/api)
+### Jest Configuration (app/api)
 
 ```json
 {
@@ -4559,9 +4557,9 @@ KazmiOn targets Windows business PCs using **Docker Desktop** as the runtime env
 
 ```
 C:\KazmiOn\                    ← Installation directory
-  docker-compose.yml           ← Services definition
+  docker/compose/docker-compose.yml           ← Services definition
   .env                         ← Business configuration (secrets)
-  scripts\
+  deploy\scripts\
     start.ps1                  ← Start the stack
     stop.ps1                   ← Stop the stack
     update.ps1                 ← Update without data loss
@@ -4602,33 +4600,33 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 ; Docker Compose configuration
-Source: "..\docker-compose.yml";   DestDir: "{app}"; Flags: ignoreversion
-Source: "..\docker-compose.postgres.yml"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\docker/compose/docker-compose.yml";   DestDir: "{app}"; Flags: ignoreversion
+Source: "..\docker/compose/docker-compose.postgres.yml"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\env.example";          DestDir: "{app}"; DestName: ".env.example"; Flags: ignoreversion
 
 ; Scripts
-Source: "..\scripts\*"; DestDir: "{app}\scripts"; Flags: ignoreversion recursesubdirs
+Source: "..\deploy\scripts\*"; DestDir: "{app}\scripts"; Flags: ignoreversion recursesubdirs
 
 ; Pre-built Docker images (if offline installer)
 ; Source: "images\*.tar"; DestDir: "{app}\images"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\KazmiOn POS";   Filename: "{app}\scripts\start-browser.bat"; IconFilename: "{app}\assets\icon.ico"
-Name: "{group}\Stop KazmiOn";  Filename: "{app}\scripts\stop.bat"
-Name: "{group}\Backup Data";   Filename: "{app}\scripts\backup.bat"
-Name: "{commondesktop}\KazmiOn POS"; Filename: "{app}\scripts\start-browser.bat"; IconFilename: "{app}\assets\icon.ico"
+Name: "{group}\KazmiOn POS";   Filename: "{app}\deploy\scripts\start-browser.bat"; IconFilename: "{app}\assets\icon.ico"
+Name: "{group}\Stop KazmiOn";  Filename: "{app}\deploy\scripts\stop.bat"
+Name: "{group}\Backup Data";   Filename: "{app}\deploy\scripts\backup.bat"
+Name: "{commondesktop}\KazmiOn POS"; Filename: "{app}\deploy\scripts\start-browser.bat"; IconFilename: "{app}\assets\icon.ico"
 
 [Run]
 ; Generate .env from template if it doesn't exist
-Filename: "pwsh.exe"; Parameters: "-NoProfile -File ""{app}\scripts\setup-env.ps1"""; Description: "Configure application"; Flags: runhidden waituntilterminated
+Filename: "pwsh.exe"; Parameters: "-NoProfile -File ""{app}\deploy\scripts\setup-env.ps1"""; Description: "Configure application"; Flags: runhidden waituntilterminated
 
 ; Start the Docker stack
-Filename: "pwsh.exe"; Parameters: "-NoProfile -File ""{app}\scripts\first-run.ps1"""; Description: "Starting KazmiOn (first run)..."; Flags: waituntilterminated
+Filename: "pwsh.exe"; Parameters: "-NoProfile -File ""{app}\deploy\scripts\first-run.ps1"""; Description: "Starting KazmiOn (first run)..."; Flags: waituntilterminated
 ```
 
 ---
 
-### Prerequisite Check Script (`scripts/check-prerequisites.ps1`)
+### Prerequisite Check Script (`deploy/scripts/check-prerequisites.ps1`)
 
 ```powershell
 # Check Docker Desktop
@@ -4666,7 +4664,7 @@ exit 0
 
 ---
 
-### First-Run Script (`scripts/first-run.ps1`)
+### First-Run Script (`deploy/scripts/first-run.ps1`)
 
 ```powershell
 Set-Location $PSScriptRoot\..
@@ -4712,24 +4710,24 @@ Write-Host "Check status with: docker compose ps" -ForegroundColor Gray
 
 ---
 
-### Desktop Shortcut (`scripts/start-browser.bat`)
+### Desktop Shortcut (`desktop/windows/KazmiOn-Launch.bat`)
 
 ```batch
 @echo off
-cd /d "%~dp0.."
-docker compose up -d
+cd /d "%~dp0..\.."
+docker compose -f docker/compose/compose.yaml up -d
 timeout /t 3 /nobreak >nul
 start http://localhost:8080
 ```
 
 ---
 
-### Update Without Data Loss (`scripts/update.bat`)
+### Update Without Data Loss (`deploy/scripts/update.ps1`)
 
 ```batch
 @echo off
-cd /d "%~dp0.."
-pwsh -NoProfile -File scripts\update-docker.ps1
+cd /d "%~dp0..\.."
+pwsh -NoProfile -File deploy\scripts\update.ps1
 pause
 ```
 
@@ -4774,19 +4772,19 @@ This approach avoids Docker but requires manual service management. Docker is st
 
 <a id="ref-44"></a>
 
-## Reference: `KazmiOn-Launcher/README.txt`
+## Reference: `desktop/windows/desktop/windows/KazmiOn-Launcher/README.txt`
 
 KazmiOn POS launcher - matched to public repository compose filenames
 Repository: https://github.com/farazkazmi700-syed/POS
 
 INSTALL / TEST
-1. Copy KazmiOn-Start.ps1 and KazmiOn-Launch.bat to the ROOT of your POS checkout (alongside docker-compose.yml).
+1. Copy desktop/windows/KazmiOn-Start.ps1 and desktop/windows/KazmiOn-Launch.bat to the ROOT of your POS checkout (alongside docker/compose/docker-compose.yml).
 2. Configure .env (do not commit secrets).
 3. Install and start Docker Desktop / Docker Engine.
 4. First time only, build images in the repository root:
-   docker compose -f docker-compose.yml -p kazmion build
-5. Double-click KazmiOn-Launch.bat. It starts existing images, polls http://localhost:8080, then opens the browser.
-6. Optional production overlay: KazmiOn-Launch.bat -Mode production
+   docker compose -f docker/compose/docker-compose.yml -p kazmion build
+5. Double-click desktop/windows/KazmiOn-Launch.bat. It starts existing images, polls http://localhost:8080, then opens the browser.
+6. Optional production overlay: desktop/windows/KazmiOn-Launch.bat -Mode production
    Production overlay publishes port 80, so it opens http://localhost .
 
 NOTES

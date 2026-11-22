@@ -26,8 +26,8 @@ module.exports = async function deliveryChecks({ request, check, owner, cashier,
     assert.equal((await request('/tenant/me', cashier, { invoicePrintSettings: { paperSize: 'A4' } }, 'PATCH')).status, 403);
   });
   await check('manifest startup is idempotent and disabled modules deny execution', async () => {
-    const { ModuleRegistryService } = require('../apps/api/dist/modules/super-admin/module-registry.service');
-    const { PlatformModuleSchema } = require('../apps/api/dist/modules/super-admin/schemas/platform-module.schema');
+    const { ModuleRegistryService } = require('../app/api/dist/modules/super-admin/module-registry.service');
+    const { PlatformModuleSchema } = require('../app/api/dist/modules/super-admin/schemas/platform-module.schema');
     const model = database.model('DeliveryPlatformModule', PlatformModuleSchema, 'platformmodules');
     const registry = new ModuleRegistryService(model);
     const before = await request('/developer/modules', developer);

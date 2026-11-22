@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { InstallmentService } = require('../apps/api/dist/modules/installment/installment.service.js');
+const { InstallmentService } = require('../app/api/dist/modules/installment/installment.service.js');
 
 test('installment invoice preserves plain plan fields and computes remaining balance', async () => {
   const service = Object.create(InstallmentService.prototype);
