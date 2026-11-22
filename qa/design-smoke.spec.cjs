@@ -72,3 +72,47 @@ for (const mode of [{ name: 'desktop-light', width: 1440, height: 1000, theme: '
     });
   });
 }
+
+for (const scenario of [
+  { name: 'restricted admin', permissions: ['users.read'], sections: ['Admin account', 'Staff'] },
+  { name: 'business admin', permissions: ['tax.configure', 'installments.write'], sections: ['Navigation', 'Business details', 'Admin account'] },
+  { name: 'owner', role: 'owner', sections: ['Navigation', 'Business details', 'Installments', 'Admin account', 'Tax and service charges', 'Staff'] },
+]) {
+  test(`settings rights for ${scenario.name}`, async ({ page }) => {
+    const user = { _id: 'settings-user', tenantId: tenant._id, name: 'Settings user', role: scenario.role ?? 'admin', moduleRights: scenario.role === 'owner' ? ['orders', 'settings', 'installments'] : ['settings', 'installments'], permissions: scenario.permissions };
+    await page.addInitScript((user) => localStorage.setItem('pos-auth', JSON.stringify({ state: { user, accessToken: 'fixture', refreshToken: 'fixture' }, version: 0 })), user);
+    await page.route('**/api/**', (route) => {
+      const url = new URL(route.request().url()).pathname;
+      if (!url.startsWith('/api/')) return route.continue();
+      const data = url === '/api/auth/me' ? user : url === '/api/tenant/me'
+        ? { ...tenant, featureFlags: { ...features, installments: user.role === 'owner' } }
+        : url === '/api/auth/staff' ? [user] : url === '/api/branches' ? [] : { data: [] };
+      return route.fulfill({ json: data });
+    });
+    await page.goto('/settings#taxes');
+    const links = page.getByRole('navigation', { name: 'Settings sections' }).getByRole('link');
+    await expect(links).toHaveText(scenario.sections);
+    await expect(page.locator('#taxes')).toHaveCount(user.role === 'owner' ? 1 : 0);
+    if (user.role === 'owner') {
+      await page.getByLabel('Service charge (%)').fill('7.5');
+      const saved = page.waitForRequest((r) => r.method() === 'PATCH' && r.url().endsWith('/tenant/me'));
+      await page.getByRole('button', { name: 'Save tax settings' }).click();
+      expect((await saved).postDataJSON()).toEqual({ taxProfile: { ...tenant.taxProfile, serviceChargePercent: 7.5 } });
+    }
+    await expect(page.locator('#installments')).toHaveCount(user.role === 'owner' ? 1 : 0);
+    if (scenario.name === 'restricted admin') {
+      await expect(page.locator('#business, #navigation, #branches')).toHaveCount(0);
+      await expect(page.getByRole('button', { name: /Add staff member|Edit rights|Save settings/ })).toHaveCount(0);
+    }
+    if (scenario.name === 'business admin') {
+      await expect(page.locator('#navigation input')).toHaveCount(1);
+      const saved = page.waitForRequest((r) => r.method() === 'PATCH' && r.url().endsWith('/tenant/me'));
+      await page.getByRole('button', { name: 'Save settings' }).click();
+      const body = (await saved).postDataJSON();
+      expect(body).not.toHaveProperty('invoicePrintSettings');
+      expect(body).not.toHaveProperty('invoicePrefix');
+      expect(body).not.toHaveProperty('taxProfile');
+      expect(body).not.toHaveProperty('installmentMarkupPercent');
+    }
+  });
+}

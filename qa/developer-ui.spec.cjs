@@ -7,7 +7,6 @@ const businesses = Array.from({ length: 14 }, (_, i) => ({ businessId: `business
 const user = { _id: 'developer-demo', name: 'Demo Developer', email: 'demo@example.test', role: 'owner', isDeveloper: true, isActive: true, moduleRights: [] };
 async function setup(page, theme) {
   await page.addInitScript(({ user, theme }) => {
-    localStorage.clear();
     localStorage.setItem('pos-theme', theme);
     localStorage.setItem('pos-auth', JSON.stringify({ state: { user, accessToken: 'demo', refreshToken: 'demo' }, version: 0 }));
   }, { user, theme });
@@ -58,6 +57,19 @@ for (const mode of [{ width: 1440, height: 1000, theme: 'light' }, { width: 1024
       page.on('pageerror', error => errors.push(error.message));
       await setup(page, mode.theme);
       const mobile = mode.width < 840;
+      if (mobile) {
+        await expect(page.locator('#developer-section optgroup')).toHaveCount(5);
+      } else {
+        const navigation = page.getByRole('navigation', { name: 'Developer navigation', exact: true });
+        for (const group of ['Workspace', 'Business Management', 'Platform Access', 'Operations', 'System']) {
+          await expect(navigation.getByRole('heading', { name: group, exact: true })).toBeVisible();
+        }
+        await navigation.getByRole('textbox', { name: 'Filter navigation' }).fill('module');
+        await expect(navigation.getByRole('button', { name: 'Modules', exact: true })).toBeVisible();
+        await expect(navigation.getByRole('button', { name: 'Module Rights', exact: true })).toBeVisible();
+        await expect(navigation.getByRole('button', { name: 'Businesses', exact: true })).toHaveCount(0);
+        await navigation.getByRole('button', { name: 'Clear navigation filter' }).click();
+      }
       for (const key of Object.keys(sections)) {
         await section(page, key, mobile);
         if (key === 'module-rights') {
@@ -72,7 +84,7 @@ for (const mode of [{ width: 1440, height: 1000, theme: 'light' }, { width: 1024
       await section(page, 'businesses', mobile);
       await page.getByRole('button', { name: 'Next page', exact: true }).click();
       await expect(page.getByRole('article')).toHaveCount(2);
-      await page.getByLabel('Search businesses').fill('Business 01');
+      await page.getByLabel('Search businesses', { exact: true }).fill('Business 01');
       await expect(page.getByRole('article')).toHaveCount(1);
       await page.getByRole('button', { name: 'Clear business search' }).click();
       await page.getByLabel('Sort by').selectOption('name-desc');
@@ -96,7 +108,59 @@ for (const mode of [{ width: 1440, height: 1000, theme: 'light' }, { width: 1024
         await section(page, 'overview', false);
         await page.screenshot({ path: `qa/artifacts/developer-${mode.width}-collapsed.png`, fullPage: true });
       }
+      const account = page.getByRole('group', { name: 'Developer account' });
+      await expect(account).toHaveCount(1);
+      await expect(account).toContainText(user.name);
+      await expect(account).toContainText(user.email);
+      const signOut = account.getByRole('button', { name: 'Sign out' });
+      await expect(signOut).toBeInViewport();
+      await signOut.click();
+      await expect(account).toHaveCount(0);
+      await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('pos-auth')).state.user)).toBeNull();
       expect(errors).toEqual([]);
     });
   });
 }
+
+test('dashboard review, section history and keyboard record search', async ({ page }) => {
+  await setup(page, 'light');
+  await page.getByRole('button', { name: /Suspended businesses/ }).click();
+  await expect(page.getByRole('article')).toHaveCount(1);
+  await expect(page.getByRole('article')).toContainText('Business 14');
+  await expect(page).toHaveURL(/section=businesses/);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Business Tenants' })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'Developer Dashboard' })).toBeVisible();
+  const search = page.getByRole('combobox', { name: 'Search businesses and plans' });
+  await search.fill('Business 04');
+  await search.press('ArrowDown');
+  await search.press('Enter');
+  await expect(page.getByRole('dialog', { name: 'Business 04' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await search.fill('Standard');
+  await page.getByRole('listbox', { name: 'Search results' }).getByRole('option', { name: /Standard/ }).click();
+  await expect(page.getByRole('dialog')).toHaveAccessibleName('Edit Subscription Plan');
+});
+
+test('developer accent previews, persists and resets', async ({ page }) => {
+  await setup(page, 'dark');
+  await section(page, 'settings', false);
+  const violet = page.getByRole('button', { name: 'Violet', exact: true });
+  await violet.click();
+  await expect(violet).toHaveAttribute('aria-pressed', 'true');
+  const picker = page.getByLabel('Custom color');
+  await picker.fill('#ffe100');
+  await page.reload();
+  await expect(picker).toHaveValue('#ffe100');
+  await section(page, 'overview', false);
+  const primary = page.getByRole('button', { name: 'Provision Tenant', exact: true });
+  await expect(primary).toHaveCSS('background-color', 'rgb(255, 225, 0)');
+  await expect(primary).toHaveCSS('color', 'rgb(0, 0, 0)');
+  await section(page, 'settings', false);
+  await violet.click();
+  await page.screenshot({ path: 'qa/artifacts/developer-theme-settings.png', fullPage: true });
+  await page.getByRole('button', { name: 'Reset to default' }).click();
+  await expect(picker).toHaveValue('#2463eb');
+});

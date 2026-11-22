@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { InvoiceService } = require('../apps/api/dist/modules/invoice/invoice.service');
+const { InvoiceService } = require('../app/api/dist/modules/invoice/invoice.service');
 test('includes saved customer, guarantor, serials and payment history without reading mutable customer/product records', async () => {
     const service = Object.create(InvoiceService.prototype);
     const plan = {

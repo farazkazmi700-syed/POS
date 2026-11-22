@@ -15,44 +15,46 @@ jobs:
         image: redis:7-alpine
         ports: ['6379:6379']
         options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 6
-    defaults: { run: { working-directory: apps/api } }
+    defaults: { run: { working-directory: app/api } }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 24, cache: npm, cache-dependency-path: apps/api/package-lock.json }
+        with: { node-version: 24, cache: npm, cache-dependency-path: app/api/package-lock.json }
       - run: npm ci
       - run: npm test
       - run: npm run build
       - run: node --test qa/backup-delivery.test.cjs
         working-directory: .
       - run: node ../../qa/api-integration.cjs
+        env:
+          PASSWORD_RESET_BASE_URL: http://localhost:5173/reset-password
 
   pdf-worker:
     runs-on: ubuntu-latest
-    defaults: { run: { working-directory: apps/pdf-worker } }
+    defaults: { run: { working-directory: app/pdf-worker } }
     env: { PUPPETEER_SKIP_DOWNLOAD: "true" }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 24, cache: npm, cache-dependency-path: apps/pdf-worker/package-lock.json }
+        with: { node-version: 24, cache: npm, cache-dependency-path: app/pdf-worker/package-lock.json }
       - run: npm ci
       - run: npm run build
-      - run: node --test dist/services/invoice-renderer.test.js
+      - run: npm test
 
   web:
     runs-on: ubuntu-latest
-    defaults: { run: { working-directory: apps/web } }
+    defaults: { run: { working-directory: app/web } }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 24, cache: npm, cache-dependency-path: apps/web/package-lock.json }
+        with: { node-version: 24, cache: npm, cache-dependency-path: app/web/package-lock.json }
       - run: npm ci
       - run: npm run build
       # Barcode browser tests exercise the actual API encoder, then independently decode its output.
       - run: npm ci --ignore-scripts
-        working-directory: apps/api
+        working-directory: app/api
       - run: npm run build
-        working-directory: apps/api
+        working-directory: app/api
 
       - run: npm exec --yes --package=@playwright/test -- playwright install --with-deps chromium
       - run: npm exec --yes --package=@playwright/test -- playwright test --config=qa/playwright.config.cjs
@@ -64,4 +66,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose build
+      - run: docker build -f docker/Dockerfile -t kazmion/pos:ci .

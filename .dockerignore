@@ -1,3 +1,4 @@
+# Build context is the repository root (see docker/compose/compose.yaml -> build.context: ..)
 **/node_modules
 **/dist
 **/.env
@@ -18,7 +19,19 @@
 **/playwright-report
 apps-backup
 qa/artifacts
-apps/pdf-worker/artifacts
-apps/pdf-worker/sample-invoice.html
-apps/pdf-worker/sample-invoice.pdf
+app/pdf-worker/artifacts
+app/pdf-worker/sample-invoice.html
+app/pdf-worker/sample-invoice.pdf
 .git
+
+**/backups
+
+# Repository material unused by image builds
+/.github/
+/.vscode/
+/docs/
+/qa/
+/desktop/
+/deploy/
+/backups/
+/tmp/

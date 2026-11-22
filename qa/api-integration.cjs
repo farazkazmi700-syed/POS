@@ -5,14 +5,20 @@ const { createRequire } = require('node:module');
 const { spawn } = require('node:child_process');
 const { randomUUID, randomBytes } = require('node:crypto');
 const root = path.resolve(__dirname, '..');
-const requireApi = createRequire(path.join(root, 'apps/api/package.json'));
+const requireApi = createRequire(path.join(root, 'app/api/package.json'));
 const mongoose = requireApi('mongoose');
 const bcrypt = requireApi('bcryptjs');
 const databaseName = `pos_spec_test_${Date.now()}_${randomBytes(4).toString('hex')}`;
 const prefix = `spec-test-${randomUUID()}`;
 const port = Number(process.env.SPEC_TEST_PORT || 3101);
 const setupToken = randomBytes(32).toString('hex');
-const uri = `mongodb://127.0.0.1:27017/${databaseName}`;
+const registrationPassword = randomBytes(24).toString('hex');
+const endpoint = new URL(process.env.SPEC_DATABASE_URI_FILE
+  ? require('node:fs').readFileSync(process.env.SPEC_DATABASE_URI_FILE, 'utf8').trim()
+  : 'mongodb://127.0.0.1:27017');
+if (endpoint.protocol !== 'mongodb:' || endpoint.hostname !== '127.0.0.1') throw new Error('Use a local test database');
+endpoint.pathname = '/' + databaseName;
+const uri = endpoint.toString();
 let child; let database; let recoveryFixtures; let checks = 0; let output = '';
 async function check(name, task) { await task(); checks++; console.log(`PASS ${name}`); }
 async function request(url, token, body, method = body === undefined ? 'GET' : 'POST', branch) {
@@ -35,7 +41,7 @@ async function main() {
   const owners = await Promise.all(tenants.map(async (tenant, index) => ({ _id: new mongoose.Types.ObjectId(), tenantId: tenant._id, name: `Owner ${index}`, email: `owner${index}@spec.test`, passwordHash: await bcrypt.hash('test-password-123', 4), pinHash: await bcrypt.hash('1234', 4), pinVersion: 0, sessionVersion: 0, pinRequiresChange: false, role: 'owner', isActive: true, superAdmin: false, branchIds: [] })));
   await database.collection('users').insertMany(owners);
   recoveryFixtures = await require('./recovery-fixtures.cjs').startRecoveryFixtures();
-  child = spawn(process.execPath, ['-r', path.join(root, 'qa/recovery-provider-hook.cjs'), 'dist/main.js'], { cwd: path.join(root, 'apps/api'), env: { ...process.env, PORT: String(port), MONGO_URI: uri, REDIS_URL: 'redis://127.0.0.1:6379/0', BULL_PREFIX: prefix, JWT_ACCESS_SECRET: randomBytes(32).toString('hex'), JWT_REFRESH_SECRET: randomBytes(32).toString('hex'), PLATFORM_DEVELOPER_EMAIL: 'developer@spec.test', PLATFORM_DEVELOPER_SETUP_TOKEN: setupToken, CORS_ORIGIN: 'http://localhost:5173', THROTTLE_LIMIT: '10000', SMTP_HOST: '127.0.0.1', SMTP_PORT: String(recoveryFixtures.smtpPort), SMTP_SECURE: 'false', SMTP_USER: 'test@spec.test', SMTP_PASSWORD: randomBytes(16).toString('hex'), SMTP_FROM: 'test@spec.test', TWILIO_ACCOUNT_SID: 'AC-test', TWILIO_AUTH_TOKEN: 'test-only', TWILIO_WHATSAPP_FROM: '+15005550006', TWILIO_WHATSAPP_CONTENT_SID: 'HX-test', RECOVERY_TEST_PROVIDER: recoveryFixtures.whatsappUrl }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  child = spawn(process.execPath, ['-r', path.join(root, 'qa/recovery-provider-hook.cjs'), 'dist/main.js'], { cwd: path.join(root, 'app/api'), env: { ...process.env, PORT: String(port), DEV_ACCOUNT_EMAIL: 'provisioner@spec.test', DEV_ACCOUNT_PASSWORD_HASH: await bcrypt.hash(registrationPassword, 4), MONGO_URI: uri, REDIS_URL: 'redis://127.0.0.1:6379/0', BULL_PREFIX: prefix, JWT_ACCESS_SECRET: randomBytes(32).toString('hex'), JWT_REFRESH_SECRET: randomBytes(32).toString('hex'), PLATFORM_DEVELOPER_EMAIL: 'developer@spec.test', PLATFORM_DEVELOPER_SETUP_TOKEN: setupToken, CORS_ORIGIN: 'http://localhost:5173', THROTTLE_LIMIT: '10000', SMTP_HOST: '127.0.0.1', SMTP_PORT: String(recoveryFixtures.smtpPort), SMTP_SECURE: 'false', SMTP_USER: 'test@spec.test', SMTP_PASSWORD: randomBytes(16).toString('hex'), SMTP_FROM: 'test@spec.test', TWILIO_ACCOUNT_SID: 'AC-test', TWILIO_AUTH_TOKEN: 'test-only', TWILIO_WHATSAPP_FROM: '+15005550006', TWILIO_WHATSAPP_CONTENT_SID: 'HX-test', RECOVERY_TEST_PROVIDER: recoveryFixtures.whatsappUrl }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   child.stdout.on('data', (data) => { output = (output + data).slice(-18000); }); child.stderr.on('data', (data) => { output = (output + data).slice(-18000); });
   let ready = false;
   for (let attempt = 0; attempt < 80; attempt++) {
@@ -45,6 +51,18 @@ async function main() {
   }
   assert.ok(ready, `API did not become ready: ${output}`);
   await check('health and unauthenticated access', async () => { assert.equal((await request('/health')).status, 200); assert.equal((await request('/products')).status, 401); });
+  await check('registration persists the tenant and owner with a unique email', async () => {
+    const registration = { developerEmail: 'provisioner@spec.test', developerPassword: registrationPassword,
+      businessName: 'Provisioned business', domainType: 'retail', ownerName: 'New owner',
+      email: 'new-owner@spec.test', password: 'Provision-Test-52!' };
+    const response = await request('/auth/register', null, registration);
+    assert.equal(response.status, 201, JSON.stringify(response.data));
+    const account = await database.collection('users').findOne({ email: registration.email });
+    assert.equal(account?.role, 'owner');
+    assert.ok(await database.collection('tenants').findOne({ _id: account.tenantId }));
+    assert.equal((await request('/auth/register', null, registration)).status, 409);
+    assert.equal((await request('/auth/login', null, { email: registration.email, password: registration.password })).status, 201);
+  });
   await check('invalid credentials rejected', async () => assert.equal((await request('/auth/login', null, { email: owners[0].email, password: 'wrong' })).status, 401));
   const owner = await login(owners[0].email); const otherOwner = await login(owners[1].email);
   await check('module read APIs respond for an authorized business account', async () => {
@@ -137,9 +155,10 @@ async function main() {
   await check('deactivate and reactivate revoke previous sessions', async () => { assert.equal((await request(`/auth/staff/${staffId}/status`, owner, { isActive: false }, 'PATCH')).status, 200); assert.equal((await request('/products', cashier)).status, 401); assert.equal((await request(`/auth/staff/${staffId}/status`, owner, { isActive: true }, 'PATCH')).status, 200); assert.equal((await request('/products', cashier)).status, 401); });
   const defaultBranch = await request('/branches', owner, { name: 'Main branch', code: 'MAIN' }); assert.equal(defaultBranch.status, 201, JSON.stringify(defaultBranch.data));
   await check('branch limit is enforced', async () => assert.equal((await request('/branches', owner, { name: 'Second branch', code: 'SECOND' })).status, 403));
-  const setup = await request('/auth/developer/setup-pin', null, { email: 'developer@spec.test', setupToken }); assert.equal(setup.status, 201, JSON.stringify(setup.data));
-  const developerResult = await request('/auth/developer/login', null, { pin: setup.data.pin }); assert.equal(developerResult.status, 201, JSON.stringify(developerResult.data)); const developer = developerResult.data.accessToken;
-  await require('./delivery-phase-checks.cjs')({ request, check, owner, cashier: await login('cashier@spec.test'), otherOwner, developer, database, tenants, mongoose });
+  const developerPassword = 'developer-password-123';
+  const setup = await request('/auth/developer/setup-password', null, { email: 'developer@spec.test', setupToken, password: developerPassword }); assert.equal(setup.status, 201, JSON.stringify(setup.data)); assert.equal(setup.data.passwordSet, true);
+  const developerResult = await request('/auth/developer/login', null, { email: 'developer@spec.test', password: developerPassword }); assert.equal(developerResult.status, 201, JSON.stringify(developerResult.data)); const developer = developerResult.data.accessToken;
+  await require('./delivery-phase-checks.cjs')({ request, check, owner, cashier: await login('cashier@spec.test'), otherOwner, developer, database, tenants, mongoose, uri });
   await check('backup is developer-only and includes business records without credentials', async () => {
     assert.equal((await request('/developer/backup', owner)).status, 403);
     const backup = await request('/developer/backup', developer);
@@ -262,12 +281,11 @@ async function main() {
     const loggedIn = await request('/auth/login/pin', null, { challengeToken: step.data.challengeToken, pin: '5678' }); assert.equal(loggedIn.status, 201, JSON.stringify(loggedIn.data));
     assert.equal((await request('/auth/me', loggedIn.data.accessToken)).status, 200);
   });
-  await check('developer PIN reset is single-use under concurrent confirmations', async () => {
-    const issued = await recoveryRequest('developer@spec.test', 'developer-pin');
-    const results = await Promise.all(Array.from({ length: 4 }, () => request('/auth/recovery/confirm', null, { challengeId: issued.challengeId, code: issued.code, newSecret: '48291736' })));
-    assert.equal(results.filter((result) => result.status === 201).length, 1, JSON.stringify(results));
-    assert.ok(results.every((result) => [201, 400].includes(result.status)));
-    assert.equal((await request('/auth/developer/login', null, { pin: '48291736' })).status, 201);
+  await check('developer authentication requires the configured email and password', async () => {
+    assert.equal((await request('/auth/developer/login', null, { pin: '48291736' })).status, 400);
+    assert.equal((await request('/auth/developer/login', null, { email: 'developer@spec.test', password: 'wrong-password-123' })).status, 401);
+    assert.equal((await request('/auth/developer/login', null, { email: 'developer@spec.test', password: developerPassword })).status, 201);
+    assert.equal((await request('/auth/recovery/request', null, { email: 'developer@spec.test', purpose: 'developer-pin' })).status, 400);
   });
   await check('legacy PIN reset endpoints use the same OTP and session protections', async () => {
     await database.collection('users').updateOne({ email: owners[0].email }, { $unset: { securityCodeRequestedAt: 1 } });
@@ -276,6 +294,20 @@ async function main() {
     assert.equal((await request('/auth/pin/reset', null, { email: owners[0].email, code, newPin: '6789' })).status, 201);
     assert.equal((await request('/auth/pin/reset', null, { email: owners[0].email, code, newPin: '9876' })).status, 400);
     const token = await login(owners[0].email, 'updated-password-123', '6789'); assert.ok(token);
+  });
+  await check('an emailed reset link changes the password once and revokes the previous session', async () => {
+    const email = 'reset-link@spec.test';
+    await database.collection('users').insertOne({ ...owners[0], _id: new mongoose.Types.ObjectId(), email });
+    const previousSession = await login(email);
+    assert.equal((await request('/auth/forgot-password', null, { email })).status, 201);
+    const message = recoveryFixtures.emails.at(-1).replace(/=\r\n/g, '').replace(/=3D/g, '=');
+    const token = /\/reset-password#token=([A-Za-z0-9_-]{43})/.exec(message)?.[1];
+    assert.ok(token, 'Expected reset link in local SMTP delivery');
+    const body = { token, newPassword: 'new-test-passphrase-123' };
+    assert.equal((await request('/auth/reset-password', null, body)).status, 201);
+    assert.equal((await request('/auth/reset-password', null, body)).status, 400);
+    assert.equal((await request('/auth/me', previousSession)).status, 401);
+    assert.ok(await login(email, body.newPassword));
   });
   console.log(`\n${checks} real API integration checks passed against ${databaseName}.`);
 }

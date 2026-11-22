@@ -1,5 +1,38 @@
 const path = require('node:path');
 const { test, expect } = require(require.resolve('@playwright/test', { paths: [path.dirname(process.argv[1])] }));
+for (const separator of ['#', '?']) {
+  test(`reset link with ${separator} protects the token and prevents repeat submissions`, async ({ page }) => {
+    let requests = 0;
+    let release;
+    const delay = new Promise(resolve => { release = resolve; });
+    await page.route('**/api/auth/reset-password', async route => {
+      requests++;
+      expect(route.request().headers().referer).toBeUndefined();
+      expect(route.request().postDataJSON()).toEqual({ token: 'fixture-token', newPassword: 'test-passphrase-123' });
+      await delay;
+      await route.fulfill({ json: { message: 'Password updated.' } });
+    });
+    await page.goto('/reset-password' + separator + 'token=fixture-token');
+    await page.getByLabel('New password', { exact: true }).fill('test-passphrase-123');
+    await page.getByLabel('Confirm password').fill('test-passphrase-123');
+    await page.getByRole('button', { name: 'Update password' }).click();
+    try {
+      await expect(page.getByRole('button', { name: 'Updating password' })).toBeDisabled();
+    } finally {
+      release();
+    }
+    await expect(page.getByRole('status')).toContainText('Password updated');
+    await expect(page.getByLabel('New password', { exact: true })).toHaveCount(0);
+    expect(requests).toBe(1);
+  });
+}
+
+test('missing reset token shows an actionable message immediately', async ({ page }) => {
+  await page.goto('/reset-password');
+  await expect(page.getByRole('alert')).toContainText('Open the link');
+  await expect(page.getByRole('link', { name: 'recover your account' })).toHaveAttribute('href', '/recover');
+  await expect(page.getByLabel('New password', { exact: true })).toHaveCount(0);
+});
 for (const width of [390, 1440]) {
   test(`${width}: email recovery verifies OTP, confirms password, and enforces resend delay`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -31,7 +64,7 @@ for (const width of [390, 1440]) {
     await page.screenshot({ path: `qa/artifacts/recovery-${width}.png`, fullPage: true });
   });
 }
-test('developer PIN recovery sends the correct purpose and channel', async ({ page }) => {
+test('developer password recovery sends the password purpose and returns to Developer sign in', async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
   let sent;
   await page.route('**/api/auth/recovery/**', async (route) => {
@@ -39,12 +72,14 @@ test('developer PIN recovery sends the correct purpose and channel', async ({ pa
     sent = route.request().postDataJSON();
     return route.fulfill({ json: { challengeId: 'c001fa51-5b3d-4e62-86fc-947d7715e308', resendAfter: 60, message: 'Check your registered contact.' } });
   });
-  await page.goto('/recover?purpose=developer-pin');
+  await page.goto('/recover?purpose=password&source=developer');
+  await expect(page.getByRole('link', { name: '← Back to sign in' })).toHaveAttribute('href', '/developer');
+  await expect(page.locator('option[value="developer-pin"]')).toHaveCount(0);
   await page.getByLabel('Account sign-in email').fill('developer@example.test');
   await page.getByLabel('Send verification code by').selectOption('whatsapp');
   await page.getByRole('button', { name: 'Send verification code', exact: true }).click();
-  await expect(page.getByLabel('New 8-digit PIN')).toBeVisible();
-  expect(sent).toEqual({ email: 'developer@example.test', purpose: 'developer-pin', channel: 'whatsapp' });
+  await expect(page.getByLabel('New password', { exact: true })).toBeVisible();
+  expect(sent).toEqual({ email: 'developer@example.test', purpose: 'password', channel: 'whatsapp' });
 });
 test('unconfigured providers are unavailable and never imply code delivery', async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());

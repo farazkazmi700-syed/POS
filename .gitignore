@@ -46,3 +46,6 @@ backups/
 # Editor config
 .vscode/
 .kilo/
+
+# Compiled Windows launcher installer
+/desktop/windows/KazmiOn-Launcher/output/

@@ -2,15 +2,16 @@ const path = require('node:path');
 const { test, expect } = require(require.resolve('@playwright/test', { paths: [path.dirname(process.argv[1])] }));
 const tenant = { _id: '111111111111111111111111', name: 'Fixture Electronics', domainType: 'electronics', currency: 'PKR', timeZone: 'Asia/Karachi', featureFlags: { installments: true }, status: 'active', invoicePrintSettings: { paperSize: '58mm', orientation: 'portrait' } };
 const sale = { _id: '222222222222222222222222', tenantId: tenant._id, agreementId: 'AGR-TEST', customerId: '333333333333333333333333', actualPrice: 100, advancePayment: 10, commissionAmount: 9, totalInstallmentPrice: 109, installmentDuration: 3, paymentFrequency: 'monthly', outstandingBalance: 99, totalPaid: 10, saleStatus: 'active', isActive: true, schedule: [{ installmentId: 'r1', dueDate: '2026-12-01', expectedAmount: 99, amountPaid: 0, remainingAmount: 99, status: 'pending' }], payments: [{ paymentId: 'p1', receiptNo: 'RCPT-1', paidAt: '2026-11-16', mode: 'cash', amount: 10 }] };
-async function setup(page, rights, canExport = false) {
-  const user = { _id: '444444444444444444444444', tenantId: tenant._id, name: 'Fixture cashier', role: 'cashier', email: 'fixture@example.test', moduleRights: rights };
+async function setup(page, rights, canExport = false, account) {
+  const user = account ?? { _id: '444444444444444444444444', tenantId: tenant._id, name: 'Fixture cashier', role: 'cashier', email: 'fixture@example.test', moduleRights: rights };
   await page.addInitScript((user) => { localStorage.setItem('pos-auth', JSON.stringify({ state: { user, accessToken: 'fixture', refreshToken: 'fixture' }, version: 0 })); }, user);
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url()).pathname;
+    if (!url.startsWith('/api/')) return route.continue();
     let data = { data: [], total: 0, page: 1, limit: 20 };
     if (url === '/api/auth/me') data = user;
     else if (url === '/api/tenant/me') data = tenant;
-    else if (url === '/api/branches') data = [];
+    else if (url === '/api/branches' || url === '/api/auth/staff') data = [];
     else if (url === '/api/support') data = { backup: { canExport } };
     else if (url === '/api/installments/sales') data = { data: [sale], total: 1, page: 1, limit: 20 };
     else if (url === `/api/installments/sales/${sale._id}`) data = sale;
@@ -59,3 +60,40 @@ for (const width of [390, 1440]) {
     });
   });
 }
+
+test('profile contacts and business logo can be added, updated and removed', async ({ page }) => {
+  const account = { _id: '444444444444444444444444', tenantId: tenant._id, role: 'owner', name: 'Owner', email: 'owner@example.test' };
+  const business = { ...tenant, invoicePrefix: 'INV', featureFlags: { pos: true } };
+  await setup(page, [], false, account);
+  for (const [url, record] of [['auth/me', account], ['tenant/me', business]]) {
+    await page.route('**/api/' + url, async route => {
+      if (route.request().method() === 'PATCH') Object.assign(record, route.request().postDataJSON());
+      await route.fulfill({ json: record });
+    });
+  }
+  await page.goto('/settings');
+  for (const [email, phone] of [['one@example.test', '03001234567'], ['two@example.test', '03007654321']]) {
+    await page.getByLabel('Recovery email', { exact: true }).fill(email);
+    await page.getByLabel('Recovery phone', { exact: true }).fill(phone);
+    await page.getByRole('button', { name: 'Save profile' }).click();
+    await expect(page.getByText('Profile saved.', { exact: true })).toBeVisible();
+    await expect.poll(() => [account.recoveryEmail, account.phone]).toEqual([email, phone]);
+  }
+  await page.getByRole('button', { name: 'Remove email' }).click();
+  await page.getByRole('button', { name: 'Remove phone' }).click();
+  await page.getByRole('button', { name: 'Save profile' }).click();
+  await expect.poll(() => [account.recoveryEmail, account.phone]).toEqual([null, null]);
+  await page.getByRole('button', { name: 'Use KazmiOn Logo' }).click();
+  await page.getByRole('button', { name: 'Save Logo' }).click();
+  await expect.poll(() => business.logoUrl).toBe('/kazmion-logo.jpg');
+  await page.getByPlaceholder('https://cdn.example.com/logo.png').fill('/updated-logo.png');
+  await page.getByRole('button', { name: 'Save Logo' }).click();
+  await expect.poll(() => business.logoUrl).toBe('/updated-logo.png');
+  await page.getByRole('button', { name: 'Remove', exact: true }).click();
+  await page.getByRole('button', { name: 'Save Logo' }).click();
+  await expect.poll(() => business.logoUrl).toBe('');
+  await page.reload();
+  await expect(page.getByLabel('Recovery email', { exact: true })).toHaveValue('');
+  await expect(page.getByLabel('Recovery phone', { exact: true })).toHaveValue('');
+  await expect(page.getByRole('button', { name: 'Save Logo' })).toBeDisabled();
+});

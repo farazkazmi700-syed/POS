@@ -21,6 +21,8 @@ for (const [width, height, theme] of screens) {
     });
     const fits = async () => {
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      const layout = await page.locator('.sign-in-page').boundingBox();
+      expect(layout.height).toBeGreaterThanOrEqual(height);
       const card = await page.locator('.sign-in-card').boundingBox();
       expect(card.x).toBeGreaterThanOrEqual(0);
       expect(card.x + card.width).toBeLessThanOrEqual(width + 1);
