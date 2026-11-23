@@ -96,6 +96,7 @@ try {
 
     docker compose `
         -f $ComposeFile `
+        --env-file (Join-Path $ProjectDir ".env") `
         -p kazmion `
         up -d --no-build
 
