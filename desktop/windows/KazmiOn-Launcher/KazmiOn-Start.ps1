@@ -7,7 +7,7 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $log = Join-Path $root 'KazmiOn-startup.log'
 $base = Join-Path $root 'docker/compose/compose.yaml'
 $prod = Join-Path $root 'docker/compose/docker-compose.prod.yml'
-$files = @('-f', $base)
+$files = @('-f', $base, '--env-file', (Join-Path $root '.env'))
 $url = 'http://localhost:8080'
 if ($Mode -eq 'production') {
     $files += @('-f', $prod)

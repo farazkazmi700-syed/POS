@@ -12,7 +12,7 @@ echo.
 echo Checking Docker and starting services...
 echo.
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0desktop/windows/KazmiOn-Start.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0KazmiOn-Start.ps1"
 
 if errorlevel 1 (
     echo.
