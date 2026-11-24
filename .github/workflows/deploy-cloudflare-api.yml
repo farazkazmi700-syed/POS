@@ -1,0 +1,49 @@
+name: Deploy API to Cloudflare Workers
+
+on:
+  push:
+    branches: [main]
+    paths: 
+      - 'app/api/**'
+      - 'app/packages/**'
+      - '.github/workflows/deploy-cloudflare-api.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    defaults:
+      run:
+        working-directory: app/api
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/api/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build API
+        run: npm run build
+        env:
+          # Public API origin incl. /api. Leave empty when the API shares the page origin.
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+      
+      - name: Build Worker entry
+        run: npm run build:worker
+      
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          workingDirectory: app/api
+          environment: production

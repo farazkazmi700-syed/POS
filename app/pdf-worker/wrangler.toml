@@ -1,0 +1,39 @@
+# Cloudflare Workers deployment for KazmiOn POS PDF Worker
+# Runs BullMQ worker for PDF invoice generation
+name = "kazmion-pos-pdf-worker"
+main = "dist/worker-entry.js"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Environment variables (set in Cloudflare dashboard or via wrangler secret put)
+[vars]
+NODE_ENV = "production"
+STORAGE_MODE = "r2"
+
+# Bindings
+# R2 bucket for PDF storage
+[[r2_buckets]]
+binding = "PDF_BUCKET"
+bucket_name = "kazmion-pos-pdfs"
+
+# Hyperdrive connection for PostgreSQL (recommended for production)
+# [[hyperdrive]]
+# binding = "HYPERDRIVE"
+# id = "<hyperdrive-id>"
+
+# KV namespace for caching (optional)
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "<kv-namespace-id>"
+
+# Build configuration
+[build]
+command = "npm run build"
+
+# Observability
+[observability]
+enabled = true
+
+# Triggers (optional - for scheduled runs)
+# [triggers]
+# crons = ["*/5 * * * *"]  # Every 5 minutes

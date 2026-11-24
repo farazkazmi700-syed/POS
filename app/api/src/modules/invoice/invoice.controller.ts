@@ -1,7 +1,7 @@
-import { Controller, Get, Param, Post, StreamableFile } from '@nestjs/common';
+import { Controller, Get, Param, Post, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
-import { createReadStream, existsSync } from 'fs';
+import { Response } from 'express';
 import { NotFoundException } from '@nestjs/common';
 import { AuthUser } from '../../common/auth-user';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -27,14 +27,27 @@ export class InvoiceController {
   }
 
   @Get('pdf')
-  async pdf(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
+  async pdf(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Res() res: Response) {
     const order = await this.invoices.getOrder(user.tenantId, id, user.role === Role.Cashier ? user.userId : undefined);
-    const file = this.invoices.resolvePdfPath(order);
-    if (!existsSync(file)) throw new NotFoundException('Invoice PDF not found on disk');
-    return new StreamableFile(createReadStream(file), {
-      type: 'application/pdf',
-      disposition: `inline; filename="${(order.invoiceNo || 'invoice').replace(/[^A-Za-z0-9._-]+/g, '_')}.pdf"`,
-    });
+    
+    try {
+      const stream = await this.invoices.getPdfStream(order);
+      if (!stream) {
+        throw new NotFoundException('Invoice PDF not found');
+      }
+      
+      // Convert Web ReadableStream to Node.js stream for Express
+      const { Readable } = await import('stream');
+      const nodeStream = Readable.fromWeb(stream);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${(order.invoiceNo || 'invoice').replace(/[^A-Za-z0-9._-]+/g, '_')}.pdf"`);
+      
+      nodeStream.pipe(res);
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new NotFoundException('Invoice PDF not found');
+    }
   }
 
   @Post('regenerate')

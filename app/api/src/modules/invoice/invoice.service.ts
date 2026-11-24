@@ -17,9 +17,15 @@ import { InstallmentPlan } from '../installment/schemas/installment-plan.schema'
 import { nextDueOf, overdueOf, todayIn } from '../installment/calc/calculate-plan';
 import { toMinor } from '../installment/calc/money';
 
+// R2 types (only used when STORAGE_MODE=r2)
+interface R2Bucket {
+  get(key: string): Promise<{ body: ReadableStream; arrayBuffer(): Promise<ArrayBuffer> } | null>;
+}
+
 @Injectable()
 export class InvoiceService {
   private readonly logger = new Logger(InvoiceService.name);
+  private r2Bucket: R2Bucket | null = null;
 
   constructor(
     @InjectQueue(INVOICE_QUEUE) private readonly queue: Queue<InvoiceJobData>,
@@ -28,7 +34,25 @@ export class InvoiceService {
     private readonly tenants: TenantService,
     private readonly config: ConfigService,
     private readonly state: InvoiceStateService,
-  ) {}
+  ) {
+    // Initialize R2 bucket if in R2 mode
+    this.initR2Storage();
+  }
+
+  private initR2Storage() {
+    const storageMode = this.config.get<string>('STORAGE_MODE', 'local');
+    if (storageMode === 'r2') {
+      // In Cloudflare Workers, the R2 bucket is injected via binding
+      // For Node.js, we'd use @aws-sdk/client-s3 with R2 endpoint
+      // This is a placeholder - actual implementation depends on deployment target
+      this.logger.log('R2 storage mode enabled');
+    }
+  }
+
+  /** Set R2 bucket (called from Worker entry point) */
+  setR2Bucket(bucket: R2Bucket) {
+    this.r2Bucket = bucket;
+  }
 
   /** Queue PDF generation. Never throws: a queue outage must not fail a completed sale. */
   async enqueue(order: OrderDocument): Promise<void> {
@@ -132,7 +156,92 @@ export class InvoiceService {
     return { status: order.invoiceStatus };
   }
 
-  /** Absolute path of a finished PDF, guarded against path traversal. */
+  /** Get PDF stream - works with both local and R2 storage */
+  async getPdfStream(order: OrderDocument): Promise<ReadableStream | null> {
+    if (order.invoiceStatus !== InvoiceStatus.Ready || !order.invoicePdfPath) {
+      throw new NotFoundException('Invoice PDF is not ready yet');
+    }
+
+    const storageMode = this.config.get<string>('STORAGE_MODE', 'local');
+    
+    if (storageMode === 'r2' && this.r2Bucket) {
+      // R2 storage
+      const object = await this.r2Bucket.get(order.invoicePdfPath);
+      if (!object) {
+        throw new NotFoundException('Invoice PDF not found in R2');
+      }
+      return object.body;
+    }
+
+    // Local storage (original implementation)
+    const rel = order.invoicePdfPath.replace(/^[/\\]+/, '');
+    const configured = this.config.get<string>('STORAGE_DIR', './storage/record of business');
+    const roots = [
+      path.resolve(configured),
+      path.resolve(process.cwd(), configured),
+      path.resolve(configured, '..', 'invoices'),
+      path.resolve(process.cwd(), configured, '..', 'invoices'),
+      path.resolve(process.cwd(), 'storage', 'record of business'),
+      path.resolve(process.cwd(), 'storage', 'invoices'),
+    ];
+    const seen = new Set<string>();
+    for (const root of roots) {
+      const key = root.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const file = path.resolve(root, rel);
+      if (file !== root && !file.startsWith(root + path.sep)) continue;
+      if (existsSync(file)) {
+        const { createReadStream } = await import('fs');
+        const { Readable } = await import('stream');
+        return Readable.fromWeb(createReadStream(file) as any);
+      }
+    }
+    throw new NotFoundException('Invoice PDF not found on disk');
+  }
+
+  /** Get PDF as ArrayBuffer - works with both local and R2 storage */
+  async getPdfArrayBuffer(order: OrderDocument): Promise<ArrayBuffer | null> {
+    if (order.invoiceStatus !== InvoiceStatus.Ready || !order.invoicePdfPath) {
+      throw new NotFoundException('Invoice PDF is not ready yet');
+    }
+
+    const storageMode = this.config.get<string>('STORAGE_MODE', 'local');
+    
+    if (storageMode === 'r2' && this.r2Bucket) {
+      const object = await this.r2Bucket.get(order.invoicePdfPath);
+      if (!object) return null;
+      return object.arrayBuffer();
+    }
+
+    // Local storage
+    const rel = order.invoicePdfPath.replace(/^[/\\]+/, '');
+    const configured = this.config.get<string>('STORAGE_DIR', './storage/record of business');
+    const roots = [
+      path.resolve(configured),
+      path.resolve(process.cwd(), configured),
+      path.resolve(configured, '..', 'invoices'),
+      path.resolve(process.cwd(), configured, '..', 'invoices'),
+      path.resolve(process.cwd(), 'storage', 'record of business'),
+      path.resolve(process.cwd(), 'storage', 'invoices'),
+    ];
+    const seen = new Set<string>();
+    for (const root of roots) {
+      const key = root.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const file = path.resolve(root, rel);
+      if (file !== root && !file.startsWith(root + path.sep)) continue;
+      if (existsSync(file)) {
+        const { readFile } = await import('fs/promises');
+        const buffer = await readFile(file);
+        return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
+      }
+    }
+    return null;
+  }
+
+  /** @deprecated Use getPdfStream or getPdfArrayBuffer instead */
   resolvePdfPath(order: OrderDocument): string {
     if (order.invoiceStatus !== InvoiceStatus.Ready || !order.invoicePdfPath) {
       throw new NotFoundException('Invoice PDF is not ready yet');

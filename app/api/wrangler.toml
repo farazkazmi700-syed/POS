@@ -1,0 +1,46 @@
+# Cloudflare Workers deployment for KazmiOn POS API
+# Uses Node.js compatibility mode to run NestJS application
+name = "kazmion-pos-api"
+main = "dist/main.js"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Environment variables (set in Cloudflare dashboard or via wrangler secret put)
+[vars]
+NODE_ENV = "production"
+PORT = "3000"
+
+# Bindings
+# R2 bucket for PDF storage
+[[r2_buckets]]
+binding = "PDF_BUCKET"
+bucket_name = "kazmion-pos-pdfs"
+
+# Hyperdrive connection for PostgreSQL (recommended for production)
+# [[hyperdrive]]
+# binding = "HYPERDRIVE"
+# id = "<hyperdrive-id>"
+
+# D1 database (alternative to PostgreSQL)
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "kazmion-pos"
+# database_id = "<database-id>"
+
+# KV namespace for caching/sessions (optional)
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "<kv-namespace-id>"
+
+# Durable Objects for WebSocket/real-time (optional)
+# [[durable_objects.bindings]]
+# name = "WEBSOCKET"
+# class_name = "WebSocketDO"
+
+# Build configuration
+[build]
+command = "npm run build"
+
+# Observability
+[observability]
+enabled = true
