@@ -26,10 +26,6 @@ bucket_name = "kazmion-pos-pdfs"
 # binding = "CACHE"
 # id = "<kv-namespace-id>"
 
-# Build configuration
-[build]
-command = "npm run build"
-
 # Observability
 [observability]
 enabled = true

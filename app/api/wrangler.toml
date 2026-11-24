@@ -37,10 +37,6 @@ bucket_name = "kazmion-pos-pdfs"
 # name = "WEBSOCKET"
 # class_name = "WebSocketDO"
 
-# Build configuration
-[build]
-command = "npm run build"
-
 # Observability
 [observability]
 enabled = true
