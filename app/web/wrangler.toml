@@ -9,12 +9,6 @@ name = "kazmion-pos-web"
 pages_build_output_dir = "./dist"
 compatibility_date = "2026-11-01"
 
-[build]
-  command = "npm ci && npm run build"
-
-[build.environment]
-  NODE_VERSION = "24"
-
 # Single-page app: every unknown route falls back to index.html so deep links
 # such as /pos, /settings or /reset-password resolve inside React Router.
 [[redirects]]
