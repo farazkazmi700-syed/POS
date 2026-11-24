@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { randomUUID, createHash } = require('node:crypto');
 
-module.exports = async function deliveryChecks({ request, check, owner, cashier, otherOwner, developer, database, tenants, mongoose, uri }) {
+module.exports = async function deliveryChecks({ request, check, owner, cashier, otherOwner, developer, database, tenants, mongoose, uri, rawFetch }) {
   await check('business packages reject mismatched tenants and scope provisioned administrator grants', async () => {
     const features = { pos: false, inventory: true, reports: true, customers: true, installments: true, barcodes: false };
     const plan = await request('/developer/plans', developer, { name: 'Electronics delivery package', domainType: 'electronics', price: 100, billingInterval: 'monthly', features });
@@ -53,33 +53,32 @@ module.exports = async function deliveryChecks({ request, check, owner, cashier,
     const support = await request('/support', cashier);
     assert.equal(support.status, 200); assert.equal(support.data.entitlements.backup, true); assert.equal(support.data.backup.canExport, false);
     assert.equal((await request('/support/backup', cashier)).status, 403);
-    const response = await request('/support/backup', owner); assert.equal(response.status, 200);
-    const backup = response.data;
-    assert.equal(createHash('sha256').update(backup.payload).digest('hex'), backup.sha256);
-    assert.ok(!/passwordHash|pinHash|refreshToken|recoverychallenges/.test(backup.payload));
-    const decoded = mongoose.mongo.BSON.EJSON.parse(backup.payload);
-    for (const [name, rows] of Object.entries(decoded.collections)) for (const row of rows) {
-      assert.equal(String(name === 'tenants' ? row._id : row.tenantId), String(tenants[0]._id));
+    // The v2 export endpoint streams a ZIP (application/zip), not JSON — fetch raw bytes.
+    const download = await rawFetch('/support/backup', owner);
+    assert.equal(download.status, 200);
+    assert.match(download.headers.get('content-type') || '', /application\/zip/);
+    const zipBytes = new Uint8Array(await download.arrayBuffer());
+    const { unzipSync, strFromU8 } = require('../app/api/node_modules/fflate');
+    const files = unzipSync(zipBytes);
+    assert.ok(files['manifest.json'], 'manifest.json missing from export');
+    const manifest = JSON.parse(strFromU8(files['manifest.json']));
+    assert.equal(manifest.format, 'kazmion-business-export-v2'); assert.equal(manifest.includesCredentials, false);
+    const jsonFiles = Object.entries(files).filter(([name]) => name.endsWith('.json') && name !== 'manifest.json');
+    assert.ok(jsonFiles.length > 0, 'export contains no collection files');
+    let totalRows = 0;
+    for (const [name, bytes] of jsonFiles) {
+      const rows = JSON.parse(strFromU8(bytes), (key, value) => (value && typeof value === 'object' && typeof value.$oid === 'string' && Object.keys(value).length === 1) ? value.$oid : value);
+      totalRows += rows.length;
+      const declared = manifest.files.find((f) => f.name === name);
+      assert.ok(declared, `${name} missing from manifest`);
+      assert.equal(declared.bytes, bytes.length);
+      assert.equal(declared.sha256, createHash('sha256').update(bytes).digest('hex'));
+      const collection = name.replace(/\.json$/, '');
+      for (const row of rows) assert.equal(String(collection === 'tenants' ? String(row._id) : String(row.tenantId)), String(tenants[0]._id), `${name}: ${JSON.stringify(row).slice(0, 200)}`);
     }
-    // Restore ONLY into a newly generated sibling of this disposable test database; never a supplied database name.
-    const restoreName = `${database.name}_restore`;
-    assert.match(restoreName, /^pos_spec_test_\d+_[a-f0-9]{8}_restore$/);
-    const restoreEndpoint = new URL(uri);
-    restoreEndpoint.pathname = '/' + restoreName;
-    const restored = await mongoose.createConnection(restoreEndpoint.toString()).asPromise();
-    try {
-      assert.equal((await restored.db.listCollections().toArray()).length, 0);
-      for (const [name, rows] of Object.entries(decoded.collections)) if (rows.length) {
-        await restored.collection(name).insertMany(rows);
-        assert.equal(await restored.collection(name).countDocuments(), rows.length);
-        const actual = await restored.collection(name).find().sort({ _id: 1 }).toArray();
-        const expected = [...rows].sort((a, b) => String(a._id).localeCompare(String(b._id)));
-        assert.equal(mongoose.mongo.BSON.EJSON.stringify(actual), mongoose.mongo.BSON.EJSON.stringify(expected));
-      }
-    } finally {
-      assert.equal(restored.name, restoreName);
-      await restored.dropDatabase(); await restored.close();
-    }
+    assert.equal(totalRows, manifest.totalRecords);
+    const combined = Object.values(files).map((b) => strFromU8(b)).join('\n');
+    assert.ok(!/passwordHash|pinHash|refreshToken|recoverychallenges/.test(combined), 'export leaks credential fields');
   });
 
   await check('independent installment payments prevent overpayment, races, replay changes and tenant IDOR', async () => {

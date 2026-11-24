@@ -43,7 +43,20 @@ jobs:
 
   web:
     runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports: ['27017:27017']
+        options: --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok'" --health-interval 10s --health-timeout 5s --health-retries 6
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 6
     defaults: { run: { working-directory: app/web } }
+    env:
+      # Vite proxy target for /api (vite.config.ts). Playwright mocks API routes, but the proxy
+      # needs a live backend for any request a spec does not intercept.
+      VITE_API_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -55,7 +68,20 @@ jobs:
         working-directory: app/api
       - run: npm run build
         working-directory: app/api
-
+      # Start the API backend so the vite proxy has a live /api target.
+      - run: |
+          PORT=3000 MONGO_URI=mongodb://127.0.0.1:27017/pos_test REDIS_URL=redis://127.0.0.1:6379/0 \
+          JWT_ACCESS_SECRET=ci-test-access-secret JWT_REFRESH_SECRET=ci-test-refresh-secret \
+          CORS_ORIGIN=http://localhost:5173 PASSWORD_RESET_BASE_URL=http://localhost:5173/reset-password \
+          nohup node dist/main.js > /tmp/pos-api.log 2>&1 &
+          echo $! > /tmp/pos-api.pid
+        working-directory: app/api
+      - run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/api/health > /dev/null; then echo "API ready"; exit 0; fi
+            sleep 1
+          done
+          echo "API did not become ready:"; cat /tmp/pos-api.log; exit 1
       - run: npm exec --yes --package=@playwright/test -- playwright install --with-deps chromium
       - run: npm exec --yes --package=@playwright/test -- playwright test --config=qa/playwright.config.cjs
         working-directory: .

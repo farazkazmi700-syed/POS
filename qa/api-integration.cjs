@@ -158,7 +158,7 @@ async function main() {
   const developerPassword = 'developer-password-123';
   const setup = await request('/auth/developer/setup-password', null, { email: 'developer@spec.test', setupToken, password: developerPassword }); assert.equal(setup.status, 201, JSON.stringify(setup.data)); assert.equal(setup.data.passwordSet, true);
   const developerResult = await request('/auth/developer/login', null, { email: 'developer@spec.test', password: developerPassword }); assert.equal(developerResult.status, 201, JSON.stringify(developerResult.data)); const developer = developerResult.data.accessToken;
-  await require('./delivery-phase-checks.cjs')({ request, check, owner, cashier: await login('cashier@spec.test'), otherOwner, developer, database, tenants, mongoose, uri });
+  await require('./delivery-phase-checks.cjs')({ request, check, owner, cashier: await login('cashier@spec.test'), otherOwner, developer, database, tenants, mongoose, uri, rawFetch: (url, token) => fetch(`http://127.0.0.1:${port}/api${url}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }) });
   await check('backup is developer-only and includes business records without credentials', async () => {
     assert.equal((await request('/developer/backup', owner)).status, 403);
     const backup = await request('/developer/backup', developer);
