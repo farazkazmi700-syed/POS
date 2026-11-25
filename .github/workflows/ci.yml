@@ -26,9 +26,15 @@ jobs:
         options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 6
     defaults: { run: { working-directory: app/api } }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 24, cache: npm, cache-dependency-path: app/api/package-lock.json }
+      - name: Check out workflow commit
+        working-directory: .
+        run: |
+          git init --quiet
+          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          git checkout --quiet --detach FETCH_HEAD
+      - name: Set up Node.js
+        working-directory: .
+        run: bash .github/scripts/setup-node.sh
       - run: npm ci
       - run: npm test
       - run: npm run build
@@ -44,9 +50,15 @@ jobs:
     defaults: { run: { working-directory: app/pdf-worker } }
     env: { PUPPETEER_SKIP_DOWNLOAD: "true" }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 24, cache: npm, cache-dependency-path: app/pdf-worker/package-lock.json }
+      - name: Check out workflow commit
+        working-directory: .
+        run: |
+          git init --quiet
+          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          git checkout --quiet --detach FETCH_HEAD
+      - name: Set up Node.js
+        working-directory: .
+        run: bash .github/scripts/setup-node.sh
       - run: npm ci
       - run: npm run build
       - run: npm test
@@ -67,9 +79,15 @@ jobs:
     env:
       POS_E2E_START_API: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 24, cache: npm, cache-dependency-path: app/web/package-lock.json }
+      - name: Check out workflow commit
+        working-directory: .
+        run: |
+          git init --quiet
+          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          git checkout --quiet --detach FETCH_HEAD
+      - name: Set up Node.js
+        working-directory: .
+        run: bash .github/scripts/setup-node.sh
       - run: npm ci
       - run: npm run build
       # Barcode browser tests exercise the actual API encoder, then independently decode its output.
@@ -83,18 +101,18 @@ jobs:
         working-directory: .
       - run: npx --no-install playwright test --config=qa/playwright.config.cjs
         working-directory: .
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: browser-failure
-          path: qa/artifacts/browser/
 
   docker:
     needs: [api, pdf-worker, web]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out workflow commit
+        working-directory: .
+        run: |
+          git init --quiet
+          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          git checkout --quiet --detach FETCH_HEAD
       - run: docker build -f docker/Dockerfile -t kazmion/pos:ci .
       - name: Smoke test packaged application
         shell: bash
@@ -128,7 +146,12 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out workflow commit
+        working-directory: .
+        run: |
+          git init --quiet
+          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          git checkout --quiet --detach FETCH_HEAD
       - name: Build release image
         run: docker build -f docker/Dockerfile -t kazmion/pos:release .
       - name: Publish commit-tagged image to GHCR
