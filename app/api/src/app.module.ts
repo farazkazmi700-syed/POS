@@ -2,6 +2,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { existsSync } from 'fs';
+import { dirname, join, parse } from 'path';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AppThrottlerGuard } from './common/guards/app-throttler.guard';
@@ -30,9 +32,27 @@ import { SuperAdminModule } from './modules/super-admin/super-admin.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { SupportModule } from './modules/support/support.module';
 
+/**
+ * Finds the single monorepo .env by walking up from the working directory.
+ * A fixed '../../.env' breaks inside Docker, where the API runs with cwd=/app/api
+ * and '/.env' does not exist.
+ */
+function resolveEnvFile(): string[] {
+  const candidates: string[] = [];
+  let current = process.cwd();
+  const root = parse(current).root;
+  for (;;) {
+    candidates.push(join(current, '.env'));
+    if (current === root) break;
+    current = dirname(current);
+  }
+  const found = candidates.find((file) => existsSync(file));
+  return found ? [found] : candidates;
+}
+
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: '../../.env' }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: resolveEnvFile() }),
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({ uri: config.getOrThrow<string>('MONGO_URI') }),

@@ -26,6 +26,11 @@ jest.mock('@nestjs/mongoose', () => {
   };
 });
 
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { text } from 'node:stream/consumers';
+import { InvoiceStatus } from '../../common/enums';
 import { InvoiceService } from './invoice.service';
 
 describe('invoice queue snapshot', () => {
@@ -95,5 +100,26 @@ describe('invoice queue snapshot', () => {
       guarantor: plan.guarantor,
       payments: [{ ...plan.payments[0], paidAt: '2026-11-17T12:00:00.000Z' }],
     });
+  });
+});
+
+describe('invoice PDF streaming', () => {
+  it('reads a local PDF as a Node stream', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'pos-invoice-'));
+    try {
+      const filename = 'invoice.pdf';
+      await writeFile(join(directory, filename), '%PDF-1.7');
+      const service = Object.assign(Object.create(InvoiceService.prototype), {
+        config: { get: (key: string, fallback: string) => key === 'STORAGE_DIR' ? directory : fallback },
+      }) as InvoiceService;
+      const stream = await service.getPdfStream({
+        invoiceStatus: InvoiceStatus.Ready,
+        invoicePdfPath: filename,
+      } as Parameters<InvoiceService['getPdfStream']>[0]);
+      expect(stream).not.toBeNull();
+      if (stream) expect(await text(stream)).toBe('%PDF-1.7');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 });

@@ -54,7 +54,7 @@ for (const [width, height, theme] of screens) {
     await page.goto('/login');
     await page.evaluate(() => document.fonts.ready);
     const banner = page.locator('.sign-in-artwork img');
-    await expect(banner).toHaveAttribute('src', '/smart-pos-storefront-banner.png');
+    await expect(banner).toHaveAttribute('src', '/kazmion-store-banner.jpg');
     await expect.poll(() => banner.evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true);
     await expect(page.getByText('POINT OF SALE SYSTEM', { exact: true })).toBeVisible();
     await expect(page.locator('#sign-in-description')).toHaveText('Sign in to manage your business.');

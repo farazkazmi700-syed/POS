@@ -2,10 +2,19 @@ name: CI
 on:
   push: { branches: [main, dev] }
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   api:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       mongo:
         image: mongo:7
@@ -31,6 +40,7 @@ jobs:
 
   pdf-worker:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults: { run: { working-directory: app/pdf-worker } }
     env: { PUPPETEER_SKIP_DOWNLOAD: "true" }
     steps:
@@ -43,6 +53,7 @@ jobs:
 
   web:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       mongo:
         image: mongo:7
@@ -54,9 +65,7 @@ jobs:
         options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 6
     defaults: { run: { working-directory: app/web } }
     env:
-      # Vite proxy target for /api (vite.config.ts). Playwright mocks API routes, but the proxy
-      # needs a live backend for any request a spec does not intercept.
-      VITE_API_URL: http://localhost:3000
+      POS_E2E_START_API: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -64,32 +73,80 @@ jobs:
       - run: npm ci
       - run: npm run build
       # Barcode browser tests exercise the actual API encoder, then independently decode its output.
-      - run: npm ci --ignore-scripts
+      - run: npm ci
         working-directory: app/api
       - run: npm run build
         working-directory: app/api
-      # Start the API backend so the vite proxy has a live /api target.
-      - run: |
-          PORT=3000 MONGO_URI=mongodb://127.0.0.1:27017/pos_test REDIS_URL=redis://127.0.0.1:6379/0 \
-          JWT_ACCESS_SECRET=ci-test-access-secret JWT_REFRESH_SECRET=ci-test-refresh-secret \
-          CORS_ORIGIN=http://localhost:5173 PASSWORD_RESET_BASE_URL=http://localhost:5173/reset-password \
-          nohup node dist/main.js > /tmp/pos-api.log 2>&1 &
-          echo $! > /tmp/pos-api.pid
-        working-directory: app/api
-      - run: |
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:3000/api/health > /dev/null; then echo "API ready"; exit 0; fi
-            sleep 1
-          done
-          echo "API did not become ready:"; cat /tmp/pos-api.log; exit 1
-      - run: npm exec --yes --package=@playwright/test -- playwright install --with-deps chromium
-      - run: npm exec --yes --package=@playwright/test -- playwright test --config=qa/playwright.config.cjs
+      - run: npm ci
         working-directory: .
+      - run: npx --no-install playwright install --with-deps chromium
+        working-directory: .
+      - run: npx --no-install playwright test --config=qa/playwright.config.cjs
+        working-directory: .
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure
+          path: qa/artifacts/browser/
 
   docker:
     needs: [api, pdf-worker, web]
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - run: docker build -f docker/Dockerfile -t kazmion/pos:ci .
+      - name: Smoke test packaged application
+        shell: bash
+        run: |
+          docker run -d --name pos-ci -p 127.0.0.1:8080:8080 \
+            -e CORS_ORIGIN=http://localhost:8080 \
+            -e PASSWORD_RESET_BASE_URL=http://localhost:8080/reset-password \
+            -e JWT_ACCESS_SECRET="$(openssl rand -hex 32)" \
+            -e JWT_REFRESH_SECRET="$(openssl rand -hex 32)" \
+            -e PLATFORM_DEVELOPER_SETUP_TOKEN="$(openssl rand -hex 32)" \
+            kazmion/pos:ci
+          curl --fail --silent --show-error --retry 60 --retry-all-errors --retry-delay 2 --max-time 5 http://127.0.0.1:8080/api/health
+          curl --fail --silent --show-error --output /dev/null http://127.0.0.1:8080/login
+          curl --fail --silent --show-error --head http://127.0.0.1:8080/kazmion-store-banner.jpg | grep -i '^content-type: image/jpeg'
+      - name: Print container logs on failure
+        if: failure()
+        run: docker logs pos-ci
+      - name: Remove smoke-test container
+        if: always()
+        run: |
+          if docker container inspect pos-ci >/dev/null 2>&1; then
+            docker rm -fv pos-ci
+          fi
+
+  publish-image:
+    needs: [docker]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.PUBLISH_CONTAINER_IMAGE == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build release image
+        run: docker build -f docker/Dockerfile -t kazmion/pos:release .
+      - name: Publish commit-tagged image to GHCR
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_SHA}"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag kazmion/pos:release "$image"
+          docker push "$image"
+
+  deploy-pages:
+    needs: [docker]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEPLOY_CLOUDFLARE_PAGES == 'true'
+    permissions:
+      contents: read
+      deployments: write
+    uses: ./.github/workflows/deploy-cloudflare.yml
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

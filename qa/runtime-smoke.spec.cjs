@@ -10,9 +10,9 @@ test('deployed sign-in and API proxy work together', async ({ page, request }) =
   expect((await health.json()).database).toBe('connected');
   await page.goto('/login');
   await expect(page.getByRole('heading', { name: 'Log in to your account' })).toBeVisible();
-  const hero = await request.get('/smart-pos-storefront-banner.png');
+  const hero = await request.get('/kazmion-store-banner.jpg');
   expect(hero.ok()).toBeTruthy();
-  expect(hero.headers()['content-type']).toContain('image/png');
+  expect(hero.headers()['content-type']).toContain('image/jpeg');
   await page.getByLabel('Email address').fill(`smoke-${Date.now()}@example.invalid`);
   await page.getByLabel('Password', { exact: true }).fill('invalid-smoke-password');
   await page.getByRole('button', { name: 'Show password', exact: true }).click();

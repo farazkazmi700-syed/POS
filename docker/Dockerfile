@@ -7,7 +7,7 @@ COPY app/packages/invoice-store /packages/invoice-store
 RUN npm ci --no-audit --no-fund
 COPY app/api/tsconfig.json app/api/tsconfig.build.json app/api/nest-cli.json ./
 COPY app/api/src ./src
-RUN npm run build && npm prune --omit=dev --ignore-scripts --no-audit --no-fund
+RUN npm run build && npm prune --omit=dev --ignore-scripts --no-audit --no-fund --offline
 
 FROM node:24-bookworm-slim AS worker-build
 WORKDIR /app
@@ -18,7 +18,7 @@ COPY app/packages/invoice-store /packages/invoice-store
 RUN npm ci --no-audit --no-fund
 COPY app/pdf-worker/tsconfig.json ./
 COPY app/pdf-worker/src ./src
-RUN npm run build && npm prune --omit=dev --ignore-scripts --no-audit --no-fund
+RUN npm run build && npm prune --omit=dev --ignore-scripts --no-audit --no-fund --offline
 
 FROM node:24-bookworm-slim AS web-build
 WORKDIR /repo/app/web

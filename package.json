@@ -29,6 +29,7 @@
     "db:backup:pg": "powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/backup/pg-backup.ps1"
   },
   "devDependencies": {
+    "@playwright/test": "1.65.1",
     "concurrently": "^10.0.7"
   }
 }

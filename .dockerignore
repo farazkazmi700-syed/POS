@@ -29,6 +29,7 @@ app/pdf-worker/sample-invoice.pdf
 # Repository material unused by image builds
 /.github/
 /.vscode/
+/.serena/
 /docs/
 /qa/
 /desktop/

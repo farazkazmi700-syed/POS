@@ -35,7 +35,7 @@ async function login(email, password = 'test-password-123', pin = '1234', newPin
 async function main() {
   assert.match(databaseName, /^pos_spec_test_\d+_[a-f0-9]{8}$/);
   database = await mongoose.createConnection(uri, { serverSelectionTimeoutMS: 10000 }).asPromise();
-  const features = { pos: true, inventory: true, customers: true, installments: true, reports: true, barcodes: true };
+  const features = { pos: true, inventory: true, customers: true, installments: true, reports: true, barcodes: true, settings: true };
   const tenants = ['A', 'B'].map((name) => ({ _id: new mongoose.Types.ObjectId(), name: `Test ${name}`, currency: 'PKR', domainType: 'retail', status: 'active', branchLimit: 1, branchCount: 0, defaultBranchId: null, featureFlags: features, taxProfile: { gstPercent: 0, reducedGstPercent: 0, serviceChargePercent: 0, otherCharges: [] }, invoicePrefix: 'TEST' }));
   await database.collection('tenants').insertMany(tenants);
   const owners = await Promise.all(tenants.map(async (tenant, index) => ({ _id: new mongoose.Types.ObjectId(), tenantId: tenant._id, name: `Owner ${index}`, email: `owner${index}@spec.test`, passwordHash: await bcrypt.hash('test-password-123', 4), pinHash: await bcrypt.hash('1234', 4), pinVersion: 0, sessionVersion: 0, pinRequiresChange: false, role: 'owner', isActive: true, superAdmin: false, branchIds: [] })));
@@ -284,7 +284,8 @@ async function main() {
   await check('developer authentication requires the configured email and password', async () => {
     assert.equal((await request('/auth/developer/login', null, { pin: '48291736' })).status, 400);
     assert.equal((await request('/auth/developer/login', null, { email: 'developer@spec.test', password: 'wrong-password-123' })).status, 401);
-    assert.equal((await request('/auth/developer/login', null, { email: 'developer@spec.test', password: developerPassword })).status, 201);
+    assert.equal((await request('/auth/developer/login', null, { email: 'developer@spec.test', password: developerPassword })).status, 401);
+    assert.equal((await request('/auth/developer/login', null, { email: 'developer@spec.test', password: 'updated-password-123' })).status, 201);
     assert.equal((await request('/auth/recovery/request', null, { email: 'developer@spec.test', purpose: 'developer-pin' })).status, 400);
   });
   await check('legacy PIN reset endpoints use the same OTP and session protections', async () => {

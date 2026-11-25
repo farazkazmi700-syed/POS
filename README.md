@@ -46,17 +46,41 @@ docker compose -f docker/compose/compose.yaml config --quiet
 
 Use `npm run dev:web` for the Vite development server on port 5173. Its default API proxy targets port 8080. Owners manage invoice taxes under **Settings > Tax and service charges**.
 
-## Cloudflare deployment
+## CI and deployment
 
-The front end is a static SPA, so it can be hosted on Cloudflare Pages while the NestJS API, PostgreSQL, Redis and the invoice worker keep running in the Docker image. Pages serves static assets only; it cannot run this Node/PostgreSQL stack.
+GitHub Actions builds and tests the API, PDF worker and web app. It runs API
+integration tests with isolated MongoDB and Redis services and runs browser
+checks in Chromium. The Docker build must pass before a Pages deployment.
 
-1. Verify the build locally: `npm --prefix app/web ci && npm --prefix app/web run build`.
-2. Create a Pages project from this repository with **Root directory** `app/web`, **Build command** `npm ci && npm run build` and **Build output directory** `dist`. `app/web/wrangler.toml` already declares these values, the SPA fallback to `index.html` and immutable asset caching, so a CLI deploy can use `wrangler pages deploy --config app/web/wrangler.toml`.
-3. Set the Pages environment variable `VITE_API_BASE_URL` to the public API origin including `/api` (for example `https://api.example.com/api`). Leave it empty when the API shares the page's origin, as in the Docker/nginx deployment.
-4. Set the API `CORS_ORIGIN` to the Pages domain, and `PASSWORD_RESET_BASE_URL` to the Pages domain plus `/reset-password`.
-5. Expose the API over HTTPS (Cloudflare Tunnel or a TLS origin) — the container binds port 8080 to loopback by default.
+### Production Docker
 
-The SPA emits relative asset URLs and renders routes client-side, so it also works when hosted under a sub-path such as `/pos`. The `wrangler.toml` fallback rule keeps deep links such as `/pos` and `/reset-password` working on a static host.
+Use the unified image and Compose configuration described above for the API,
+PostgreSQL, FerretDB, Redis and the invoice worker. Keep the database and queue
+private. If Cloudflare Pages serves the UI, give it an HTTPS API origin through
+a TLS proxy or Cloudflare Tunnel in front of the container.
+
+Set the GitHub repository variable `PUBLISH_CONTAINER_IMAGE` to `true` to
+publish the unified image to GHCR after CI passes on `main`. The image is tagged
+with the commit SHA. To promote a release, set `KAZMION_IMAGE` in the host
+`.env` to the published `ghcr.io/<owner>/<repo>:<commit-sha>` and run
+`docker compose --env-file .env -f docker/compose/compose.yaml up -d --no-build --pull always`.
+Publishing an image does not restart a running installation.
+
+### Cloudflare Pages
+
+The deploy job is opt-in. Set the GitHub repository variable
+`DEPLOY_CLOUDFLARE_PAGES` to `true`, configure the `production` environment,
+and supply `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as Actions secrets.
+The target project is `kazmion-pos-web`. Set `VITE_API_BASE_URL` to the HTTPS
+API origin including `/api`, `CORS_ORIGIN` on the API to the Pages origin,
+and `PASSWORD_RESET_BASE_URL` on the API to the Pages URL ending in
+`/reset-password`.
+
+Deployments run after successful CI on `main`. For a manually managed Pages
+project, Node.js 24 and authenticated Wrangler are required to use
+`deploy/cloudflare/deploy.ps1`. Choose one deployment mechanism per Pages
+project to avoid duplicate releases. SPA routing and cache rules ship with the
+static build via `_redirects` and `_headers`.
 
 ## Technical reference
 

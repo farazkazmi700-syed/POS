@@ -3,7 +3,7 @@ const { randomUUID, createHash } = require('node:crypto');
 
 module.exports = async function deliveryChecks({ request, check, owner, cashier, otherOwner, developer, database, tenants, mongoose, uri, rawFetch }) {
   await check('business packages reject mismatched tenants and scope provisioned administrator grants', async () => {
-    const features = { pos: false, inventory: true, reports: true, customers: true, installments: true, barcodes: false };
+    const features = { pos: false, inventory: true, reports: true, customers: true, installments: true, barcodes: false, settings: true };
     const plan = await request('/developer/plans', developer, { name: 'Electronics delivery package', domainType: 'electronics', price: 100, billingInterval: 'monthly', features });
     assert.equal(plan.status, 201, JSON.stringify(plan.data));
     assert.equal((await request(`/developer/businesses/${tenants[0]._id}/plan`, developer, { subscriptionPlanId: plan.data._id }, 'PATCH')).status, 400);

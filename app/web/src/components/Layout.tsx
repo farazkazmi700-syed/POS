@@ -105,8 +105,7 @@ export default function Layout() {
   }, [stockAlerts.data]);
 
   const links = user ? availablePages(user, tenant).filter((item) =>
-    item.key === 'help' || item.key === 'backup' || tenant?.navigationVisibility?.[item.key] !== false,
-  ) : [];
+    item.key === 'help' || item.key === 'backup' || item.key === 'settings' || tenant?.navigationVisibility?.[item.key] !== false,  ) : [];
 
   const getNavIcon = (key: string) => {
     switch (key) {

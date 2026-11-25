@@ -13,6 +13,7 @@ export class FeatureFlagsDto {
   @IsOptional() @IsBoolean() customers?: boolean;
   @IsOptional() @IsBoolean() installments?: boolean;
   @IsOptional() @IsBoolean() barcodes?: boolean;
+  @IsOptional() @IsBoolean() settings?: boolean;
 }
 
 export class PlanFeaturesDto {
@@ -22,6 +23,7 @@ export class PlanFeaturesDto {
   @IsBoolean() customers: boolean;
   @IsBoolean() installments: boolean;
   @IsBoolean() barcodes: boolean;
+  @IsBoolean() settings: boolean;
 }
 
 export class ProvisionAccountDto {

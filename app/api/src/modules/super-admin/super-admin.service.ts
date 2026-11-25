@@ -418,7 +418,10 @@ export class SuperAdminService {
   }
 
   private completeFeatures(features?: Partial<Record<FeatureKey, boolean>> | null) {
-    return Object.fromEntries(FEATURE_KEYS.map((key) => [key, features?.[key] ?? false])) as Record<FeatureKey, boolean>;
+    const base = Object.fromEntries(FEATURE_KEYS.map((key) => [key, features?.[key] ?? false])) as Record<FeatureKey, boolean>;
+    // Settings module is mandatory for all accounts - always enabled
+    base.settings = true;
+    return base;
   }
 
   private businessSummary(tenant: Tenant & { _id: Types.ObjectId }) {

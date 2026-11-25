@@ -45,6 +45,15 @@ const demos = [
       { name: 'Bottled water', category: 'Drinks', price: 100, stockQty: 60 },
     ],
   },
+  {
+    reg: { businessName: 'Afazal Electronics', domainType: 'electronics', ownerName: 'Afazal Owner', email: 'afazal@demo.test', password: 'demo12345', taxRegNo: '8888888-8', address: 'Market Road, Lahore' },
+    tax: { gstPercent: 18, reducedGstPercent: 5, serviceChargePercent: 0, otherCharges: [] },
+    products: [
+      { name: 'Samsung 55" 4K TV', sku: 'TV-001', category: 'Electronics', price: 145000, stockQty: 10, attributes: { warrantyMonths: 12 } },
+      { name: 'iPhone 15 Pro', sku: 'MOB-001', category: 'Electronics', price: 290000, stockQty: 20, attributes: { warrantyMonths: 12 } },
+      { name: 'Sony WH-1000XM5 Headphones', sku: 'AUD-001', category: 'Electronics', price: 45000, stockQty: 30, attributes: { warrantyMonths: 6 } },
+    ],
+  },
 ];
 
 (async () => {

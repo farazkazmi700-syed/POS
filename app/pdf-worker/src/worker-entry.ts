@@ -1,3 +1,4 @@
+import type { ExecutionContext, R2Bucket, ScheduledEvent } from '@cloudflare/workers-types';
 import dotenv from 'dotenv';
 dotenv.config({ path: '../../.env' });
 
@@ -15,6 +16,7 @@ import { initR2Storage } from './services/storage.service';
 
 interface Env {
   PDF_BUCKET: R2Bucket;
+  R2_PUBLIC_URL?: string;
   REDIS_URL: string;
   MONGO_URI: string;
   INVOICE_STORE?: string;
@@ -128,10 +130,4 @@ export async function runWorker(env: Env): Promise<void> {
   
   // For Cloudflare Workers, we don't wait indefinitely
   // The worker runs in the background
-}
-
-// If run directly (not as a Worker), start the worker
-if (import.meta.url === `file://${process.argv[1]}`) {
-  // This won't work in Cloudflare Workers but works locally
-  console.log('Run with: npx wrangler dev src/worker-entry.ts');
 }

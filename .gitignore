@@ -26,9 +26,9 @@ playwright-report/
 
 # Runtime data and generated invoice previews
 storage/
-/apps/pdf-worker/artifacts/
-/apps/pdf-worker/sample-invoice.html
-/apps/pdf-worker/sample-invoice.pdf
+/app/pdf-worker/artifacts/
+/app/pdf-worker/sample-invoice.html
+/app/pdf-worker/sample-invoice.pdf
 
 # Obsolete source snapshots belong in Git history
 /apps-backup/
@@ -46,6 +46,7 @@ backups/
 # Editor config
 .vscode/
 .kilo/
+.serena/
 
 # Compiled Windows launcher installer
 /desktop/windows/KazmiOn-Launcher/output/

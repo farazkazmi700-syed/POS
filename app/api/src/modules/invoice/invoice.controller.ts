@@ -36,14 +36,10 @@ export class InvoiceController {
         throw new NotFoundException('Invoice PDF not found');
       }
       
-      // Convert Web ReadableStream to Node.js stream for Express
-      const { Readable } = await import('stream');
-      const nodeStream = Readable.fromWeb(stream);
-      
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `inline; filename="${(order.invoiceNo || 'invoice').replace(/[^A-Za-z0-9._-]+/g, '_')}.pdf"`);
       
-      nodeStream.pipe(res);
+      stream.pipe(res);
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new NotFoundException('Invoice PDF not found');

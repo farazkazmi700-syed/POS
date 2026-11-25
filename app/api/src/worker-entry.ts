@@ -1,3 +1,4 @@
+import type { ExecutionContext, R2Bucket } from '@cloudflare/workers-types';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
@@ -29,7 +30,7 @@ export default {
     
     // Handle the request through Express router
     await new Promise<void>((resolve, reject) => {
-      app.getHttpAdapter().getInstance().handle(expressRequest, expressResponse, (err) => {
+      app.getHttpAdapter().getInstance().handle(expressRequest, expressResponse, (err: unknown) => {
         if (err) reject(err);
         else resolve();
       });

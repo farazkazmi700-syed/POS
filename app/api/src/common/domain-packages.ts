@@ -28,8 +28,8 @@ export const DOMAIN_ROLE_PACKAGES: Record<string, DomainRolePackage> = {
     icon: '🍽️',
     accounts: [
       { role: 'admin', title: 'Manager', description: 'Full back-office: menu (inventory), staff, reports', moduleRights: ['dashboard', 'pos', 'products', 'customers', 'orders', 'settings'] },
-      { role: 'staff', title: 'Kitchen / Wait Staff', description: 'Table orders & kitchen display', moduleRights: ['pos', 'orders'] },
-      { role: 'cashier', title: 'Cashier', description: 'Billing counter & receipts', moduleRights: ['pos', 'orders', 'customers'] },
+      { role: 'staff', title: 'Kitchen / Wait Staff', description: 'Table orders & kitchen display', moduleRights: ['pos', 'orders', 'settings'] },
+      { role: 'cashier', title: 'Cashier', description: 'Billing counter & receipts', moduleRights: ['pos', 'orders', 'customers', 'settings'] },
     ],
   },
   retail: {
@@ -37,7 +37,7 @@ export const DOMAIN_ROLE_PACKAGES: Record<string, DomainRolePackage> = {
     icon: '🛍️',
     accounts: [
       { role: 'admin', title: 'Store Admin', description: 'Inventory, reports & staff management', moduleRights: ['dashboard', 'pos', 'products', 'customers', 'orders', 'settings', 'barcode-generator'] },
-      { role: 'cashier', title: 'Cashier', description: 'Checkout counter & receipts', moduleRights: ['pos', 'orders'] },
+      { role: 'cashier', title: 'Cashier', description: 'Checkout counter & receipts', moduleRights: ['pos', 'orders', 'settings'] },
     ],
   },
   supermarket: {
@@ -45,8 +45,8 @@ export const DOMAIN_ROLE_PACKAGES: Record<string, DomainRolePackage> = {
     icon: '🏬',
     accounts: [
       { role: 'admin', title: 'Floor Manager', description: 'Stock, pricing & reports', moduleRights: ['dashboard', 'pos', 'products', 'customers', 'orders', 'settings', 'barcode-generator', 'barcode-scanner'] },
-      { role: 'staff', title: 'Shelf / Stock Staff', description: 'Barcode scanning & stock lookup', moduleRights: ['pos', 'products', 'barcode-scanner'] },
-      { role: 'cashier', title: 'Cashier', description: 'Fast-lane checkout', moduleRights: ['pos', 'orders', 'barcode-scanner'] },
+      { role: 'staff', title: 'Shelf / Stock Staff', description: 'Barcode scanning & stock lookup', moduleRights: ['pos', 'products', 'barcode-scanner', 'settings'] },
+      { role: 'cashier', title: 'Cashier', description: 'Fast-lane checkout', moduleRights: ['pos', 'orders', 'barcode-scanner', 'settings'] },
     ],
   },
   grocery: {
@@ -54,7 +54,7 @@ export const DOMAIN_ROLE_PACKAGES: Record<string, DomainRolePackage> = {
     icon: '🧺',
     accounts: [
       { role: 'admin', title: 'Store Admin', description: 'Inventory & staff management', moduleRights: ['dashboard', 'pos', 'products', 'customers', 'orders', 'settings'] },
-      { role: 'cashier', title: 'Cashier', description: 'Counter billing', moduleRights: ['pos', 'orders'] },
+      { role: 'cashier', title: 'Cashier', description: 'Counter billing', moduleRights: ['pos', 'orders', 'settings'] },
     ],
   },
   pharmacy: {
@@ -62,8 +62,8 @@ export const DOMAIN_ROLE_PACKAGES: Record<string, DomainRolePackage> = {
     icon: '💊',
     accounts: [
       { role: 'admin', title: 'Pharmacy Manager', description: 'Medicine inventory & compliance reports', moduleRights: ['dashboard', 'pos', 'products', 'customers', 'orders', 'settings', 'barcode-scanner'] },
-      { role: 'staff', title: 'Dispensary Staff', description: 'Prescription lookup & dispensing', moduleRights: ['pos', 'products', 'barcode-scanner'] },
-      { role: 'cashier', title: 'Cashier', description: 'Counter billing', moduleRights: ['pos', 'orders'] },
+      { role: 'staff', title: 'Dispensary Staff', description: 'Prescription lookup & dispensing', moduleRights: ['pos', 'products', 'barcode-scanner', 'settings'] },
+      { role: 'cashier', title: 'Cashier', description: 'Counter billing', moduleRights: ['pos', 'orders', 'settings'] },
     ],
   },
   electronics: {
@@ -71,8 +71,8 @@ export const DOMAIN_ROLE_PACKAGES: Record<string, DomainRolePackage> = {
     icon: '🔌',
     accounts: [
       { role: 'admin', title: 'Showroom Admin', description: 'High-value inventory & installment plans', moduleRights: ['dashboard', 'pos', 'products', 'customers', 'installments', 'orders', 'settings', 'barcode-generator'] },
-      { role: 'staff', title: 'Sales Staff', description: 'Quotes & installment agreements', moduleRights: ['pos', 'products', 'installments'] },
-      { role: 'cashier', title: 'Cashier', description: 'Down-payment collection & receipts', moduleRights: ['pos', 'orders', 'installments'] },
+      { role: 'staff', title: 'Sales Staff', description: 'Quotes & installment agreements', moduleRights: ['pos', 'products', 'installments', 'settings'] },
+      { role: 'cashier', title: 'Cashier', description: 'Down-payment collection & receipts', moduleRights: ['pos', 'orders', 'installments', 'settings'] },
     ],
   },
   salon: {
@@ -80,7 +80,7 @@ export const DOMAIN_ROLE_PACKAGES: Record<string, DomainRolePackage> = {
     icon: '💇',
     accounts: [
       { role: 'admin', title: 'Salon Manager', description: 'Services catalog, staff rosters & reports', moduleRights: ['dashboard', 'pos', 'products', 'customers', 'orders', 'settings'] },
-      { role: 'cashier', title: 'Receptionist', description: 'Walk-in billing & customer ledger', moduleRights: ['pos', 'orders', 'customers'] },
+      { role: 'cashier', title: 'Receptionist', description: 'Walk-in billing & customer ledger', moduleRights: ['pos', 'orders', 'customers', 'settings'] },
     ],
   },
   custom: {
@@ -88,8 +88,8 @@ export const DOMAIN_ROLE_PACKAGES: Record<string, DomainRolePackage> = {
     icon: '🏢',
     accounts: [
       { role: 'admin', title: 'Administrator', description: 'Full management access', moduleRights: ['dashboard', 'pos', 'products', 'customers', 'installments', 'orders', 'settings'] },
-      { role: 'staff', title: 'Staff', description: 'General operations access', moduleRights: ['pos', 'orders'] },
-      { role: 'cashier', title: 'Cashier', description: 'Counter billing', moduleRights: ['pos', 'orders'] },
+      { role: 'staff', title: 'Staff', description: 'General operations access', moduleRights: ['pos', 'orders', 'settings'] },
+      { role: 'cashier', title: 'Cashier', description: 'Counter billing', moduleRights: ['pos', 'orders', 'settings'] },
     ],
   },
 };

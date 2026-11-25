@@ -18,6 +18,9 @@ import { nextDueOf, overdueOf, todayIn } from '../installment/calc/calculate-pla
 import { toMinor } from '../installment/calc/money';
 
 // R2 types (only used when STORAGE_MODE=r2)
+import { Readable } from 'node:stream';
+import type { ReadableStream } from 'node:stream/web';
+
 interface R2Bucket {
   get(key: string): Promise<{ body: ReadableStream; arrayBuffer(): Promise<ArrayBuffer> } | null>;
 }
@@ -157,7 +160,7 @@ export class InvoiceService {
   }
 
   /** Get PDF stream - works with both local and R2 storage */
-  async getPdfStream(order: OrderDocument): Promise<ReadableStream | null> {
+  async getPdfStream(order: OrderDocument): Promise<Readable | null> {
     if (order.invoiceStatus !== InvoiceStatus.Ready || !order.invoicePdfPath) {
       throw new NotFoundException('Invoice PDF is not ready yet');
     }
@@ -170,7 +173,7 @@ export class InvoiceService {
       if (!object) {
         throw new NotFoundException('Invoice PDF not found in R2');
       }
-      return object.body;
+      return Readable.fromWeb(object.body);
     }
 
     // Local storage (original implementation)
@@ -193,8 +196,7 @@ export class InvoiceService {
       if (file !== root && !file.startsWith(root + path.sep)) continue;
       if (existsSync(file)) {
         const { createReadStream } = await import('fs');
-        const { Readable } = await import('stream');
-        return Readable.fromWeb(createReadStream(file) as any);
+        return createReadStream(file);
       }
     }
     throw new NotFoundException('Invoice PDF not found on disk');

@@ -1,5 +1,5 @@
 import { waitForBusinessDatabase } from '../../common/business-database';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { DomainType } from '../../common/enums';
@@ -27,6 +27,11 @@ export class TenantService {
   async findById(id: string): Promise<TenantDocument> {
     const tenant = await this.model.findById(id);
     if (!tenant) throw new NotFoundException('Tenant not found');
+    // Settings navigation is mandatory; coerce any stale disabled state.
+    if (tenant.navigationVisibility?.settings === false) {
+      tenant.navigationVisibility.settings = true;
+      await tenant.save();
+    }
     return tenant;
   }
 
@@ -36,6 +41,12 @@ export class TenantService {
 
   async update(id: string, dto: UpdateTenantDto): Promise<TenantDocument> {
     const { navigationVisibility, invoicePrintSettings, ...fields } = dto;
+
+    // Prevent disabling the Settings module navigation - it's mandatory for all accounts
+    if (navigationVisibility?.settings === false) {
+      throw new BadRequestException('Settings navigation cannot be disabled; it is mandatory for all accounts');
+    }
+
     const nested: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(navigationVisibility ?? {})) nested[`navigationVisibility.${key}`] = value;
     for (const [key, value] of Object.entries(invoicePrintSettings ?? {})) nested[`invoicePrintSettings.${key}`] = value;

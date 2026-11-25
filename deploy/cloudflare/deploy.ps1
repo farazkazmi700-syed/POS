@@ -25,7 +25,7 @@ try {
     }
 
     Write-Host "Deploying to Cloudflare Pages project '$ProjectName'..." -ForegroundColor Cyan
-    npx wrangler pages deploy dist --project-name $ProjectName --config-name wrangler.toml
+    npx --yes wrangler@4.168.0 pages deploy dist --project-name $ProjectName --config wrangler.toml --branch main
     if ($LASTEXITCODE -ne 0) { throw "wrangler pages deploy failed." }
 
     Write-Host "Deployment complete." -ForegroundColor Green

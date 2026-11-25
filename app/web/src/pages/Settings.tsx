@@ -167,7 +167,7 @@ export default function Settings() {
             <p className="text-xs text-slate-500">Choose which sections appear in the app navigation.</p>
           </div>
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
-            {pages.filter((item) => item.key !== 'help' && item.key !== 'backup').map((item) => (
+            {pages.filter((item) => item.key !== 'help' && item.key !== 'backup' && item.key !== 'settings').map((item) => (
               <label key={item.key} className="flex items-center justify-between gap-3 py-2 text-sm">
                 <span>{item.label}</span>
                 <input
@@ -333,12 +333,12 @@ function StaffSection() {
     const modules = actionModules[action.split('.')[0]];
     return !modules || modules.some((key) => grantableRights.includes(key));
   });
-  const [form, setForm] = useState<{ name: string; email: string; password: string; role: 'cashier' | 'admin'; moduleRights: ModuleRightKey[] }>({ name: '', email: '', password: '', role: 'cashier', moduleRights: grantableRights.filter((key) => key !== 'dashboard' && key !== 'settings') });
+  const [form, setForm] = useState<{ name: string; email: string; password: string; role: 'cashier' | 'admin'; moduleRights: ModuleRightKey[] }>({ name: '', email: '', password: '', role: 'cashier', moduleRights: grantableRights.filter((key) => key !== 'dashboard') });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingRights, setEditingRights] = useState<ModuleRightKey[]>([]);
   const add = useMutation({
     mutationFn: () => authApi.addStaff({ ...form, branchIds: newStaffBranches }),
-    onSuccess: () => { setForm({ name: '', email: '', password: '', role: 'cashier', moduleRights: grantableRights.filter((key) => key !== 'dashboard' && key !== 'settings') }); queryClient.invalidateQueries({ queryKey: ['staff'] }); },
+    onSuccess: () => { setForm({ name: '', email: '', password: '', role: 'cashier', moduleRights: grantableRights.filter((key) => key !== 'dashboard') }); queryClient.invalidateQueries({ queryKey: ['staff'] }); },
   });
   const updateRights = useMutation({
     mutationFn: ({ id, rights }: { id: string; rights: ModuleRightKey[] }) => authApi.updateStaffRights(id, rights, { ...(actions.length ? { permissions: editingActions } : {}), branchIds: editingBranches }),
@@ -360,7 +360,7 @@ function StaffSection() {
     <div className="grid gap-1 sm:grid-cols-2">
       {MODULE_RIGHTS.filter((right) => grantableRights.includes(right.key)).map((right) => (
         <label key={right.key} className="flex items-center gap-2 py-1 text-xs">
-          <input type="checkbox" className="h-4 w-4 accent-teal-600" checked={selected.includes(right.key)} disabled={add.isPending || updateRights.isPending || (targetRole === 'cashier' && (right.key === 'dashboard' || right.key === 'settings')) || (actor?.role !== 'owner' && actor?.moduleRights !== undefined && !actor.moduleRights.includes(right.key))} onChange={() => toggle(right.key)} aria-label={`Grant ${right.label} module access`} />
+          <input type="checkbox" className="h-4 w-4 accent-teal-600" checked={selected.includes(right.key)} disabled={add.isPending || updateRights.isPending || (targetRole === 'cashier' && right.key === 'dashboard') || (actor?.role !== 'owner' && actor?.moduleRights !== undefined && !actor.moduleRights.includes(right.key))} onChange={() => toggle(right.key)} aria-label={`Grant ${right.label} module access`} />
           <span>{right.label}</span>
         </label>
       ))}
@@ -404,7 +404,7 @@ function StaffSection() {
                 {rightsChecklist(editingRights, toggleEditRight, u.role)}
                 {can('branches.read') && Array.isArray(branches.data) && branches.data.length > 0 && <fieldset className="mt-4"><legend className="label">Assigned branches</legend><div className="grid gap-2 sm:grid-cols-2">{branches.data.map((branch) => <label key={branch._id} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={editingBranches.includes(branch._id)} onChange={() => setEditingBranches((current) => current.includes(branch._id) ? current.filter((id) => id !== branch._id) : [...current, branch._id])} />{branch.name}</label>)}</div></fieldset>}
                 {actions.length > 0 && <details className="mt-4"><summary className="cursor-pointer text-xs font-semibold">Action permissions</summary><div className="mt-3 grid gap-2 sm:grid-cols-2">{visibleActions.filter((action) => action !== 'account.self' && action !== 'workspace.read').map((action) => <label key={action} className="flex items-center gap-2 text-xs"><input type="checkbox" checked={editingActions.includes(action)} onChange={() => setEditingActions((current) => current.includes(action) ? current.filter((key) => key !== action) : [...current, action])} /><span>{action}</span></label>)}</div></details>}
-                <div className="mt-3 flex gap-3 text-xs"><button type="button" className="text-teal-600 underline" disabled={updateRights.isPending} onClick={() => setEditingRights(grantableRights.filter((key) => u.role !== 'cashier' || (key !== 'dashboard' && key !== 'settings')))}>Select available</button><button type="button" className="text-slate-500 underline" disabled={updateRights.isPending} onClick={() => setEditingRights([])}>Clear all</button></div>
+                <div className="mt-3 flex gap-3 text-xs"><button type="button" className="text-teal-600 underline" disabled={updateRights.isPending} onClick={() => setEditingRights(grantableRights.filter((key) => u.role !== 'cashier' || key !== 'dashboard'))}>Select available</button><button type="button" className="text-slate-500 underline" disabled={updateRights.isPending} onClick={() => setEditingRights([])}>Clear all</button></div>
                 <div className="mt-2 flex items-center gap-2">
                   <button type="button" className="btn-primary !w-auto" disabled={updateRights.isPending} onClick={() => updateRights.mutate({ id: u._id, rights: editingRights })}>
                     {updateRights.isPending ? 'Saving…' : 'Save rights'}
@@ -422,7 +422,7 @@ function StaffSection() {
           <input className="input sm:col-span-1" placeholder="Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input className="input sm:col-span-2" type="email" placeholder="Email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <input className="input" type="password" placeholder="Password (8+)" minLength={8} required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-          <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as 'cashier' | 'admin', moduleRights: e.target.value === 'cashier' ? form.moduleRights.filter((key) => key !== 'dashboard' && key !== 'settings') : form.moduleRights })}>
+          <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as 'cashier' | 'admin', moduleRights: e.target.value === 'cashier' ? form.moduleRights.filter((key) => key !== 'dashboard') : form.moduleRights })}>
             <option value="cashier">Cashier</option><option value="admin">Admin</option>
           </select>
         </div>
@@ -430,7 +430,7 @@ function StaffSection() {
           <p className="mb-1 text-xs font-medium text-slate-600 dark:text-slate-300">Module access</p>
           {rightsChecklist(form.moduleRights, toggleFormRight, form.role)}
           {can('branches.read') && Array.isArray(branches.data) && branches.data.length > 0 && <fieldset className="mt-3"><legend className="label">Branch access for the new account</legend>{branches.data.map((branch) => <label key={branch._id} className="mr-4 inline-flex items-center gap-2 text-xs"><input type="checkbox" checked={newStaffBranches.includes(branch._id)} onChange={() => setNewStaffBranches((current) => current.includes(branch._id) ? current.filter((id) => id !== branch._id) : [...current, branch._id])} />{branch.name}</label>)}</fieldset>}
-          <div className="mt-3 flex gap-3 text-xs"><button type="button" className="text-teal-600 underline" disabled={add.isPending} onClick={() => setForm((current) => ({ ...current, moduleRights: grantableRights.filter((key) => current.role !== 'cashier' || (key !== 'dashboard' && key !== 'settings')) }))}>Select available</button><button type="button" className="text-slate-500 underline" disabled={add.isPending} onClick={() => setForm((current) => ({ ...current, moduleRights: [] }))}>Clear all</button></div>
+          <div className="mt-3 flex gap-3 text-xs"><button type="button" className="text-teal-600 underline" disabled={add.isPending} onClick={() => setForm((current) => ({ ...current, moduleRights: grantableRights.filter((key) => current.role !== 'cashier' || key !== 'dashboard') }))}>Select available</button><button type="button" className="text-slate-500 underline" disabled={add.isPending} onClick={() => setForm((current) => ({ ...current, moduleRights: [] }))}>Clear all</button></div>
         </div>
         <button className="btn-primary w-full sm:w-auto" disabled={add.isPending}>{add.isPending ? 'Adding…' : 'Add staff member'}</button>
       </form>}

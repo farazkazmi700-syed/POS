@@ -1,3 +1,4 @@
+import type { R2Bucket } from '@cloudflare/workers-types';
 import fs from 'fs/promises';
 import path from 'path';
 import { R2StorageService, createR2StorageService } from './r2-storage.service';

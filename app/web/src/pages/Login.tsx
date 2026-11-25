@@ -80,7 +80,7 @@ export default function Login() {
 
   return (
     <main className="sign-in-page">
-      <div className="sign-in-artwork"><img src="/smart-pos-storefront-banner.png" width="1672" height="941" alt="Kazmion Smart POS Solution for Your Business. Manage sales, inventory, customers, and business analytics in one place." fetchPriority="high" /></div>
+      <div className="sign-in-artwork"><img src="/kazmion-store-banner.jpg" width="1024" height="577" alt="Kazmion Smart POS Solution — Manage Sales, Inventory, Customers and More" fetchPriority="high" /></div>
       <div
         className="sign-in-content"
       >

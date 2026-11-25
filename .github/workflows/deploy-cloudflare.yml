@@ -1,14 +1,18 @@
 name: Deploy web to Cloudflare Pages
 
 on:
-  push:
-    branches: [main]
-    paths: ['app/web/**', 'app/packages/shared-types/**', '.github/workflows/deploy-cloudflare.yml']
-  workflow_dispatch:
+  workflow_call:
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: true
+      CLOUDFLARE_ACCOUNT_ID:
+        required: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
     permissions:
       contents: read
       deployments: write
@@ -23,14 +27,17 @@ jobs:
           cache: npm
           cache-dependency-path: app/web/package-lock.json
       - run: npm ci
-      - run: npm run build
+      - name: Build Pages bundle
         env:
-          # Public API origin incl. /api. Leave empty when the API shares the page origin.
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: |
+          node -e 'const url = new URL(process.env.VITE_API_BASE_URL); if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || !url.pathname.endsWith("/api")) throw new Error("Set VITE_API_BASE_URL to the HTTPS API origin ending in /api")'
+          npm run build
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=kazmion-pos-web
+          wranglerVersion: "4.168.0"
+          command: pages deploy dist --project-name=kazmion-pos-web --branch=main
           workingDirectory: app/web

@@ -8,20 +8,3 @@
 name = "kazmion-pos-web"
 pages_build_output_dir = "./dist"
 compatibility_date = "2026-11-01"
-
-# Single-page app: every unknown route falls back to index.html so deep links
-# such as /pos, /settings or /reset-password resolve inside React Router.
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-[[headers]]
-  from = "/assets/*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-
-[[headers]]
-  from = "/index.html"
-  [headers.values]
-    Cache-Control = "no-cache"

@@ -105,7 +105,8 @@ for (const scenario of [
       await expect(page.getByRole('button', { name: /Add staff member|Edit rights|Save settings/ })).toHaveCount(0);
     }
     if (scenario.name === 'business admin') {
-      await expect(page.locator('#navigation input')).toHaveCount(1);
+      // Settings is always visible and this fixture has installments disabled.
+      await expect(page.locator('#navigation input')).toHaveCount(0);
       const saved = page.waitForRequest((r) => r.method() === 'PATCH' && r.url().endsWith('/tenant/me'));
       await page.getByRole('button', { name: 'Save settings' }).click();
       const body = (await saved).postDataJSON();

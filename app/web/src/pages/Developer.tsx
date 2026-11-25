@@ -272,14 +272,6 @@ function IconEdit({ className = 'w-3.5 h-3.5' }: { className?: string }) {
   );
 }
 
-function IconKey({ className = 'w-4 h-4' }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
-    </svg>
-  );
-}
-
 /* ─────────────── Reusable UI Atoms ─────────────── */
 
 function StatCard({
@@ -531,189 +523,94 @@ function DeveloperLogin() {
   };
 
   return (
-    <div className="dev-login-bg">
-      {/* Ambient glowing orbs */}
-      <div className="dev-login-orb dev-login-orb-1" />
-      <div className="dev-login-orb dev-login-orb-2" />
-      <div className="dev-login-orb dev-login-orb-3" />
-
-      <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6">
+    <main className="sign-in-page dev-login-page">
+      <div className="sign-in-artwork"><img src="/kazmion-store-banner.jpg" width="1024" height="577" alt="Kazmion Smart POS Solution — Manage Sales, Inventory, Customers and More" fetchPriority="high" /></div>
+      <div className="sign-in-content">
+      <div className="sign-in-toolbar"><span>DEVELOPER ENGINE</span>
         <ThemeToggle />
       </div>
 
-      <div className="relative z-10 w-full max-w-sm px-4">
-        <form onSubmit={submit} className="dev-login-card" noValidate={false}>
-          <header className="space-y-3 text-center">
-            <div className="dev-brand-mark mx-auto">
-              <KazmiLogo className="w-7 h-7" />
-            </div>
-            <div>
-              <p className="dev-eyebrow justify-center">Kazmion POS Engine</p>
-              <h1 className="mt-1.5 text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                {step === 'email' ? 'Developer sign in' : 'Enter your password'}
-              </h1>
-            </div>
-            <p className="mx-auto max-w-[280px] text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              {step === 'email'
-                ? 'Access the platform workspace with your verified developer account.'
-                : 'Use your account password to continue to the Developer Engine.'}
-            </p>
-          </header>
+      <section className="sign-in-card" aria-labelledby="dev-sign-in-title">
+        <div className="grid grid-cols-1">
 
-          <div className="dev-login-progress mt-6" role="list" aria-label={`Step ${step === 'email' ? 1 : 2} of 2`}>
-            <div className={step === 'email' ? 'is-current' : 'is-complete'} role="listitem" aria-current={step === 'email' ? 'step' : undefined}>
-              <span className="dev-login-step-number">{step === 'email' ? '1' : <IconCheck className="w-3.5 h-3.5" />}</span>
-              <span>Email</span>
+          <form onSubmit={submit} className="sign-in-form" aria-busy={login.isPending} aria-describedby="dev-sign-in-description">
+            {/* Brand header */}
+            <div className="sign-in-heading">
+              <div className="sign-in-brand">Kazmi<span>On</span><small>DEVELOPER ENGINE</small></div>
+              <p className="sign-in-eyebrow">{step === 'email' ? 'STEP 1 OF 2 · IDENTITY' : 'STEP 2 OF 2 · CREDENTIALS'}</p>
+              <h1 id="dev-sign-in-title">{step === 'email' ? 'Developer sign in' : 'Enter your password'}</h1>
+              <p id="dev-sign-in-description" className="sign-in-description">{step === 'email' ? 'Access the platform workspace with your verified developer account.' : 'Use your account password to continue to the Developer Engine.'}</p>
             </div>
-            <span className="dev-login-progress-line" aria-hidden="true" />
-            <div className={step === 'password' ? 'is-current' : ''} role="listitem" aria-current={step === 'password' ? 'step' : undefined}>
-              <span className="dev-login-step-number">2</span>
-              <span>Password</span>
-            </div>
-          </div>
 
-          <div className="mt-6 space-y-4">
+            <ol className="sign-in-steps" aria-label={`Step ${step === 'email' ? 1 : 2} of 2`}>
+              <li aria-current={step === 'email' ? 'step' : undefined}><span aria-hidden="true">{step === 'password' ? '✓' : '1'}</span>Email</li>
+              <li aria-current={step === 'password' ? 'step' : undefined}><span aria-hidden="true">2</span>Password</li>
+            </ol>
+
+            {step === 'password' && (
+              <div className="sign-in-account">
+                <span><small>Signing in as</small><strong title={email}>{email}</strong></span>
+                <button type="button" disabled={login.isPending} onClick={() => { setPassword(''); setShowPassword(false); login.reset(); setStep('email'); }}>Change</button>
+              </div>
+            )}
+
             {step === 'email' ? (
               <div>
-                <label
-                  className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400"
-                  htmlFor="developer-email"
-                >
-                  Verified developer email
-                </label>
-                <input
-                  id="developer-email"
-                  className="input w-full text-[13px]"
-                  type="email"
-                  autoComplete="username"
-                  autoFocus
-                  required
-                  placeholder="name@example.com"
-                  value={email}
-                  onChange={(event) => {
-                    setEmail(event.target.value);
-                    if (login.isError) login.reset();
-                  }}
-                />
-                <p className="mt-2 text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
-                  Use the email address configured for your Developer account.
-                </p>
+                <label className="label" htmlFor="developer-email">Verified developer email</label>
+                <input id="developer-email" className="input" type="email" autoComplete="username" autoCapitalize="none" spellCheck={false} enterKeyHint="next" placeholder="name@example.com" required disabled={login.isPending} value={email} onChange={(e) => { setEmail(e.target.value); if (login.isError) login.reset(); }} />
+                <p className="sign-in-field-hint" style={{ color: 'var(--text-soft)' }}>Use the email address configured for your Developer account.</p>
               </div>
             ) : (
-              <>
-                <div className="dev-login-identity">
-                  <div className="min-w-0">
-                    <span className="dev-login-identity-label">Signing in as</span>
-                    <strong title={email}>{email}</strong>
-                  </div>
-                  <button
-                    type="button"
-                    className="dev-link-btn"
-                    onClick={() => {
-                      setPassword('');
-                      setShowPassword(false);
-                      login.reset();
-                      setStep('email');
-                    }}
-                  >
-                    Change
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="label" htmlFor="developer-password">Developer password</label>
+                  <button type="button" onClick={() => setShowPassword((v) => !v)} className="dev-link-btn" aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                    {showPassword ? 'Hide' : 'Show'}
                   </button>
                 </div>
-                <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <label
-                      className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400"
-                      htmlFor="developer-password"
-                    >
-                      Developer password
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((value) => !value)}
-                      className="dev-link-btn"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showPassword ? <IconEyeOff className="w-3.5 h-3.5" /> : <IconEye className="w-3.5 h-3.5" />}
-                      {showPassword ? 'Hide' : 'Show'}
-                    </button>
-                  </div>
-                  <input
-                    id="developer-password"
-                    className="input w-full text-[13px]"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    autoFocus
-                    enterKeyHint="go"
-                    aria-describedby="developer-password-hint"
-                    aria-invalid={login.isError || undefined}
-                    maxLength={128}
-                    placeholder="Enter your password"
-                    required
-                    value={password}
-                    onChange={(event) => {
-                      setPassword(event.target.value);
-                      if (login.isError) login.reset();
-                    }}
-                  />
-                  <p id="developer-password-hint" className="mt-2 text-center text-[11px] text-slate-400 dark:text-slate-500">
-                    Your password is stored as a secure hash, never as plain text.
-                  </p>
+                <div className="sign-in-password">
+                  <input id="developer-password" className="input" type={showPassword ? 'text' : 'password'} autoComplete="current-password" enterKeyHint="go" aria-describedby="developer-password-hint" aria-invalid={login.isError || undefined} maxLength={128} placeholder="Enter your password" required disabled={login.isPending} value={password} onChange={(e) => { setPassword(e.target.value); if (login.isError) login.reset(); }} />
                 </div>
-              </>
+                <p id="developer-password-hint" className="sign-in-field-hint" style={{ color: 'var(--text-soft)' }}>Your password is stored as a secure hash, never as plain text.</p>
+              </div>
             )}
-          </div>
 
-          {step === 'password' && login.isError && (
-            <div className="dev-inline-alert" role="alert">
-              <IconAlert className="w-4 h-4 flex-shrink-0" />
-              <span>{errorMessage(login.error)}</span>
-            </div>
-          )}
-
-          <button
-            className="dev-login-btn mt-6"
-            type="submit"
-            disabled={step === 'email' ? !email.trim() : login.isPending || !password}
-          >
-            {step === 'email' ? (
-              'Continue to password'
-            ) : login.isPending ? (
-              <span className="flex items-center justify-center gap-2">
-                <IconRefresh className="w-4 h-4 spinning" />
-                Verifying…
-              </span>
-            ) : (
-              'Sign in to Developer Engine'
+            {step === 'password' && login.isError && (
+              <p className="sign-in-error" role="alert">{errorMessage(login.error)}</p>
             )}
-          </button>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => setShowSetupModal(true)}
-              className="dev-link-btn"
-            >
-              <IconKey className="w-3.5 h-3.5" />
-              Set up password
+            <button className="sign-in-submit" type="submit" disabled={step === 'email' ? !email.trim() || login.isPending : login.isPending || !password}>
+              {login.isPending ? (
+                <span className="flex items-center justify-center gap-2"><span className="sign-in-spinner" aria-hidden="true" />Verifying…</span>
+              ) : step === 'email' ? (
+                <>Continue to password <span aria-hidden="true">→</span></>
+              ) : (
+                <>Sign in to Developer Engine <span aria-hidden="true">→</span></>
+              )}
             </button>
-            <Link to="/login" className="dev-link-btn">
-              <IconArrowLeft className="w-3.5 h-3.5" />
-              POS Sign In
-            </Link>
-          </div>
 
-          <p className="dev-secure-note">
-            <Link to="/recover?purpose=password&source=developer">Forgot password?</Link>
-            <IconLock className="w-3.5 h-3.5" />
-          </p>
-        </form>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <button type="button" onClick={() => setShowSetupModal(true)} className="dev-link-btn">
+                Set up password
+              </button>
+              <Link to="/login" className="dev-link-btn">
+                POS Sign In
+              </Link>
+            </div>
+
+            <p className="sign-in-security">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" /></svg>
+              <Link to="/recover?purpose=password&source=developer">Forgot password?</Link>
+            </p>
+          </form>
+        </div>
+      </section>
       </div>
 
-      {/* Developer Setup Modal */}
       {showSetupModal && (
         <DeveloperPasswordSetupModal onClose={() => setShowSetupModal(false)} />
       )}
-    </div>
+    </main>
   );
 }
 
@@ -2616,7 +2513,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <div className="sm:col-span-2">
                       <label className="label" htmlFor="biz-name">Business Name</label>
-                      <input className="input" id="biz-name" name="name" placeholder="e.g. Kazmi Supermarket ÛŒØ§ Ø§Ø±Ø¯Ùˆ Ù†Ø§Ù…" required minLength={2} maxLength={120} {...urduInputProps} />
+                      <input className="input" id="biz-name" name="name" placeholder="e.g. Kazmi Supermarket یا اردو نام" required minLength={2} maxLength={120} {...urduInputProps} />
                       {(() => {
                         const nameInput = document.getElementById('biz-name') as HTMLInputElement | null;
                         const name = nameInput?.value ?? '';
@@ -2681,7 +2578,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <div>
                       <label className="label" htmlFor="owner-name">Owner Full Name</label>
-                      <input className="input" id="owner-name" name="ownerName" placeholder="e.g. Ali Kazmi ÛŒØ§ Ø¹Ù„ÛŒ Ú©Ø§Ø¸Ù…ÛŒ" required minLength={2} maxLength={80} {...urduInputProps} />
+                      <input className="input" id="owner-name" name="ownerName" placeholder="e.g. Ali Kazmi یا علی کاظمی" required minLength={2} maxLength={80} {...urduInputProps} />
                     </div>
                     <div>
                       <label className="label" htmlFor="owner-email">Owner Email</label>

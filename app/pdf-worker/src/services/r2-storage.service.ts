@@ -1,4 +1,4 @@
-import { R2Bucket } from '@cloudflare/workers-types';
+import type { R2Bucket, R2Object, ReadableStream } from '@cloudflare/workers-types';
 
 /**
  * Cloudflare R2 storage service for PDF invoices
@@ -84,21 +84,6 @@ export class R2StorageService {
   getPublicUrl(key: string): string | null {
     if (!this.publicUrl) return null;
     return `${this.publicUrl}/${key}`;
-  }
-
-  /**
-   * Generate signed URL for temporary access
-   * @param key - R2 object key
-   * @param expiresIn - Expiration time in seconds (default: 1 hour)
-   * @returns Signed URL
-   */
-  async getSignedUrl(key: string, expiresIn = 3600): Promise<string> {
-    // Note: R2 signed URLs require the @aws-sdk/s3-request-presigner
-    // This is a placeholder - implement with AWS SDK if needed
-    const url = new URL(`https://${this.bucket.name}.r2.cloudflarestorage.com/${key}`);
-    url.searchParams.set('X-Amz-Expires', expiresIn.toString());
-    // In production, use proper AWS Signature V4 signing
-    return url.toString();
   }
 
   /**
