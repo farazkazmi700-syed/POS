@@ -1,9 +1,12 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
+import { errorMessage } from '../utils/errors';
+import { useAuth } from '../store/auth';
 import './Support.css';
 
-interface BackupInfo { canExport: boolean; format: string; consistentSnapshot: boolean; includesCredentials: boolean; included: string[]; excluded: string[]; }
+interface BackupInfo { sync?: { entitled: boolean; configured: boolean }; canExport: boolean; format: string; consistentSnapshot: boolean; includesCredentials: boolean; included: string[]; excluded: string[]; }
 interface SupportResponse { backup: BackupInfo; entitlements: { backup: boolean }; }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -18,16 +21,46 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 export default function Backup() {
-  const support = useQuery({ queryKey: ['support'], queryFn: () => api.get<SupportResponse>('/support').then((response) => response.data) });
+  const userId = useAuth((state) => state.user?._id);
+  const tenantId = useAuth((state) => state.user?.tenantId);
+  const support = useQuery({
+    queryKey: ['support', 'backup', tenantId, userId],
+    queryFn: ({ signal }) => api.get<SupportResponse>('/support', { signal }).then((response) => response.data),
+  });
   const backup = support.data?.backup;
-  const canExport = !!support.data?.entitlements.backup && !!backup?.canExport;
+  const sync = useMutation({
+    mutationFn: () => api.post<{ syncedAt: string }>('/support/backup/sync').then((response) => response.data),
+  });
+  const canExport = support.isSuccess && !!support.data.entitlements.backup && !!backup?.canExport;
   const download = useMutation({
     mutationFn: async () => {
-      const response = await api.get('/support/backup', { responseType: 'blob' });
-      const contentDisposition = response.headers['content-disposition'] || '';
-      const filenameMatch = contentDisposition.match(/filename="?([^";\n]+)"?/);
-      const filename = filenameMatch?.[1] || `kazmion-backup-${new Date().toISOString().slice(0, 10)}.zip`;
-      downloadBlob(response.data as Blob, filename);
+      try {
+        const response = await api.get<Blob>('/support/backup', { responseType: 'blob' });
+        if (response.data.type !== 'application/zip' || response.data.size === 0) {
+          throw new Error('The server did not return a ZIP file. Try again or contact support.');
+        }
+        const filename = response.headers['content-disposition']?.match(/filename="?([a-zA-Z0-9._-]+\.zip)"?(?:;|$)/i)?.[1]
+          ?? `kazmion-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.zip`;
+        // A session change while the export is in flight must not save another user's data.
+        const current = useAuth.getState().user;
+        if (current?._id !== userId || current?.tenantId !== tenantId) {
+          throw new Error('The signed-in account changed. Start a new export.');
+        }
+        downloadBlob(response.data, filename);
+      } catch (error) {
+        if (!isAxiosError(error)) throw error;
+        if (error.response?.status === 403) {
+          void support.refetch();
+          throw new Error('This account no longer has permission to export business records.');
+        }
+        if (error.response?.status === 413) {
+          const body = error.response.data;
+          const details: unknown = body instanceof Blob ? await body.text().then(JSON.parse).catch(() => null) : null;
+          const message = details && typeof details === 'object' && 'message' in details ? details.message : null;
+          throw new Error(typeof message === 'string' ? message : 'This business exceeds the ZIP export limit. Contact your backup operator for a native backup.');
+        }
+        throw new Error('The export could not be prepared. Try again or contact support.');
+      }
     },
   });
 
@@ -35,20 +68,34 @@ export default function Backup() {
     <div className="support-page space-y-5">
       <section className="support-hero" aria-labelledby="backup-title">
         <p className="support-eyebrow">Business continuity</p>
-        <h1 id="backup-title" className="support-title">Download a secure copy of your business records.</h1>
-        <p className="support-copy">This creates a ZIP file with all your shop data — branches, products, customers, orders, installments, stock, reports, and more. Credentials are excluded for security.</p>
+        <h1 id="backup-title" className="support-title">Business Backup</h1>
+        <p className="support-copy">Export your business records to a ZIP file. The archive includes a manifest with record counts and checksums.</p>
         <div className="support-actions"><button type="button" className="support-button support-button--primary" onClick={() => download.mutate()} disabled={!canExport || download.isPending}><DownloadIcon /> {download.isPending ? 'Preparing ZIP…' : 'Download Business Backup (ZIP)'}</button><Link className="support-button" to="/help"><HelpIcon /> Get backup help</Link></div>
-        {!support.isPending && !canExport && <div className="support-alert mt-4" role="status"><InfoIcon /><div><strong>Only the business owner can download an export.</strong> Ask the owner to download and safeguard the file, or contact support for recovery assistance.</div></div>}
+        {support.isSuccess && !canExport && <div className="support-alert mt-4" role="status"><InfoIcon /><div><strong>Only the business owner can download an export.</strong> Ask the owner to download and safeguard the file, or contact support for recovery assistance.</div></div>}
       </section>
 
       {support.isPending && <div className="support-loading" role="status">Loading backup policy…</div>}
       {support.isError && <div className="support-error" role="alert">We could not load the backup policy. <button type="button" className="underline font-semibold" onClick={() => support.refetch()}>Retry</button></div>}
-      {download.isError && <div className="support-error" role="alert">The export could not be prepared. Check your connection and try again. If the problem continues, contact support.</div>}
-      {download.isSuccess && <div className="support-card" role="status"><span className="support-status support-status--ok">ZIP backup downloaded</span><p className="mb-0 mt-2">Your business data has been saved as a ZIP file. Store it securely and keep a documented recovery contact.</p></div>}
+      {download.isError && <div className="support-error" role="alert">{download.error.message}</div>}
+      {download.isSuccess && <div className="support-card" role="status"><span className="support-status support-status--ok">ZIP download started</span><p className="mb-0 mt-2">Check your browser downloads. Store the ZIP on encrypted storage with restricted access.</p></div>}
+
+      {canExport && backup?.sync?.entitled && (
+        <section className="support-card" aria-labelledby="data-sync-title">
+          <h2 id="data-sync-title">Data Sync</h2>
+          <p>Send a copy of the records listed below to your provisioned cloud destination.</p>
+          {backup.sync.configured ? (
+            <button type="button" className="support-button" disabled={sync.isPending} onClick={() => sync.mutate()}>
+              {sync.isPending ? 'Sending snapshot...' : 'Sync business data to cloud'}
+            </button>
+          ) : <p role="status">Your operator needs to configure the cloud destination.</p>}
+          {sync.isError && <p role="alert">{errorMessage(sync.error)}</p>}
+          {sync.isSuccess && <p role="status">Cloud snapshot confirmed at {new Date(sync.data.syncedAt).toLocaleString()}.</p>}
+        </section>
+      )}
 
       {backup && <>
         <section className="support-card" aria-labelledby="export-details-title"><h2 id="export-details-title">What's in the backup</h2><div className="support-export-summary"><div><span>Format</span><strong>{backup.format}</strong></div><div><span>Type</span><strong>{backup.consistentSnapshot ? 'Consistent snapshot' : 'Logical export (ZIP)'}</strong></div><div><span>Credentials</span><strong>{backup.includesCredentials ? 'Included' : 'Excluded for security'}</strong></div></div><div className="support-grid support-grid--two mt-4"><div><h3>Included records</h3><ul className="support-list">{backup.included.map((item) => <li key={item}>{item}</li>)}</ul></div><div><h3>Excluded for security</h3><ul className="support-list">{backup.excluded.map((item) => <li key={item}>{item}</li>)}</ul></div></div></section>
-        <div className="support-grid support-grid--two"><section className="support-card"><h2>Store it safely</h2><ul className="support-list"><li>Save the ZIP file outside the active workstation and restrict access.</li><li>Use encrypted storage for customer and sales data.</li><li>Each collection is a separate JSON file inside the ZIP for easy review.</li><li>Check <strong>manifest.json</strong> inside the ZIP for file checksums and record counts.</li></ul></section><section className="support-card"><h2>What this export cannot do</h2><ul className="support-list"><li>It does not contain passwords, sessions, external files, or background jobs.</li><li>It is not an automatic restore image or a replacement for database backups.</li><li>Do not edit the files before an operator-reviewed recovery.</li></ul></section></div>
+        <div className="support-grid support-grid--two"><section className="support-card"><h2>Store it safely</h2><ul className="support-list"><li>Save the ZIP file outside the active workstation and restrict access.</li><li>Use encrypted storage for customer and sales data.</li><li>Each collection is a separate JSON file inside the ZIP for easy review.</li><li>Check <strong>manifest.json</strong> inside the ZIP for file checksums and record counts.</li></ul></section><section className="support-card"><h2>Recovery</h2><ul className="support-list"><li>Keep native database backups and separate copies of uploaded files and invoice PDFs for full recovery.</li><li>For an operator-reviewed import, keep the original ZIP and manifest intact.</li></ul></section></div>
       </>}
     </div>
   );

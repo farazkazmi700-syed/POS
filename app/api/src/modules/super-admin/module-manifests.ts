@@ -22,9 +22,12 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
   ...FEATURE_KEYS.filter((key) => key !== 'settings').map((key): ModuleManifest => ({
     key, moduleId: moduleId(key), label: FEATURE_LABELS[key], version: '1.0.0', releaseState: 'active',
     submodules: ({
-      pos: ['checkout', 'orders', 'invoices'], inventory: ['products', 'stock-adjustments'],
-      reports: ['sales'], customers: ['directory'], installments: ['products', 'agreements', 'payments', 'schedule'],
-      barcodes: ['generator', 'scanner'],
+      pos: ['checkout', 'orders', 'invoices', 'voids', 'refunds'],
+      inventory: ['products', 'stock-adjustments', 'stock-movements'],
+      reports: ['dashboard', 'sales'], customers: ['directory'],
+      installments: ['dashboard', 'products', 'customers', 'quotes', 'sales', 'agreements', 'payments', 'schedule', 'ledgers', 'receipts', 'overdue', 'reports', 'settings'],
+      barcodes: ['generator', 'scanner', 'labels'],
+      'data-sync': ['snapshots'],
     })[key].map((name) => ({ key: `${key}.${name}`, label: name.replace(/-/g, ' ') })),
   })),
   { key: 'settings', moduleId: moduleId('settings'), label: 'Settings & Staff Management', version: '1.0.0', releaseState: 'active', universal: true,
@@ -36,6 +39,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
       { key: 'settings.print', label: 'Print & Invoices' },
       { key: 'settings.payments', label: 'Payments' },
       { key: 'settings.integrations', label: 'Integrations' },
+      { key: 'settings.audit', label: 'Audit Trail' },
       { key: 'settings.security', label: 'Security' },
     ] },
   { key: 'help', moduleId: moduleId('help'), label: 'Help & Support', version: '1.0.0', releaseState: 'active', universal: true, submodules: [{ key: 'help.recovery', label: 'account recovery' }, { key: 'help.contact', label: 'support contact' }] },

@@ -357,7 +357,7 @@ export class SuperAdminService {
           name: user.name,
           email: user.email,
           phone: user.phone ?? null,
-          emailVerified: !!user.emailVerified,
+          emailVerified: !!user.emailVerified && !!user.emailVerifiedAt,
           phoneVerified: !!user.phoneVerified,
           role: user.role,
           isActive: user.isActive ?? true,

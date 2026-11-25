@@ -17,6 +17,7 @@ export function permittedActions(user: { role: string; permissions?: string[] })
 
 /** Unknown routes deny by default; personal-account endpoints stay self scoped. */
 export function actionForRoute(controller: string, handler: string, method: string): Action | undefined {
+  if (controller === 'support' && method === 'POST' && handler === 'backup/sync') return 'backup.export';
   if (controller === 'support') return method === 'GET' ? handler === 'backup' ? 'backup.export' : 'workspace.read' : undefined;
   if (controller === 'auth') {
     if (handler === 'logout' || handler === 'me' || handler.startsWith('me/')) return 'account.self';

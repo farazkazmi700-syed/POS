@@ -19,7 +19,7 @@ import { urduClass, urduInputProps } from '../utils/urdu';
 
 /* ─────────────── Feature Config ─────────────── */
 
-const fallbackFeatureKeys: FeatureKey[] = ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'];
+const fallbackFeatureKeys: FeatureKey[] = ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes', 'data-sync'];
 const fallbackFeatureNames: Record<FeatureKey, string> = {
   pos: 'POS',
   inventory: 'Inventory',
@@ -27,6 +27,7 @@ const fallbackFeatureNames: Record<FeatureKey, string> = {
   customers: 'Customers',
   installments: 'Installments',
   barcodes: 'Barcode tools',
+  'data-sync': 'Data Sync',
 };
 
 const featureDescriptions: Record<FeatureKey, string> = {
@@ -36,10 +37,12 @@ const featureDescriptions: Record<FeatureKey, string> = {
   customers: 'Customer ledger & CRM',
   installments: 'Installment plans & schedules',
   barcodes: 'Barcode generator and scanner access',
+  'data-sync': 'Owner-triggered business snapshots for provisioned cloud installations',
 };
 
 /* Feature vector icons */
 const featureIcons: Record<FeatureKey, (props: { className?: string }) => ReactNode> = {
+  'data-sync': IconBackup,
   pos: ({ className = 'w-4 h-4' }) => (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
@@ -524,7 +527,7 @@ function DeveloperLogin() {
 
   return (
     <main className="sign-in-page dev-login-page">
-      <div className="sign-in-artwork"><img src="/kazmion-store-banner.jpg" width="1024" height="577" alt="Kazmion Smart POS Solution — Manage Sales, Inventory, Customers and More" fetchPriority="high" /></div>
+      <div className="sign-in-artwork"><img src="/kazmion-store-banner.jpg" srcSet="/kazmion-store-banner.jpg 1024w, /kazmion-store-banner-1670.png 1670w" sizes="(max-aspect-ratio: 16/9) 178svh, 100vw" width="1024" height="577" alt="Kazmion Smart POS Solution — Manage Sales, Inventory, Customers and More" fetchPriority="high" /></div>
       <div className="sign-in-content">
       <div className="sign-in-toolbar"><span>DEVELOPER ENGINE</span>
         <ThemeToggle />
@@ -801,6 +804,11 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
   const [businessFilter, setBusinessFilter] = useState<'all' | 'active' | 'suspended' | 'has-plan' | 'no-plan'>('all');
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
+  const [resetClient, setResetClient] = useState<ClientAccountEntry | null>(null);
+  const resetClientPassword = useMutation({
+    mutationFn: ({ businessId, accountId }: { businessId: string; accountId: string }) =>
+      developerApi.resetClientPassword(businessId, accountId),
+  });
   const [inspectingBusiness, setInspectingBusiness] = useState<BusinessPlanTarget | null>(null);
   const [renamingBusiness, setRenamingBusiness] = useState<BusinessPlanTarget | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -1786,7 +1794,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                           </div>
                           <div className="flex flex-wrap gap-2" role="group" aria-label={`Feature entitlements for ${b.name}`}>
                             {featureKeys.map((key) => {
-                              const isEnabled = b.featureFlags?.[key] !== false;
+                              const isEnabled = key === 'data-sync' ? b.featureFlags?.['data-sync'] === true : b.featureFlags?.[key] !== false;
                               return (
                                 <button
                                   key={key}
@@ -2389,7 +2397,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
               <section className="space-y-4">
                 <div className="flex items-center justify-between text-xs text-slate-500 px-1">
                   <p>
-                    {groups.length} client business{groups.length === 1 ? '' : 'es'} · {clientAccounts.data?.length ?? 0} accounts total — read-only; passwords &amp; PINs are never exposed.
+                    {groups.length} client businesses ? {clientAccounts.data?.length ?? 0} accounts
                   </p>
                   <button type="button" onClick={() => clientAccounts.refetch()} className="dev-link-btn font-semibold">
                     <IconRefresh className="w-3.5 h-3.5" spinning={clientAccounts.isFetching} /> Refresh
@@ -2420,6 +2428,12 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
+                              <button type="button" className="dev-link-btn" onClick={() => {
+                                const target = businesses.data?.find((business) => business.businessId === group.business.id);
+                                if (target) setInspectingBusiness(target);
+                              }} disabled={!businesses.data?.some((business) => business.businessId === group.business.id)}>
+                                Module Entitlements
+                              </button>
                               <StatusBadge status={group.business.status as 'active' | 'suspended'} />
                               <button
                                 type="button"
@@ -2443,6 +2457,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                                   <th className="py-2.5 px-4">Verified</th>
                                   <th className="py-2.5 px-4">Status</th>
                                   <th className="py-2.5 px-4">Created</th>
+                                  <th className="py-2.5 px-4">Actions</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70">
@@ -2474,6 +2489,13 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                                     </td>
                                     <td className="py-2.5 px-4"><StatusBadge status={acct.isActive ? 'active' : 'suspended'} /></td>
                                     <td className="py-2.5 px-4 text-[11px] text-slate-400 whitespace-nowrap">{acct.createdAt ? fmtDateTime(acct.createdAt) : '—'}</td>
+                                    <td className="py-2.5 px-4">
+                                      <button type="button" className="dev-link-btn whitespace-nowrap"
+                                        aria-label={`Reset password for ${acct.name}`}
+                                        onClick={() => { resetClientPassword.reset(); setResetClient(acct); }}>
+                                        Reset password
+                                      </button>
+                                    </td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -2946,7 +2968,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
               <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
                 {featureKeys.map((key) => (
                   <label key={key} className="dev-feature-checkbox">
-                    <input type="checkbox" name={`feature-${key}`} defaultChecked className="dev-checkbox" />
+                    <input type="checkbox" name={`feature-${key}`} defaultChecked={key !== 'data-sync'} className="dev-checkbox" />
                     <span className="dev-feature-checkbox-icon">{featureIcons[key]?.({ className: 'w-4 h-4' })}</span>
                     <span>
                       <span className="block text-xs font-semibold">{featureNames[key]}</span>
@@ -3096,6 +3118,31 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
       )}
 
       {/* â•â•â• Modal: Inspect Business Details â•â•â• */}
+      {resetClient && (
+        <ModalOverlay onClose={() => { if (!resetClientPassword.isPending) setResetClient(null); }} labelledBy="client-reset-title">
+          <ModalHeader title="Reset client password" titleId="client-reset-title"
+            subtitle={`${resetClient.name} ? ${resetClient.business?.name ?? ''}`}
+            onClose={() => { if (!resetClientPassword.isPending) setResetClient(null); }} />
+          <div className="space-y-3 p-4 text-sm">
+            {resetClientPassword.isSuccess ? <p role="status">{resetClientPassword.data.message}</p> : (
+              <>
+                <p>The account holder receives a single-use link at their verified email and chooses their new password. Their sessions are revoked after the reset.</p>
+                {!resetClient.isActive ? <p role="status">Reactivate this account before requesting a reset.</p> :
+                  !resetClient.emailVerified && <p role="status">This account needs a verified email.</p>}
+                {resetClientPassword.isError && <p role="alert">{errorMessage(resetClientPassword.error)}</p>}
+                <button type="button" className="dev-btn-primary"
+                  disabled={!resetClient.business || !resetClient.isActive || !resetClient.emailVerified || resetClientPassword.isPending}
+                  onClick={() => {
+                    if (resetClient.business) resetClientPassword.mutate({ businessId: resetClient.business.id, accountId: resetClient._id });
+                  }}>
+                  {resetClientPassword.isPending ? 'Sending...' : 'Send reset link'}
+                </button>
+              </>
+            )}
+          </div>
+        </ModalOverlay>
+      )}
+
       {inspectingBusiness && (
         <ModalOverlay onClose={() => setInspectingBusiness(null)} labelledBy="inspect-modal-title">
           <ModalHeader
@@ -3140,7 +3187,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
               <p className="dev-field-label">Active Modules</p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {featureKeys.map((k) => {
-                  const enabled = inspectingBusiness.featureFlags?.[k] !== false;
+                  const enabled = k === 'data-sync' ? inspectingBusiness.featureFlags?.['data-sync'] === true : inspectingBusiness.featureFlags?.[k] !== false;
                   return (
                     <span
                       key={k}

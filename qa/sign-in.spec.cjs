@@ -36,26 +36,26 @@ for (const [width, height, theme] of screens) {
       expect(banner.y + banner.height).toBeLessThanOrEqual(artwork.y + artwork.height + 1);
       expect(artwork.x).toBeGreaterThanOrEqual(0);
       expect(artwork.x + artwork.width).toBeLessThanOrEqual(width + 1);
-      // Artwork and form must remain separate across the desktop/stacked breakpoint.
-      if (width >= 1024) {
-        expect(artwork.x + artwork.width).toBeLessThanOrEqual(card.x + 1);
-      } else {
-        expect(artwork.y + artwork.height).toBeLessThanOrEqual(card.y + 1);
-      }
-      // Either preserve the image's intrinsic ratio or contain the full image in its box.
-      const imageFits = await page.locator('.sign-in-artwork img').evaluate((image) => {
-        const box = image.getBoundingClientRect();
-        const fit = getComputedStyle(image).objectFit;
-        return ['contain', 'scale-down'].includes(fit)
-          || Math.abs(box.width / box.height - image.naturalWidth / image.naturalHeight) < 0.01;
+      expect(Math.abs(banner.width - layout.width)).toBeLessThanOrEqual(1);
+      expect(Math.abs(banner.height - layout.height)).toBeLessThanOrEqual(1);
+      await expect(page.locator('.sign-in-artwork img')).toHaveCSS('object-fit', 'cover');
+      const cardIsAboveBanner = await page.locator('.sign-in-card').evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        const x = box.left + box.width / 2;
+        const y = Math.max(0, box.top) + 8;
+        return element.contains(document.elementFromPoint(x, y));
       });
-      expect(imageFits).toBe(true);
+      expect(cardIsAboveBanner).toBe(true);
     };
     await page.goto('/login');
     await page.evaluate(() => document.fonts.ready);
     const banner = page.locator('.sign-in-artwork img');
     await expect(banner).toHaveAttribute('src', '/kazmion-store-banner.jpg');
     await expect.poll(() => banner.evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true);
+    if (width === 1440) {
+      await expect.poll(() => banner.evaluate((image) => new URL(image.currentSrc).pathname))
+        .toBe('/kazmion-store-banner-1670.png');
+    }
     await expect(page.getByText('POINT OF SALE SYSTEM', { exact: true })).toBeVisible();
     await expect(page.locator('#sign-in-description')).toHaveText('Sign in to manage your business.');
     await expect(page.getByText('BUSINESS WORKSPACE', { exact: true })).toHaveCount(0);

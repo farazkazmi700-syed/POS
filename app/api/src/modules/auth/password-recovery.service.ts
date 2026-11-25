@@ -1,5 +1,7 @@
 import {
   BadRequestException,
+  ConflictException,
+  NotFoundException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -17,6 +19,9 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import * as bcrypt from "bcryptjs";
+import type { AuthUser } from '../../common/auth-user';
+import { AuditService } from '../audit/audit.module';
+import { isConfiguredDeveloper } from '../../common/security-access';
 import { Role } from "../../common/enums";
 import { EmailService } from "./email.service";
 import { PasswordHashingService } from "./password-hashing.service";
@@ -100,7 +105,8 @@ export class PasswordRecoveryService {
     @InjectModel(User.name) private readonly users: Model<User>,
     private readonly hashing: PasswordHashingService,
     private readonly email: EmailService,
-    config: ConfigService,
+    private readonly config: ConfigService,
+    private readonly audit: AuditService,
   ) {
     const resetBaseUrl = config.get<string>('PASSWORD_RESET_BASE_URL');
     if (!resetBaseUrl) {
@@ -135,12 +141,40 @@ export class PasswordRecoveryService {
       await bcrypt.hash(randomBytes(16).toString('hex'), 10); // keep timing similar
       return generic;
     }
-    // Per-account throttle: minimum 60 seconds between reset requests.
+    const destination = user.recoveryEmail && user.emailVerified && user.emailVerifiedAt ? user.recoveryEmail : user.email;
+    await this.sendEmailReset(user, destination);
+    return generic;
+  }
+
+  async requestClientReset(businessId: string, accountId: string, actor: AuthUser) {
+    if (!actor.isDeveloper) throw new ForbiddenException('Developer access is required.');
+    const user = await this.users.findOne({ _id: new Types.ObjectId(accountId), tenantId: new Types.ObjectId(businessId) });
+    if (!user?.isActive || user.superAdmin || isConfiguredDeveloper(user.email, this.config.get<string>('PLATFORM_DEVELOPER_EMAIL'))) {
+      throw new NotFoundException('Active business account not found.');
+    }
+    if (!user.emailVerified || !user.emailVerifiedAt) {
+      throw new BadRequestException('This account needs a verified email before a reset link can be sent.');
+    }
+    if (!this.email.isConfigured()) throw new ServiceUnavailableException('Password reset email is unavailable on this installation.');
+    const destination = user.recoveryEmail || user.email;
+    if (!(await this.sendEmailReset(user, destination, actor.userId))) {
+      throw new ConflictException('A reset was requested recently. Wait one minute before trying again.');
+    }
+    await this.audit.record({ tenantId: businessId, userId: actor.userId }, 'password.reset_requested', 'account', { accountId });
+    return { message: 'Reset link sent to the account?s verified email. It expires in 15 minutes.' };
+  }
+
+  private async sendEmailReset(
+    user: User & { _id: Types.ObjectId },
+    destination: string,
+    developerId?: string,
+  ): Promise<boolean> {
+    const now = new Date();
     const reserved = await this.users.findOneAndUpdate(
-      { _id: user._id, $or: [{ securityCodeRequestedAt: null }, { securityCodeRequestedAt: { $lte: new Date(Date.now() - 60_000) } }] },
-      { $set: { securityCodeRequestedAt: new Date() } },
+      { _id: user._id, tenantId: user.tenantId, isActive: true, $or: [{ securityCodeRequestedAt: null }, { securityCodeRequestedAt: { $lte: new Date(now.getTime() - 60_000) } }] },
+      { $set: { securityCodeRequestedAt: now } },
     );
-    if (!reserved) return generic;
+    if (!reserved) return false;
 
     const token = randomBytes(32).toString('base64url');
     const tokenHash = this.sha256(token);
@@ -150,20 +184,21 @@ export class PasswordRecoveryService {
     // Only the SHA-256 hash of the token is ever stored.
     await collection.findOneAndUpdate(
       { userId: user._id, tokenHash },
-      { $setOnInsert: { userId: user._id, tokenHash, expiresAt, consumedAt: null, createdAt: new Date() } },
+      { $setOnInsert: { userId: user._id, tokenHash, expiresAt, consumedAt: null, createdAt: now,
+        ...(developerId ? { developerId, tenantId: user.tenantId, sessionVersion: user.sessionVersion ?? 0,
+          email: user.email, recoveryEmail: user.recoveryEmail ?? null, emailVerifiedAt: user.emailVerifiedAt } : {}) } },
       { upsert: true } as object,
     );
-    const destination = user.recoveryEmail && user.emailVerified && user.emailVerifiedAt ? user.recoveryEmail : user.email;
     try {
       const resetLink = new URL(this.resetPage);
       resetLink.hash = new URLSearchParams({ token }).toString();
       await this.email.sendPasswordResetLink(destination, resetLink.href);
     } catch {
-      await collection.deleteMany({ userId: user._id });
-      await this.users.updateOne({ _id: user._id }, { $set: { securityCodeRequestedAt: null } });
+      await collection.deleteOne({ userId: user._id, tokenHash });
+      await this.users.updateOne({ _id: user._id, securityCodeRequestedAt: now }, { $set: { securityCodeRequestedAt: null } });
       throw new ServiceUnavailableException('The reset email could not be sent. Try again later.');
     }
-    return generic;
+    return true;
   }
 
   /** Atomically consumes the token, stores an Argon2id hash, revokes sessions. */
@@ -176,17 +211,29 @@ export class PasswordRecoveryService {
       { $set: { consumedAt: new Date() } },
     );
     if (!claimed) throw new BadRequestException('Invalid or expired reset link.');
-    const userId = (claimed as unknown as { userId: Types.ObjectId }).userId;
+    const reset = claimed as unknown as {
+      userId: Types.ObjectId; developerId?: string; tenantId?: Types.ObjectId;
+      sessionVersion?: number; email?: string; recoveryEmail?: string | null; emailVerifiedAt?: Date;
+    };
+    const { userId } = reset;
+    const binding = reset.developerId ? {
+      tenantId: reset.tenantId, email: reset.email, recoveryEmail: reset.recoveryEmail,
+      emailVerified: true, emailVerifiedAt: reset.emailVerifiedAt, superAdmin: { $ne: true },
+      $or: [{ sessionVersion: reset.sessionVersion }, ...(reset.sessionVersion === 0 ? [{ sessionVersion: { $exists: false } }] : [])],
+    } : {};
     const passwordHash = await this.hashing.hashPassword(newPassword);
     const updated = await this.users.findOneAndUpdate(
-      { _id: userId, isActive: true },
+      { _id: userId, isActive: true, ...binding },
       {
         $set: { passwordHash, passwordRequiresChange: false },
         $inc: { sessionVersion: 1, developerSessionVersion: 1, pinVersion: 1 },
         $unset: { pinChallengeId: 1 },
       },
     );
-    if (!updated) throw new BadRequestException('Account unavailable. Submit a new reset request.');
+    if (!updated) throw new BadRequestException('Account unavailable or changed. Submit a new reset request.');
+    if (reset.developerId && reset.tenantId) {
+      await this.audit.record({ tenantId: String(reset.tenantId), userId: reset.developerId }, 'password.reset_completed', 'account', { accountId: String(userId) });
+    }
     return { message: 'Password updated. All sessions have been signed out - sign in with your new password.' };
   }
 

@@ -23,7 +23,7 @@ for (const operation of ['updateOne', 'updateMany', 'findOneAndUpdate', 'deleteO
 @Injectable()
 export class AuditService {
   constructor(@InjectModel(AuditEvent.name) private readonly events: Model<AuditEvent>) {}
-  record(user: AuthUser, action: string, resource: string, details?: Record<string, unknown>) {
+  record(user: Pick<AuthUser, 'tenantId' | 'userId' | 'branchId'>, action: string, resource: string, details?: Record<string, unknown>) {
     return this.events.create({ tenantId: new Types.ObjectId(user.tenantId), branchId: user.branchId ? new Types.ObjectId(user.branchId) : undefined, actorId: user.userId, action, resource, details });
   }
   async list(user: AuthUser, page = 1, limit = 30) {

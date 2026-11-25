@@ -258,6 +258,30 @@ async function main() {
     recoveryFixtures.failWhatsapp(false);
   });
   await database.collection('users').insertOne({ tenantId: tenants[1]._id, name: 'Test platform admin', email: 'super@spec.test', passwordHash: await bcrypt.hash('test-password-123', 4), pinHash: await bcrypt.hash('1234', 4), role: 'owner', superAdmin: true, isActive: true, pinVersion: 0 });
+  await check('developer sends a verified, business-bound client reset link', async () => {
+    const client = { ...owners[1], _id: new mongoose.Types.ObjectId(), email: 'client-reset@spec.test', emailVerified: true, emailVerifiedAt: new Date() };
+    await database.collection('users').insertOne(client);
+    const session = await login(client.email);
+    const route = `/developer/clients/${tenants[1]._id}/${client._id}/password-reset`;
+    assert.equal((await request(route, owner, {})).status, 403);
+    assert.equal((await request(`/developer/clients/${tenants[0]._id}/${client._id}/password-reset`, developer, {})).status, 404);
+    const sent = await request(route, developer, {});
+    assert.equal(sent.status, 201, JSON.stringify(sent.data));
+    assert.deepEqual(Object.keys(sent.data), ['message']);
+    assert.equal((await request(route, developer, {})).status, 409);
+    const mail = recoveryFixtures.emails.at(-1).replace(/=\r\n/g, '').replace(/=3D/g, '=');
+    const token = /\/reset-password#token=([A-Za-z0-9_-]{43})/.exec(mail)?.[1];
+    assert.ok(token);
+    const body = { token, newPassword: 'client-recovery-passphrase-456' };
+    assert.equal((await request('/auth/reset-password', null, body)).status, 201);
+    assert.equal((await request('/auth/reset-password', null, body)).status, 400);
+    assert.equal((await request('/auth/me', session)).status, 401);
+    assert.ok(await login(client.email, body.newPassword));
+    assert.equal(await database.collection('auditevents').countDocuments({
+      tenantId: tenants[1]._id, action: { $in: ['password.reset_requested', 'password.reset_completed'] },
+      'details.accountId': String(client._id),
+    }), 2);
+  });
   await check('email OTP changes passwords for owner, admin, cashier, superadmin and developer', async () => {
     for (const email of [owners[0].email, 'limited@spec.test', 'cashier@spec.test', 'super@spec.test', 'developer@spec.test']) {
       const issued = await recoveryRequest(email);

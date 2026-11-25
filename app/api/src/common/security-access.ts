@@ -44,7 +44,7 @@ export function hasFeatureAccess(
   features: Partial<Record<FeatureKey, boolean>> | null | undefined,
   feature: FeatureKey,
 ): boolean {
-  return isAdmin || features?.[feature] !== false;
+  return isAdmin || (feature === 'data-sync' ? features?.[feature] === true : features?.[feature] !== false);
 }
 
 export function hasAnyFeatureAccess(
@@ -52,7 +52,7 @@ export function hasAnyFeatureAccess(
   features: Partial<Record<FeatureKey, boolean>> | null | undefined,
   required: readonly FeatureKey[],
 ): boolean {
-  return isAdmin || required.some((feature) => features?.[feature] !== false);
+  return isAdmin || required.some((feature) => hasFeatureAccess(false, features, feature));
 }
 
 export function hasTenantAccess(status: string | undefined, allowSuspended: boolean): boolean {

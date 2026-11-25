@@ -294,6 +294,8 @@ export const developerApi = {
     api.patch<PlatformModuleEntry>(`/developer/modules/${id}`, body).then((r) => r.data),
   deleteModule: (id: string) => api.delete<{ deleted: boolean }>(`/developer/modules/${id}`).then((r) => r.data),
   clients: () => api.get<ClientAccountEntry[]>('/developer/clients').then((r) => r.data),
+  resetClientPassword: (businessId: string, accountId: string) =>
+    api.post<{ message: string }>(`/developer/clients/${businessId}/${accountId}/password-reset`).then((r) => r.data),
   backupOptions: () => api.get<{ mode: string; email: boolean; drive: boolean; emailTo?: string }>('/developer/backup/options').then(r => r.data),
   deliverBackup: (destination: 'email' | 'drive') => api.post<{ status: string }>('/developer/backup/deliver', { destination }).then(r => r.data),
   backup: () => api.get<{

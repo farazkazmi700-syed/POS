@@ -14,6 +14,7 @@ export class FeatureFlagsDto {
   @IsOptional() @IsBoolean() installments?: boolean;
   @IsOptional() @IsBoolean() barcodes?: boolean;
   @IsOptional() @IsBoolean() settings?: boolean;
+  @IsOptional() @IsBoolean() 'data-sync'?: boolean;
 }
 
 export class PlanFeaturesDto {
@@ -24,6 +25,7 @@ export class PlanFeaturesDto {
   @IsBoolean() installments: boolean;
   @IsBoolean() barcodes: boolean;
   @IsBoolean() settings: boolean;
+  @IsOptional() @IsBoolean() 'data-sync'?: boolean;
 }
 
 export class ProvisionAccountDto {

@@ -1,0 +1,15 @@
+name = "kazmion-data-sync"
+main = "worker.mjs"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = ["0 3 * * *"]
+
+[vars]
+BUSINESS_ID = "replace-with-business-id"
+
+[[d1_databases]]
+binding = "SNAPSHOTS"
+database_name = "kazmion-data-sync"
+database_id = "00000000-0000-0000-0000-000000000000"

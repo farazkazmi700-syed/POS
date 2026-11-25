@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 
 const featureKeys: FeatureKey[] = ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'];
 const featureNames: Record<FeatureKey, string> = {
+  'data-sync': 'Data Sync',
   pos: 'POS', inventory: 'Inventory', reports: 'Reports', customers: 'Customers', installments: 'Installments', barcodes: 'Barcode tools',
 };
 

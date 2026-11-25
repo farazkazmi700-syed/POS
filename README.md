@@ -82,6 +82,32 @@ project, Node.js 24 and authenticated Wrangler are required to use
 project to avoid duplicate releases. SPA routing and cache rules ship with the
 static build via `_redirects` and `_headers`.
 
+## Business Data Sync
+
+Data Sync is off by default. Provision it only for a business that requests
+cloud service. Create a dedicated Cloudflare D1 database and Worker for that
+business. In `deploy/cloudflare/data-sync/wrangler.toml`, set a unique Worker
+name, the D1 database name and ID, and the business ID. Apply the D1
+migrations with `wrangler d1 migrations apply SNAPSHOTS --remote`, install a
+random 32-byte hex secret with `wrangler secret put DATA_SYNC_TOKEN`, and
+deploy the Worker with `wrangler deploy`. Run Wrangler from that directory.
+
+Set the matching token, business ID, and HTTPS Worker endpoint ending in
+`/v1/business-snapshot` in the local API environment using
+`DATA_SYNC_TOKEN`, `DATA_SYNC_TENANT_ID`, and `DATA_SYNC_URL`. Grant Data
+Sync in Module Entitlements and set the business deployment mode to Cloud
+or Hybrid. The owner can then start an upload from Business Backup.
+
+Sync sends a sanitized ZIP snapshot up to 50 MiB. The Worker stores it in
+D1 chunks and changes the current snapshot only after the full upload is
+stored. A daily cleanup removes superseded and incomplete snapshots older
+than one day. An authorized operator can download the current archive with
+`GET /v1/business-snapshot` using the same bearer token and `X-Business-Id`
+header. Verify the download against the `X-Snapshot-SHA256` response header.
+The local application remains authoritative. This workflow
+does not provide incremental replication, cloud reporting tables, or
+automatic restore. The snapshot contains customer and financial data.
+
 ## Technical reference
 
 The [technical reference](docs/technical-reference.md) contains design decisions, operating procedures and historical migration records.

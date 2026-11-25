@@ -61,6 +61,7 @@ export class TenantFeatureFlags {
   @Prop({ default: true }) customers: boolean;
   @Prop({ default: true }) installments: boolean;
   @Prop({ default: true }) barcodes: boolean;
+  @Prop({ default: false }) 'data-sync'?: boolean;
 }
 const TenantFeatureFlagsSchema = SchemaFactory.createForClass(TenantFeatureFlags);
 

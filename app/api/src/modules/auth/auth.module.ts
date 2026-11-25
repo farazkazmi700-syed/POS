@@ -22,5 +22,6 @@ import { RecoveryModule } from './recovery.module';
   ],
   controllers: [AuthController],
   providers: [AuthService, EmailService, JwtStrategy, PasswordHashingService, PasswordRecoveryService],
+  exports: [PasswordRecoveryService],
 })
 export class AuthModule {}

@@ -7,6 +7,9 @@ dist/
 .env
 .env.*
 !.env.example
+.dev.vars
+.dev.vars.*
+.wrangler/
 
 # Python environments and caches
 venv/

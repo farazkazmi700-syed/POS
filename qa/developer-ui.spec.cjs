@@ -164,3 +164,30 @@ test('developer accent previews, persists and resets', async ({ page }) => {
   await page.getByRole('button', { name: 'Reset to default' }).click();
   await expect(picker).toHaveValue('#2463eb');
 });
+
+
+test('developer can open business entitlements and request a client password reset', async ({ page }) => {
+  await setup(page, 'light');
+  const business = { id: 'business-0', name: 'Business 01', domainType: 'retail', status: 'active' };
+  await page.route('**/api/developer/features', route => route.fulfill({ json: [{ key: 'data-sync', label: 'Data Sync' }] }));
+  await page.route('**/api/developer/clients', route => route.fulfill({ json: [{
+    _id: 'client-1', name: 'Fixture Owner', email: 'owner@example.test', role: 'owner',
+    emailVerified: true, isActive: true, business,
+  }] }));
+  let sent = 0;
+  await page.route('**/api/developer/clients/business-0/client-1/password-reset', route => {
+    sent++;
+    return route.fulfill({ status: 201, json: { message: 'Reset link sent.' } });
+  });
+  await page.goto('/developer?section=clients');
+  await page.getByRole('button', { name: 'Module Entitlements', exact: true }).click();
+  await expect(page.getByRole('dialog').getByText('Data Sync', { exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Reset password for Fixture Owner' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Reset client password' });
+  await expect(dialog).toBeVisible();
+  expect(sent).toBe(0);
+  await dialog.getByRole('button', { name: 'Send reset link' }).click();
+  await expect(dialog.getByRole('status')).toHaveText('Reset link sent.');
+  expect(sent).toBe(1);
+});

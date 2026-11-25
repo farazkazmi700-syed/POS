@@ -16,8 +16,8 @@ export const MODULE_RIGHTS: { key: ModuleRightKey; label: string }[] = [
 ];
 /** All module right keys as a plain array (handy for defaults & toggles). */
 export const MODULE_RIGHT_KEYS: ModuleRightKey[] = MODULE_RIGHTS.map((r) => r.key);
-export type FeatureKey = 'pos' | 'inventory' | 'reports' | 'customers' | 'installments' | 'barcodes';
-export type FeatureFlags = Record<FeatureKey, boolean>;
+export type FeatureKey = 'pos' | 'inventory' | 'reports' | 'customers' | 'installments' | 'barcodes' | 'data-sync';
+export type FeatureFlags = Record<Exclude<FeatureKey, 'data-sync'>, boolean> & { 'data-sync'?: boolean };
 export type DomainType = 'retail' | 'restaurant' | 'pharmacy' | 'supermarket' | 'grocery' | 'electronics' | 'salon' | 'custom';
 export type TaxClass = 'standard' | 'reduced' | 'exempt';
 export type PaymentMode = 'cash' | 'card' | 'wallet' | 'installment' | 'mixed';

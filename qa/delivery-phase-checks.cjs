@@ -53,15 +53,38 @@ module.exports = async function deliveryChecks({ request, check, owner, cashier,
     const support = await request('/support', cashier);
     assert.equal(support.status, 200); assert.equal(support.data.entitlements.backup, true); assert.equal(support.data.backup.canExport, false);
     assert.equal((await request('/support/backup', cashier)).status, 403);
+    assert.equal((await request('/support/backup/sync', cashier, {})).status, 403);
+    assert.equal((await request('/support/backup/sync', owner, {})).status, 403);
+    const policy = await request('/support', owner);
+    assert.deepEqual(policy.data.backup.sync, { entitled: false, configured: false });
+    assert.equal((await request(`/developer/businesses/${tenants[0]._id}/features`, developer,
+      { featureFlags: { 'data-sync': true } }, 'PATCH')).status, 200);
+    assert.equal((await request('/support/backup/sync', owner, {})).status, 403);
+    await database.collection('tenants').updateOne({ _id: tenants[0]._id }, { $set: { deploymentMode: 'hybrid' } });
+    assert.equal((await request('/support/backup/sync', owner, {})).status, 503);
+    await database.collection('tenants').updateOne({ _id: tenants[0]._id },
+      { $unset: { deploymentMode: 1, 'featureFlags.data-sync': 1 } });
     // The v2 export endpoint streams a ZIP (application/zip), not JSON — fetch raw bytes.
-    const download = await rawFetch('/support/backup', owner);
+    await database.collection('users').updateOne(
+      { tenantId: tenants[0]._id, role: 'owner' },
+      { $set: { futureAuthSecret: 'test-only-excluded-field', recoveryEmail: 'recovery-only@spec.test' } },
+    );
+    const download = await rawFetch('/support/backup', owner).finally(() => database.collection('users').updateOne(
+      { tenantId: tenants[0]._id, role: 'owner' },
+      { $unset: { futureAuthSecret: 1, recoveryEmail: 1 } },
+    ));
     assert.equal(download.status, 200);
+    assert.equal(download.headers.get('cache-control'), 'no-store');
+    assert.match(download.headers.get('content-disposition') || '', /attachment; filename="kazmion-backup-[A-Za-z0-9_-]+\.zip"/);
+    const audit = await database.collection('auditevents').findOne({ tenantId: tenants[0]._id, action: 'backup.exported' });
+    assert.ok(audit, 'Export was not audited');
     assert.match(download.headers.get('content-type') || '', /application\/zip/);
     const zipBytes = new Uint8Array(await download.arrayBuffer());
     const { unzipSync, strFromU8 } = require('../app/api/node_modules/fflate');
     const files = unzipSync(zipBytes);
     assert.ok(files['manifest.json'], 'manifest.json missing from export');
     const manifest = JSON.parse(strFromU8(files['manifest.json']));
+    assert.equal(manifest.tenantId, String(tenants[0]._id));
     assert.equal(manifest.format, 'kazmion-business-export-v2'); assert.equal(manifest.includesCredentials, false);
     const jsonFiles = Object.entries(files).filter(([name]) => name.endsWith('.json') && name !== 'manifest.json');
     assert.ok(jsonFiles.length > 0, 'export contains no collection files');
@@ -78,7 +101,7 @@ module.exports = async function deliveryChecks({ request, check, owner, cashier,
     }
     assert.equal(totalRows, manifest.totalRecords);
     const combined = Object.values(files).map((b) => strFromU8(b)).join('\n');
-    assert.ok(!/passwordHash|pinHash|refreshToken|recoverychallenges/.test(combined), 'export leaks credential fields');
+    assert.ok(!/passwordHash|pinHash|refreshToken|recoverychallenges|futureAuthSecret|recovery-only@spec.test/.test(combined), 'export leaks credential fields');
   });
 
   await check('independent installment payments prevent overpayment, races, replay changes and tenant IDOR', async () => {

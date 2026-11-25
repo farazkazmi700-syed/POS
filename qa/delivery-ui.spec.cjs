@@ -12,7 +12,7 @@ async function setup(page, rights, canExport = false, account) {
     if (url === '/api/auth/me') data = user;
     else if (url === '/api/tenant/me') data = tenant;
     else if (url === '/api/branches' || url === '/api/auth/staff') data = [];
-    else if (url === '/api/support') data = { backup: { canExport } };
+    else if (url === '/api/support') data = { entitlements: { backup: true }, backup: { canExport, format: 'kazmion-business-export-v2', consistentSnapshot: false, includesCredentials: false, included: ['orders'], excluded: ['credentials'] } };
     else if (url === '/api/installments/sales') data = { data: [sale], total: 1, page: 1, limit: 20 };
     else if (url === `/api/installments/sales/${sale._id}`) data = sale;
     else if (url === '/api/installments/dashboard') data = { totalProducts: 1, totalSales: 1, contractValue: 109, advancePayments: 10, installmentCollections: 10, outstandingReceivables: 99, overdueBalances: 0, upcomingInstallments: 3, completedAgreements: 0 };
@@ -22,13 +22,12 @@ async function setup(page, rights, canExport = false, account) {
 for (const width of [390, 1440]) {
   test.describe(`${width}px`, () => {
     test.use({ viewport: { width, height: 900 } });
-    test('support remains reachable without business-module grants', async ({ page }) => {
+    test('staff cannot open the owner backup page and can reach Help', async ({ page }) => {
       await setup(page, []);
       await page.goto('/backup');
-      await expect(page.getByRole('heading', { name: 'Help and Backup' })).toBeVisible();
-      await expect(page.getByRole('heading', { name: /AI Chatbot/ })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Download business export' })).toHaveCount(0);
-      await expect(page.getByText('Your owner or authorized administrator can export business data.')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Access restricted' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Download Business Backup (ZIP)' })).toHaveCount(0);
+      await expect(page.getByRole('link', { name: 'Help', exact: true })).toHaveAttribute('href', '/help');
     });
     test('payment retry keeps its key and agreement preview includes full ledger', async ({ page }) => {
       await setup(page, ['installments']);
@@ -96,4 +95,27 @@ test('profile contacts and business logo can be added, updated and removed', asy
   await expect(page.getByLabel('Recovery email', { exact: true })).toHaveValue('');
   await expect(page.getByLabel('Recovery phone', { exact: true })).toHaveValue('');
   await expect(page.getByRole('button', { name: 'Save Logo' })).toBeDisabled();
+});
+
+test('owner can recover from an export limit and download a ZIP', async ({ page }) => {
+  const owner = { _id: '444444444444444444444444', tenantId: tenant._id, role: 'owner', name: 'Owner' };
+  await setup(page, [], true, owner);
+  let attempts = 0;
+  await page.route('**/api/support/backup', async (route) => {
+    attempts++;
+    if (attempts === 1) return route.fulfill({ status: 413, json: { message: 'Use a native backup for this business.' } });
+    return route.fulfill({
+      body: Buffer.from('504b0506000000000000000000000000000000000000', 'hex'),
+      contentType: 'application/zip',
+      headers: { 'Content-Disposition': 'attachment; filename="business.zip"' },
+    });
+  });
+  await page.goto('/backup');
+  const button = page.getByRole('button', { name: 'Download Business Backup (ZIP)' });
+  await button.click();
+  await expect(page.getByRole('alert')).toHaveText('Use a native backup for this business.');
+  const downloaded = page.waitForEvent('download');
+  await button.click();
+  expect((await downloaded).suggestedFilename()).toBe('business.zip');
+  await expect(page.getByText('ZIP download started')).toBeVisible();
 });

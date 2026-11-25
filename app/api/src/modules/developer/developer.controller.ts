@@ -1,5 +1,7 @@
 import { BackupDeliveryDto, BackupDeliveryService } from './backup-delivery.service';
 import { Body, Controller, Delete, Get, Header, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { PasswordRecoveryService } from '../auth/password-recovery.service';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthUser } from '../../common/auth-user';
 import { AllowSuspendedTenant } from '../../common/decorators/allow-suspended-tenant.decorator';
@@ -21,7 +23,7 @@ import { SuperAdminService } from '../super-admin/super-admin.service';
 @UseGuards(DeveloperGuard)
 @Controller('developer')
 export class DeveloperController {
-  constructor(private readonly platform: SuperAdminService, private readonly delivery: BackupDeliveryService) {}
+  constructor(private readonly platform: SuperAdminService, private readonly delivery: BackupDeliveryService, private readonly recovery: PasswordRecoveryService) {}
   /** Public roadmap endpoint: any signed-in business account may read module labels & release states. */
   @Get('public-modules')
   @Public()
@@ -58,7 +60,19 @@ export class DeveloperController {
   }
 
   @Get('clients')
-  clients() { return this.platform.listClientAccounts(); }
+  async clients(@CurrentUser() actor: AuthUser) {
+    return (await this.platform.listClientAccounts()).filter((account) => account._id !== actor.userId);
+  }
+
+  @Post('clients/:businessId/:accountId/password-reset')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async resetClientPassword(
+    @CurrentUser() actor: AuthUser,
+    @Param('businessId', ParseObjectIdPipe) businessId: string,
+    @Param('accountId', ParseObjectIdPipe) accountId: string,
+  ) {
+    return this.recovery.requestClientReset(businessId, accountId, actor);
+  }
 
   /** Developer-only sanitized logical export; not a physical database backup. */
   @Get('backup')
