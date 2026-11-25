@@ -26,11 +26,9 @@ jobs:
           git init --quiet
           git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
           git checkout --quiet --detach FETCH_HEAD
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: app/web/package-lock.json
+      - name: Set up Node.js
+        working-directory: .
+        run: bash .github/scripts/setup-node.sh
       - run: npm ci
       - name: Build Pages bundle
         env:

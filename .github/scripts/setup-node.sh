@@ -10,12 +10,10 @@ if [[ ! -x "$install_dir/bin/node" ]]; then
   trap 'rm -rf "$temp_dir"' EXIT
   archive="$temp_dir/$release.tar.xz"
   curl --fail --silent --show-error --retry 3 --output "$archive" "https://nodejs.org/dist/v${version}/$release.tar.xz"
-  printf '%s  %s
-' "$checksum" "$archive" | sha256sum --check --status
+  printf '%s  %s\n' "$checksum" "$archive" | sha256sum --check --status
   install_dir="$RUNNER_TEMP/$release"
   mkdir -p "$install_dir"
   tar -xJf "$archive" -C "$install_dir" --strip-components=1
 fi
-printf '%s
-' "$install_dir/bin" >> "$GITHUB_PATH"
+printf '%s\n' "$install_dir/bin" >> "$GITHUB_PATH"
 "$install_dir/bin/node" --version
