@@ -4,8 +4,8 @@ import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  // Relative base keeps asset URLs portable (Cloudflare Pages, nginx sub-paths, S3).
-  base: './',
+  // Use absolute asset paths for direct links to client routes. Set VITE_BASE_PATH for sub-path hosting.
+  base: process.env.VITE_BASE_PATH || '/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
