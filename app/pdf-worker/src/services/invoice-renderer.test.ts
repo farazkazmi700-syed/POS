@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { renderInvoiceHtml } from './invoice-renderer';
+import { qrPayload, renderInvoiceHtml } from './invoice-renderer';
 import { InvoiceJobData } from '../types';
 
 const sample: InvoiceJobData = {
@@ -34,6 +34,14 @@ const sample: InvoiceJobData = {
 };
 
 describe('renderInvoiceHtml', () => {
+  it('embeds a locally generated PNG QR code with the invoice facts', async () => {
+    const html = await renderInvoiceHtml(sample);
+    assert.match(html, /<img class="qr" src="data:image\/png;base64,iVBORw0KGgo[^"]+" alt="Invoice QR"/);
+    assert.deepEqual(JSON.parse(qrPayload(sample)), {
+      inv: sample.invoiceNo, seller: sample.tenant.name, tax_id: sample.tenant.taxRegNo ?? null,
+      total: sample.totals.grandTotal, tax: sample.totals.taxTotal, ts: sample.createdAt,
+    });
+  });
   it('loads the invoice template and renders the receipt HTML with a business logo watermark', async () => {
     const html = await renderInvoiceHtml(sample);
     assert.match(html, /INVOICE/i);

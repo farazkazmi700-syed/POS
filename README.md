@@ -100,6 +100,49 @@ Remote invoice storage requires a supported cleanup integration. A purge that
 cannot complete remains visible in Trash for retry. Downloaded backups and
 copies stored outside the installation follow their own retention policies.
 
+## LAN access and recovery
+
+The POS container publishes only `127.0.0.1:8080`. PostgreSQL, the document gateway, Redis, and the NestJS API stay inside the container. Keep that loopback binding and use the host TLS gateway when authorized terminals need LAN access.
+
+1. Reserve a private IPv4 address for the server and for each authorized terminal. Restrict inbound TCP 8080 in the host firewall to those terminal IPs on the private network profile. Keep router port forwarding disabled. The gateway also checks the actual peer IP against an exact allowlist so forwarded headers cannot grant access.
+2. Obtain a TLS certificate that covers the LAN DNS name or IP in its Subject Alternative Name. Install the issuing CA on the terminals. Run the gateway as a dedicated host user with read access to the TLS key. For PowerShell, set these values before running it:
+   ```powershell
+   $env:POS_LAN_BIND_IP = '192.168.50.10'
+   $env:POS_LAN_HOST = 'pos.lan.example'
+   $env:POS_LAN_CLIENTS = '192.168.50.21,192.168.50.22'
+   $env:POS_LAN_TLS_CERT = 'E:\POS-TLS\fullchain.pem'
+   $env:POS_LAN_TLS_KEY = 'E:\POS-TLS\private.key'
+   node deploy/scripts/lan-gateway.cjs
+   ```
+3. Open `https://pos.lan.example:8080` from an authorized terminal. Add that exact HTTPS origin to `CORS_ORIGIN` and use it in `PASSWORD_RESET_BASE_URL` if terminals need password recovery. Keep business logins and roles enabled. Use sign-out on shared terminals. The trusted HTTPS origin also allows browser camera access, while labels and printable PDFs are generated locally.
+
+### Encrypted cold backup
+
+This procedure covers the standard Docker installation's PostgreSQL cluster and credentials, Redis queue state, and uploaded documents and invoice PDFs. Schedule a maintenance window and stop access while taking the backup. Rebuild the POS image to include the updated PostgreSQL shutdown order. The container must be cleanly stopped and its volumes unused, including by other containers.
+
+Use a physically separate encrypted drive or offline backup location for archives. Generate a 32-byte AES key in a restricted directory on a different device. Copy the key to a second protected offline location and record which archives use it. The key is required to recover the archive. Store the Docker image identified by its immutable image ID and a separate protected copy of the deployment configuration, JWT secrets, and TLS materials for disaster recovery. Restrict Windows folder ACLs because the file mode set by the script does not replace Windows ACLs.
+
+```powershell
+node deploy/scripts/backup/pos-encrypted-backup.cjs keygen E:\POS-Keys\archive.key
+docker stop -t 90 kazmion-pos
+node deploy/scripts/backup/pos-encrypted-backup.cjs backup kazmion-pos F:\POS-Archives\snapshot.kzpos E:\POS-Keys\archive.key
+docker start kazmion-pos
+```
+
+A backup with the same path is rejected. The archive streams directly to AES-256-GCM with a random nonce. Keep the archive and recovery key separate, and use a new key for future backups when rotating keys. Retain the old keys until their last archive expires.
+
+### Restore rehearsal
+
+Keep the original volumes and select a new prefix. The restore verifies the entire archive before extraction, requires the original image to be available locally, and creates new volumes. It does not replace an existing installation.
+
+```powershell
+node deploy/scripts/backup/pos-encrypted-backup.cjs restore F:\POS-Archives\snapshot.kzpos E:\POS-Keys\archive.key pos-restore-rehearsal
+```
+
+Start an isolated POS container with the returned image and volume names. Mount the restored `pgdata` at `/var/lib/postgresql/data`, `queue` at `/data/redis`, and `uploads` at `/data/invoices`. Keep it bound to loopback on a spare host port and use fresh JWT secrets so restored sessions cannot be reused. Confirm login, sales totals, inventory and invoice PDFs. After review, an operator can point the regular Compose service at the restored volumes using `KAZMION_EXISTING_VOLUMES=true`, `KAZMION_PG_VOLUME`, `KAZMION_QUEUE_VOLUME`, and `KAZMION_UPLOAD_VOLUME`. Keep the old volumes for rollback until the restored installation is accepted.
+
+Run the isolated automated rehearsal by setting `SPEC_LAN_POS_IMAGE` to a locally available unified POS image and running `node --test qa/lan-protection.test.cjs`. It creates and removes only its own test containers and volumes.
+
 ## Business Data Sync
 
 Data Sync is off by default. Provision it only for a business that requests

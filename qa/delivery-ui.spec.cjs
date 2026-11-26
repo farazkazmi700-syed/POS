@@ -38,7 +38,7 @@ for (const width of [390, 1440]) {
         await route.fulfill({ json: { ...sale, totalPaid: 20, outstandingBalance: 89 } });
       });
       await page.goto('/installments/payments');
-      await page.getByLabel('Agreement', { exact: true }).selectOption(sale._id);
+      await page.getByRole('combobox', { name: 'Agreement', exact: true }).selectOption(sale._id);
       await page.getByLabel('Amount', { exact: true }).fill('10');
       await page.getByRole('button', { name: 'Collect payment' }).click();
       await expect(page.getByRole('alert')).toBeVisible();
