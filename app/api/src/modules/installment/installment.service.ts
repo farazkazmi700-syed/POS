@@ -11,6 +11,7 @@ import { OrderDocument } from '../order/schemas/order.schema';
 import {
   addMonths, allocatePayment, calculatePlan, nextDueOf, overdueOf, PlanInputError, PlanResult, ScheduleItem, todayIn,
 } from './calc/calculate-plan';
+import { summarizeCollectionForecast, ForecastPayment } from './calc/collection-forecast';
 import { matchPaymentRetry } from './calc/payment-idempotency';
 import { toMinor, percentCharge } from './calc/money';
 import {
@@ -50,6 +51,32 @@ export class InstallmentService {
     config: ConfigService,
   ) {
     this.tz = config.get<string>('REPORT_TZ', 'UTC');
+  }
+
+  collectionForecast(tenantId: string) {
+    return summarizeCollectionForecast(todayIn(this.tz), this.scheduledPayments(tenantId));
+  }
+
+  private async *scheduledPayments(tenantId: string): AsyncGenerator<ForecastPayment> {
+    const tenant = oid(tenantId);
+    // Both models apply the request branch scope to find queries.
+    const plans = this.model.find({ tenantId: tenant, status: PlanStatus.Active })
+      .select('schedule.dueDate schedule.amount schedule.paidAmount schedule.status').lean().cursor();
+    for await (const plan of plans) {
+      for (const row of plan.schedule ?? []) {
+        if (row.status !== 'paid') yield { dueDate: row.dueDate, amount: row.amount, paid: row.paidAmount ?? 0 };
+      }
+    }
+
+    const sales = this.saleModel.find({ tenantId: tenant, saleStatus: { $in: ['active', 'overdue'] }, isActive: { $ne: false } })
+      .select('schedule.dueDate schedule.expectedAmount schedule.amountPaid schedule.status').lean().cursor();
+    for await (const sale of sales) {
+      for (const row of sale.schedule ?? []) {
+        if (row.status !== 'paid' && row.status !== 'cancelled') {
+          yield { dueDate: row.dueDate, amount: row.expectedAmount, paid: row.amountPaid ?? 0 };
+        }
+      }
+    }
   }
 
   /** Price a plan without saving anything (used by the checkout screen). */

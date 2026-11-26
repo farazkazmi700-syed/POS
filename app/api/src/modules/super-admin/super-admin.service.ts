@@ -77,9 +77,9 @@ export class SuperAdminService {
 
   async overview() {
     const [businesses, activeBusinesses, suspendedBusinesses, plans, auditEvents] = await Promise.all([
-      this.tenants.countDocuments(),
-      this.tenants.countDocuments({ status: { $ne: 'suspended' } }),
-      this.tenants.countDocuments({ status: 'suspended' }),
+      this.tenants.countDocuments({ trashedAt: null }),
+      this.tenants.countDocuments({ trashedAt: null, status: { $ne: 'suspended' } }),
+      this.tenants.countDocuments({ trashedAt: null, status: 'suspended' }),
       this.plans.countDocuments(),
       this.audits.countDocuments(),
     ]);
@@ -87,7 +87,7 @@ export class SuperAdminService {
   }
 
   async listBusinesses() {
-    const businesses = await this.tenants.find().sort({ createdAt: -1 }).lean();
+    const businesses = await this.tenants.find({ trashedAt: null }).sort({ createdAt: -1 }).lean();
     const plans = await this.plans.find().select('name price billingInterval').lean();
     const planById = new Map(plans.map((plan) => [String(plan._id), plan]));
     return businesses.map((business) => ({
@@ -104,7 +104,7 @@ export class SuperAdminService {
 
   async listBusinessesForPlans() {
     const [businesses, plans] = await Promise.all([
-      this.tenants.find().select('name domainType status currency logoUrl featureFlags subscriptionPlanId createdAt deploymentMode licenseExpiresAt branchLimit').sort({ createdAt: -1 }).lean(),
+      this.tenants.find({ trashedAt: null }).select('name domainType status currency logoUrl featureFlags subscriptionPlanId createdAt deploymentMode licenseExpiresAt branchLimit').sort({ createdAt: -1 }).lean(),
       this.plans.find().select('name').lean(),
     ]);
     const planById = new Map(plans.map((plan) => [String(plan._id), plan.name]));
@@ -183,7 +183,7 @@ export class SuperAdminService {
 
   /** Creates admin/staff/cashier accounts for an existing tenant (developer-side provisioning). */
   async provisionAccounts(tenantId: string, dto: ProvisionTenantAccountsDto, actor: AuthUser) {
-    const tenant = await this.tenants.findById(tenantId);
+    const tenant = await this.tenants.findOne({ _id: tenantId, trashedAt: null });
     if (!tenant) throw new NotFoundException('Business not found');
     const created: { id: string; email: string; role: string }[] = [];
     for (const account of dto.accounts) {
@@ -210,7 +210,7 @@ export class SuperAdminService {
   }
 
   private async provisionOneAccount(tenantId: string, account: ProvisionAccountDto) {
-    const tenant = await this.tenants.findById(tenantId);
+    const tenant = await this.tenants.findOne({ _id: tenantId, trashedAt: null });
     if (!tenant) throw new NotFoundException('Business not found');
     let moduleRights: string[];
     try { moduleRights = provisioningRights(tenant.domainType, account.role, this.completeFeatures(tenant.featureFlags), account.moduleRights); }
@@ -232,7 +232,7 @@ export class SuperAdminService {
   }
 
   async updateBusiness(id: string, dto: UpdateBusinessDto, actor: AuthUser) {
-    const tenant = await this.tenants.findById(id);
+    const tenant = await this.tenants.findOne({ _id: id, trashedAt: null });
     if (!tenant) throw new NotFoundException('Business not found');
     const before = { name: tenant.name, status: tenant.status ?? 'active' };
     if (dto.name !== undefined) tenant.name = dto.name.trim();
@@ -251,11 +251,11 @@ export class SuperAdminService {
   }
 
   async updateBusinessFeatures(id: string, updates: FeatureFlagsDto, actor: AuthUser) {
-    const tenant = await this.tenants.findById(id);
+    const tenant = await this.tenants.findOne({ _id: id, trashedAt: null });
     if (!tenant) throw new NotFoundException('Business not found');
     const before = this.completeFeatures(tenant.featureFlags);
     const changes = Object.fromEntries(FEATURE_KEYS.filter((key) => typeof updates[key] === 'boolean').map((key) => [`featureFlags.${key}`, updates[key]]));
-    const updated = await this.tenants.findByIdAndUpdate(id, { $set: changes }, { new: true, runValidators: true });
+    const updated = await this.tenants.findOneAndUpdate({ _id: id, trashedAt: null }, { $set: changes }, { new: true, runValidators: true });
     if (!updated) throw new NotFoundException('Business not found');
     const after = this.completeFeatures(updated.featureFlags);
     await this.record(actor, 'business.features_updated', 'business', tenant.id, { before, after });
@@ -264,7 +264,7 @@ export class SuperAdminService {
 
   async assignPlan(id: string, planId: string, actor: AuthUser) {
     const [tenant, plan] = await Promise.all([
-      this.tenants.findById(id),
+      this.tenants.findOne({ _id: id, trashedAt: null }),
       this.plans.findOne({ _id: planId, isActive: true }),
     ]);
     if (!tenant) throw new NotFoundException('Business not found');
@@ -319,7 +319,7 @@ export class SuperAdminService {
       throw error;
     }
     if (dto.features !== undefined) {
-      await this.tenants.updateMany({ subscriptionPlanId: plan._id }, { $set: { featureFlags: this.completeFeatures(plan.features) } });
+      await this.tenants.updateMany({ subscriptionPlanId: plan._id, trashedAt: null }, { $set: { featureFlags: this.completeFeatures(plan.features) } });
     }
     await this.record(actor, 'plan.updated', 'plan', plan.id, {
       before,
@@ -344,12 +344,12 @@ export class SuperAdminService {
   async listClientAccounts() {
     const [users, tenants] = await Promise.all([
       this.users.find().sort({ createdAt: -1 }).lean(),
-      this.tenants.find().select('name domainType status').lean(),
+      this.tenants.find({ trashedAt: null }).select('name domainType status').lean(),
     ]);
     const tenantById = new Map(tenants.map((tenant) => [String(tenant._id), tenant]));
     const roleOrder: Record<string, number> = { owner: 0, admin: 1, staff: 2, cashier: 3 };
     return users
-      .filter((user) => !user.superAdmin)
+      .filter((user) => !user.superAdmin && tenantById.has(String(user.tenantId)))
       .map((user) => {
         const tenant = tenantById.get(String(user.tenantId));
         return {
@@ -379,9 +379,11 @@ export class SuperAdminService {
    * Secrets (password/PIN hashes, codes) are stripped from every account.
    */
   async createBackup() {
+    // Allowlist account fields so future credential fields cannot enter the export.
+    const accountFields = 'tenantId name email phone emailVerified emailVerifiedAt phoneVerified phoneVerifiedAt role moduleRights permissions branchIds superAdmin isActive createdAt updatedAt';
     const [tenants, users, plans, modules, auditTail, businessCount, activeBusinesses, planCount, auditCount] = await Promise.all([
       this.tenants.find().lean(),
-      this.users.find().lean(),
+      this.users.find().select(accountFields).lean(),
       this.plans.find().lean(),
       this.platformModules.find().lean(),
       this.audits.find().sort({ createdAt: -1 }).lean(),
@@ -396,7 +398,6 @@ export class SuperAdminService {
         return [name, await model.find().lean()];
       }),
     )));
-    const stripSecrets = ({ passwordHash, pinHash, developerPinHash, pinChallengeId, pinResetCodeHash, emailVerificationCodeHash, pinLockedUntil, pinFailedAttempts, securityCodeRequestedAt, ...safe }: Record<string, unknown>) => safe;
     return {
       meta: {
         version: 2 as const,
@@ -407,7 +408,7 @@ export class SuperAdminService {
       },
       tenants,
       accounts: users.map((user) => ({
-        ...stripSecrets(user as unknown as Record<string, unknown>),
+        ...user,
         businessName: tenants.find((tenant) => String(tenant._id) === String(user.tenantId))?.name ?? null,
       })),
       plans,

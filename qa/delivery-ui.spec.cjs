@@ -97,23 +97,30 @@ test('profile contacts and business logo can be added, updated and removed', asy
   await expect(page.getByRole('button', { name: 'Save Logo' })).toBeDisabled();
 });
 
-test('owner can recover from an export limit and download a ZIP', async ({ page }) => {
+test('owner can recover from an export limit and download a verified ZIP', async ({ page }) => {
   const owner = { _id: '444444444444444444444444', tenantId: tenant._id, role: 'owner', name: 'Owner' };
   await setup(page, [], true, owner);
+  const zip = Buffer.from('504b0506000000000000000000000000000000000000', 'hex');
+  const checksum = require('node:crypto').createHash('sha256').update(zip).digest('hex');
   let attempts = 0;
   await page.route('**/api/support/backup', async (route) => {
     attempts++;
     if (attempts === 1) return route.fulfill({ status: 413, json: { message: 'Use a native backup for this business.' } });
     return route.fulfill({
-      body: Buffer.from('504b0506000000000000000000000000000000000000', 'hex'),
+      body: zip,
       contentType: 'application/zip',
-      headers: { 'Content-Disposition': 'attachment; filename="business.zip"' },
+      headers: {
+        'Content-Disposition': 'attachment; filename="business.zip"',
+        'X-Snapshot-SHA256': attempts === 2 ? '0'.repeat(64) : checksum,
+      },
     });
   });
   await page.goto('/backup');
   const button = page.getByRole('button', { name: 'Download Business Backup (ZIP)' });
   await button.click();
   await expect(page.getByRole('alert')).toHaveText('Use a native backup for this business.');
+  await button.click();
+  await expect(page.getByRole('alert')).toHaveText('The ZIP failed its integrity check. Try downloading it again.');
   const downloaded = page.waitForEvent('download');
   await button.click();
   expect((await downloaded).suggestedFilename()).toBe('business.zip');

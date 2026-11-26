@@ -15,6 +15,8 @@ export class FeatureFlagsDto {
   @IsOptional() @IsBoolean() barcodes?: boolean;
   @IsOptional() @IsBoolean() settings?: boolean;
   @IsOptional() @IsBoolean() 'data-sync'?: boolean;
+  @IsOptional() @IsBoolean() 'stock-replenishment'?: boolean;
+  @IsOptional() @IsBoolean() 'collections-forecast'?: boolean;
 }
 
 export class PlanFeaturesDto {
@@ -26,6 +28,8 @@ export class PlanFeaturesDto {
   @IsBoolean() barcodes: boolean;
   @IsBoolean() settings: boolean;
   @IsOptional() @IsBoolean() 'data-sync'?: boolean;
+  @IsOptional() @IsBoolean() 'stock-replenishment'?: boolean;
+  @IsOptional() @IsBoolean() 'collections-forecast'?: boolean;
 }
 
 export class ProvisionAccountDto {

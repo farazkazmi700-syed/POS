@@ -2,7 +2,6 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
-import { errorMessage } from '../utils/errors';
 import { useAuth } from '../store/auth';
 import './Support.css';
 
@@ -28,9 +27,6 @@ export default function Backup() {
     queryFn: ({ signal }) => api.get<SupportResponse>('/support', { signal }).then((response) => response.data),
   });
   const backup = support.data?.backup;
-  const sync = useMutation({
-    mutationFn: () => api.post<{ syncedAt: string }>('/support/backup/sync').then((response) => response.data),
-  });
   const canExport = support.isSuccess && !!support.data.entitlements.backup && !!backup?.canExport;
   const download = useMutation({
     mutationFn: async () => {
@@ -38,6 +34,12 @@ export default function Backup() {
         const response = await api.get<Blob>('/support/backup', { responseType: 'blob' });
         if (response.data.type !== 'application/zip' || response.data.size === 0) {
           throw new Error('The server did not return a ZIP file. Try again or contact support.');
+        }
+        const expectedHash = response.headers['x-snapshot-sha256'];
+        if (expectedHash && globalThis.crypto?.subtle) {
+          const digest = await crypto.subtle.digest('SHA-256', await response.data.arrayBuffer());
+          const actualHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+          if (actualHash !== expectedHash) throw new Error('The ZIP failed its integrity check. Try downloading it again.');
         }
         const filename = response.headers['content-disposition']?.match(/filename="?([a-zA-Z0-9._-]+\.zip)"?(?:;|$)/i)?.[1]
           ?? `kazmion-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.zip`;
@@ -69,7 +71,7 @@ export default function Backup() {
       <section className="support-hero" aria-labelledby="backup-title">
         <p className="support-eyebrow">Business continuity</p>
         <h1 id="backup-title" className="support-title">Business Backup</h1>
-        <p className="support-copy">Export your business records to a ZIP file. The archive includes a manifest with record counts and checksums.</p>
+        <p className="support-copy">Export your business records to a ZIP file. The archive contains formatted JSON and a manifest with record counts and checksums. Save it in a restricted folder on an encrypted drive.</p>
         <div className="support-actions"><button type="button" className="support-button support-button--primary" onClick={() => download.mutate()} disabled={!canExport || download.isPending}><DownloadIcon /> {download.isPending ? 'Preparing ZIP…' : 'Download Business Backup (ZIP)'}</button><Link className="support-button" to="/help"><HelpIcon /> Get backup help</Link></div>
         {support.isSuccess && !canExport && <div className="support-alert mt-4" role="status"><InfoIcon /><div><strong>Only the business owner can download an export.</strong> Ask the owner to download and safeguard the file, or contact support for recovery assistance.</div></div>}
       </section>
@@ -82,14 +84,8 @@ export default function Backup() {
       {canExport && backup?.sync?.entitled && (
         <section className="support-card" aria-labelledby="data-sync-title">
           <h2 id="data-sync-title">Data Sync</h2>
-          <p>Send a copy of the records listed below to your provisioned cloud destination.</p>
-          {backup.sync.configured ? (
-            <button type="button" className="support-button" disabled={sync.isPending} onClick={() => sync.mutate()}>
-              {sync.isPending ? 'Sending snapshot...' : 'Sync business data to cloud'}
-            </button>
-          ) : <p role="status">Your operator needs to configure the cloud destination.</p>}
-          {sync.isError && <p role="alert">{errorMessage(sync.error)}</p>}
-          {sync.isSuccess && <p role="status">Cloud snapshot confirmed at {new Date(sync.data.syncedAt).toLocaleString()}.</p>}
+          <p>Send a snapshot of your business records to the cloud.</p>
+          <Link className="support-button" to="/data-sync">Open Data Sync</Link>
         </section>
       )}
 

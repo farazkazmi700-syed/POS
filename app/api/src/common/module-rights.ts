@@ -2,6 +2,7 @@
 export function requiredModuleRights(controller: string, handler: string, method: string): string[] {
   if (controller === 'barcodes') return handler === 'lookup' ? ['barcode-scanner', 'pos'] : ['barcode-generator'];
   if (controller === 'stock') return ['products'];
+  if (controller === 'products' && handler === 'replenishment') return ['products'];
   if (controller === 'products') return method === 'GET'
     ? ['products', 'pos', 'barcode-generator', 'barcode-scanner'] : ['products'];
   if (controller === 'customers') return method === 'GET' ? ['customers', 'pos', 'installments'] : ['customers', 'installments'];

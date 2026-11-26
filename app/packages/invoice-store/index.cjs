@@ -81,6 +81,10 @@ class PostgresInvoiceStore {
       WHERE tenant_id=$1 AND order_id=$2 AND generation=$3 AND status='pending'`, [tenant, orderId, generation, status, pdfPath]);
     return result.rowCount === 1;
   }
+  async purge(tenant) {
+    identifier(tenant);
+    await this.query(tenant, 'DELETE FROM invoice_store.invoices WHERE tenant_id=$1', [tenant]);
+  }
   async close() { await Promise.all([...this.pools.values()].map(pool => pool.end())); this.pools.clear(); }
 }
 module.exports = { PostgresInvoiceStore };

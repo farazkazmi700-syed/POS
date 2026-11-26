@@ -1,12 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
+import { DOMAIN_ROLE_PACKAGES } from '@pos/shared-types';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api';
 import ThemeToggle from '../components/ThemeToggle';
 import PageHeading from '../components/PageHeading';
 import { errorMessage } from '../utils/errors';
-
-const DOMAINS = ['retail', 'supermarket', 'grocery', 'pharmacy', 'electronics', 'restaurant', 'salon', 'custom'];
 
 export default function Register() {
   const navigate = useNavigate();
@@ -63,7 +62,7 @@ export default function Register() {
           <div>
             <label className="label">Business type</label>
             <select className="input" value={form.domainType} onChange={set('domainType')}>
-              {DOMAINS.map((d) => <option key={d} value={d}>{d}</option>)}
+              {Object.entries(DOMAIN_ROLE_PACKAGES).map(([domain, pkg]) => <option key={domain} value={domain}>{pkg.label}</option>)}
             </select>
           </div>
           <div>

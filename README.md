@@ -82,6 +82,24 @@ project, Node.js 24 and authenticated Wrangler are required to use
 project to avoid duplicate releases. SPA routing and cache rules ship with the
 static build via `_redirects` and `_headers`.
 
+## Tenant Trash
+
+In Developer Engine, open **Business Tenants** and select **Delete tenant**.
+Enter the exact business name and confirm that access will be lost. The tenant
+will move to **Trash** and can be restored there for 30 days. Restoring returns
+the tenant to its previous active or suspended status.
+
+The running API checks Trash every minute and retries unfinished cleanup. It
+removes live tenant records, account recovery records, queued invoice jobs and
+local invoice PDFs. In PostgreSQL invoice mode, cleanup also removes invoice
+rows from the tenant's database. Standalone PostgreSQL installations should
+rerun the invoice-store preparation script to grant the required DELETE
+permission. The unified Docker provisioner applies the grant on startup.
+
+Remote invoice storage requires a supported cleanup integration. A purge that
+cannot complete remains visible in Trash for retry. Downloaded backups and
+copies stored outside the installation follow their own retention policies.
+
 ## Business Data Sync
 
 Data Sync is off by default. Provision it only for a business that requests
@@ -89,21 +107,31 @@ cloud service. Create a dedicated Cloudflare D1 database and Worker for that
 business. In `deploy/cloudflare/data-sync/wrangler.toml`, set a unique Worker
 name, the D1 database name and ID, and the business ID. Apply the D1
 migrations with `wrangler d1 migrations apply SNAPSHOTS --remote`, install a
-random 32-byte hex secret with `wrangler secret put DATA_SYNC_TOKEN`, and
-deploy the Worker with `wrangler deploy`. Run Wrangler from that directory.
+random 32-byte hex secret with `wrangler secret put DATA_SYNC_TOKEN`, and set
+an independent 32-byte hex key with `wrangler secret put DATA_SYNC_ENCRYPTION_KEY`.
+Keep a secure copy of the encryption key. Deploy the Worker with `wrangler deploy`
+before updating the local API. Run Wrangler from that directory.
 
 Set the matching token, business ID, and HTTPS Worker endpoint ending in
 `/v1/business-snapshot` in the local API environment using
 `DATA_SYNC_TOKEN`, `DATA_SYNC_TENANT_ID`, and `DATA_SYNC_URL`. Grant Data
 Sync in Module Entitlements and set the business deployment mode to Cloud
-or Hybrid. The owner can then start an upload from Business Backup.
+or Hybrid. Developers can review a business's entitlement, deployment mode, and local destination in Developer Engine → Data Sync.
+The owner can open Data Sync from Business Backup and start an upload.
 
-Sync sends a sanitized ZIP snapshot up to 50 MiB. The Worker stores it in
-D1 chunks and changes the current snapshot only after the full upload is
-stored. A daily cleanup removes superseded and incomplete snapshots older
+Sync sends a sanitized ZIP of formatted JSON up to 50 MiB over HTTPS. The
+Worker encrypts new D1 chunks with AES-256-GCM and changes the current snapshot
+only after the complete upload matches the checksum sent by the updated POS. The Worker
+returns that checksum as confirmation. Older snapshots remain readable until
+replaced. Upload and verify a fresh snapshot after upgrading to replace the
+legacy current copy with an encrypted one. Retained encrypted snapshots
+require their original encryption key. The access token can be rotated separately. A daily cleanup removes superseded and incomplete snapshots older
 than one day. An authorized operator can download the current archive with
 `GET /v1/business-snapshot` using the same bearer token and `X-Business-Id`
-header. Verify the download against the `X-Snapshot-SHA256` response header.
+header. The Worker authenticates encrypted chunks before streaming them as a ZIP.
+Verify the download against the `X-Snapshot-SHA256` response header. Store local
+ZIPs in an access-restricted folder on an encrypted volume. The JSON remains
+readable after extracting the ZIP.
 The local application remains authoritative. This workflow
 does not provide incremental replication, cloud reporting tables, or
 automatic restore. The snapshot contains customer and financial data.

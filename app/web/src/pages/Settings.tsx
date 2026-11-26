@@ -264,13 +264,16 @@ export default function Settings() {
               </button>
             )}
             {profile.phone && (
-              <Link className="btn-secondary" to="/recover">
+              <Link className="btn-secondary" to="/account-security/whatsapp">
                 {authUser?.phoneVerified ? 'Phone verified' : 'Verify phone'}
               </Link>
             )}
           </div>
 
-          <Link className="btn-secondary inline-flex" to="/recover">Change password or recover access</Link>
+          <div className="flex flex-wrap gap-2">
+            <Link className="btn-secondary" to="/account-security/change-password">Change password</Link>
+            <Link className="btn-secondary" to="/recover">Recover account access</Link>
+          </div>
           {profileMutation.isSuccess && profile.name === authUser?.name && recoveryEmailSaved && profile.phone === (authUser?.phone ?? '') && <p role="status" className="text-sm">Profile saved.</p>}
           {profileMutation.isError && <p className="text-sm text-red-600">{errorMessage(profileMutation.error)}</p>}
           {verifyRecoveryMutation.isError && <p className="text-sm text-red-600">{errorMessage(verifyRecoveryMutation.error)}</p>}

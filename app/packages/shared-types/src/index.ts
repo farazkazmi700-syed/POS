@@ -16,9 +16,17 @@ export const MODULE_RIGHTS: { key: ModuleRightKey; label: string }[] = [
 ];
 /** All module right keys as a plain array (handy for defaults & toggles). */
 export const MODULE_RIGHT_KEYS: ModuleRightKey[] = MODULE_RIGHTS.map((r) => r.key);
-export type FeatureKey = 'pos' | 'inventory' | 'reports' | 'customers' | 'installments' | 'barcodes' | 'data-sync';
-export type FeatureFlags = Record<Exclude<FeatureKey, 'data-sync'>, boolean> & { 'data-sync'?: boolean };
-export type DomainType = 'retail' | 'restaurant' | 'pharmacy' | 'supermarket' | 'grocery' | 'electronics' | 'salon' | 'custom';
+export const OPT_IN_FEATURES = ['data-sync', 'stock-replenishment', 'collections-forecast'] as const;
+type OptInFeature = (typeof OPT_IN_FEATURES)[number];
+export type FeatureKey = 'pos' | 'inventory' | 'reports' | 'customers' | 'installments' | 'barcodes' | OptInFeature;
+export type FeatureFlags = Record<Exclude<FeatureKey, OptInFeature>, boolean> & Partial<Record<OptInFeature, boolean>>;
+
+export function isOptInFeature(feature: FeatureKey): boolean {
+  return OPT_IN_FEATURES.some((key) => key === feature);
+}
+export type DomainType = 'retail' | 'restaurant' | 'pharmacy' | 'supermarket' | 'grocery' | 'electronics' | 'salon' | 'custom'
+  | 'motorcycle-dealer' | 'electric-bike-dealer' | 'mobile-shop' | 'furniture-store'
+  | 'home-appliances' | 'solar-equipment' | 'car-dealership' | 'agricultural-machinery';
 export type TaxClass = 'standard' | 'reduced' | 'exempt';
 export type PaymentMode = 'cash' | 'card' | 'wallet' | 'installment' | 'mixed';
 export type OrderStatus = 'completed' | 'voided' | 'refunded';
@@ -46,6 +54,8 @@ export const TENANT_NAVIGATION_ITEMS = [
   { key: 'orders', to: '/orders', label: 'Orders', managerOnly: false, feature: 'pos' },
   { key: 'barcode-generator', to: '/barcode-generator', label: 'Barcode Generator', managerOnly: true, feature: 'barcodes' },
   { key: 'barcode-scanner', to: '/barcode-scanner', label: 'Barcode Scanner', managerOnly: true, feature: 'barcodes' },
+  { key: 'stock-replenishment', to: '/stock-replenishment', label: 'Stock Replenishment', managerOnly: true, feature: 'stock-replenishment', requiredRight: 'products' },
+  { key: 'collections-forecast', to: '/collections-forecast', label: 'Installment Collections Forecast', managerOnly: true, feature: 'collections-forecast', requiredRight: 'installments' },
   { key: 'backup', to: '/backup', label: 'Backup', managerOnly: false },
   { key: 'help', to: '/help', label: 'Help', managerOnly: false },
   { key: 'settings', to: '/settings', label: 'Settings', managerOnly: true },
@@ -135,7 +145,54 @@ export interface RoleTemplateEntry {
  * owner account; the owner (or developer) creates admin/staff/cashier accounts
  * according to the business type using these presets.
  */
+function installmentPackage(
+  label: string,
+  icon: string,
+  managerTitle: string,
+  managerDescription: string,
+  advisorTitle: string,
+  advisorDescription: string,
+  barcodes = false,
+): { label: string; icon: string; accounts: RoleTemplateEntry[] } {
+  const managementRights: ModuleRightKey[] = ['dashboard', 'pos', 'products', 'customers', 'installments', 'orders', 'settings'];
+  if (barcodes) managementRights.push('barcode-generator', 'barcode-scanner');
+
+  return {
+    label,
+    icon,
+    accounts: [
+      { role: 'admin', title: managerTitle, description: managerDescription, moduleRights: managementRights },
+      { role: 'staff', title: advisorTitle, description: advisorDescription, moduleRights: ['pos', 'customers', 'installments', 'settings'] },
+      { role: 'cashier', title: 'Payments Cashier', description: 'Record sales, installment payments and receipts.', moduleRights: ['pos', 'orders', 'installments', 'settings'] },
+    ],
+  };
+}
+
 export const DOMAIN_ROLE_PACKAGES: Record<DomainType, { label: string; icon: string; accounts: RoleTemplateEntry[] }> = {
+  'motorcycle-dealer': installmentPackage("Motorcycle Dealers", "🏍️",
+    "Dealership Manager", "Manage motorcycle stock, sales reports and installment accounts.",
+    "Motorcycle Sales Advisor", "Prepare motorcycle quotes and manage customer agreements."),
+  'electric-bike-dealer': installmentPackage("Electric Bike Dealers", "⚡",
+    "Showroom Manager", "Manage e-bike stock, pricing and installment accounts.",
+    "Electric Bike Sales Advisor", "Prepare e-bike quotes and manage customer agreements."),
+  'mobile-shop': installmentPackage("Mobile Shops", "📱",
+    "Mobile Shop Manager", "Manage handset stock, barcode tools and installment sales.",
+    "Device Sales Advisor", "Handle device sales, customer records and installment quotes.", true),
+  'furniture-store': installmentPackage("Furniture Stores", "🪑",
+    "Furniture Showroom Manager", "Manage showroom inventory, sales reports and payment plans.",
+    "Furniture Sales Advisor", "Prepare furniture quotes and manage customer agreements."),
+  'home-appliances': installmentPackage("Home Appliances", "🧺",
+    "Appliance Store Manager", "Manage appliance stock, barcode tools and installment sales.",
+    "Appliance Sales Advisor", "Prepare appliance quotes and manage customer agreements.", true),
+  'solar-equipment': installmentPackage("Solar Equipment", "☀️",
+    "Solar Equipment Manager", "Manage equipment inventory, sales reports and installment accounts.",
+    "Solar Sales Advisor", "Prepare equipment quotes and manage customer agreements."),
+  'car-dealership': installmentPackage("Car Dealerships", "🚗",
+    "Dealership Manager", "Manage vehicle inventory, sales reports and installment accounts.",
+    "Vehicle Sales Advisor", "Prepare vehicle quotes and manage customer agreements."),
+  'agricultural-machinery': installmentPackage("Agricultural Machinery", "🚜",
+    "Machinery Dealership Manager", "Manage machinery inventory, sales reports and installment accounts.",
+    "Machinery Sales Advisor", "Prepare machinery quotes and manage customer agreements."),
   restaurant: {
     label: 'Restaurant',
     icon: '🍽️',
@@ -180,7 +237,7 @@ export const DOMAIN_ROLE_PACKAGES: Record<DomainType, { label: string; icon: str
     ],
   },
   electronics: {
-    label: 'Electronics',
+    label: 'Electronics Shops',
     icon: '🔌',
     accounts: [
       { role: 'admin', title: 'Showroom Admin', description: 'High-value inventory & installment plans', moduleRights: ['dashboard', 'pos', 'products', 'customers', 'installments', 'orders', 'settings', 'barcode-generator'] },

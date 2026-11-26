@@ -1,6 +1,15 @@
 const path = require('node:path');
 const { test, expect } = require(require.resolve('@playwright/test', { paths: [path.dirname(process.argv[1])] }));
 
+function signInSpacing(page) {
+  return page.locator('.sign-in-card').evaluate((card) => ({
+    width: card.getBoundingClientRect().width,
+    padding: getComputedStyle(card).padding,
+    margin: getComputedStyle(card).margin,
+    formGap: getComputedStyle(card.querySelector('.sign-in-form')).rowGap,
+  }));
+}
+
 const screens = [
   [320, 568, 'light'], [390, 844, 'dark'], [768, 1024, 'light'],
   [1023, 768, 'light'], [1024, 768, 'dark'], [1199, 900, 'light'], [1200, 800, 'dark'],
@@ -37,7 +46,9 @@ for (const [width, height, theme] of screens) {
       expect(artwork.x).toBeGreaterThanOrEqual(0);
       expect(artwork.x + artwork.width).toBeLessThanOrEqual(width + 1);
       expect(Math.abs(banner.width - layout.width)).toBeLessThanOrEqual(1);
-      expect(Math.abs(banner.height - layout.height)).toBeLessThanOrEqual(1);
+      expect(Math.abs(banner.height - height)).toBeLessThanOrEqual(1);
+      expect(Math.abs(banner.y)).toBeLessThanOrEqual(1);
+      await expect(page.locator('.sign-in-artwork')).toHaveCSS('position', 'fixed');
       await expect(page.locator('.sign-in-artwork img')).toHaveCSS('object-fit', 'cover');
       const cardIsAboveBanner = await page.locator('.sign-in-card').evaluate((element) => {
         const box = element.getBoundingClientRect();
@@ -69,9 +80,12 @@ for (const [width, height, theme] of screens) {
     await page.getByRole('button', { name: 'Show password', exact: true }).click();
     await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute('type', 'text');
     await expect(page.getByRole('button', { name: 'Reset PIN', exact: true })).toHaveCount(0);
+    const reference = await signInSpacing(page);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page.getByLabel('4-digit PIN', { exact: true })).toBeFocused();
     await expect(page.getByLabel('Sign-in progress')).toBeVisible();
+    expect(await signInSpacing(page)).toEqual(reference);
+    await expect(page.locator('.sign-in-account')).toHaveCSS('flex-direction', 'row');
     expect((await page.getByRole('button', { name: 'Reset PIN', exact: true }).boundingBox()).height).toBeGreaterThanOrEqual(44);
     await fits();
     await page.getByLabel('4-digit PIN', { exact: true }).fill('1234');
@@ -88,5 +102,23 @@ for (const [width, height, theme] of screens) {
     await expect(page.getByRole('heading', { name: 'Log in to your account' })).toBeVisible();
     await expect(page.getByRole('status')).toContainText('Recovery instructions');
     expect(errors).toEqual([]);
+  });
+}
+
+for (const [width, height] of [[320, 568], [1440, 900]]) {
+  test(`${width}x${height}: Developer security step matches sign-in spacing`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto('/login');
+    const reference = await signInSpacing(page);
+    await page.goto('/developer');
+    await page.getByLabel('Verified developer email').fill('a-long-developer-account-name@business.example');
+    await page.getByRole('button', { name: 'Continue to password' }).click();
+    await expect(page.getByRole('heading', { name: 'Enter your password' })).toBeVisible();
+    expect(await signInSpacing(page)).toEqual(reference);
+    await expect(page.locator('.sign-in-account')).toHaveCSS('flex-direction', 'row');
+    await expect(page.getByRole('button', { name: 'Change', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Show password' }).click();
+    await expect(page.getByLabel('Developer password', { exact: true })).toHaveAttribute('type', 'text');
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   });
 }

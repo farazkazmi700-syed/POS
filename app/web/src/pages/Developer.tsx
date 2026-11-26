@@ -1,16 +1,19 @@
+import { LogOut, Trash2 } from 'lucide-react';
 import { createBackupZip } from '../utils/backup';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import './Developer.css';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FeatureKey, SubscriptionPlan, FeatureFlags, BusinessPlanTarget, BillingInterval, DomainType, ProvisionableRole } from '@pos/shared-types';
-import { DOMAIN_ROLE_PACKAGES, MODULE_RIGHTS } from '@pos/shared-types';
+import { DOMAIN_ROLE_PACKAGES, MODULE_RIGHTS, isOptInFeature } from '@pos/shared-types';
 import type { DomainRolePackage, ProvisionAccountInput, ClientAccountEntry } from '../api';
 import { developerApi, authApi } from '../api';
 import { useAuth } from '../store/auth';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import DevConsoleSearch from '../components/developer/DevConsoleSearch';
+import InstallmentCapabilities, { findInstallmentCapabilities } from '../components/developer/InstallmentCapabilities';
 import DevNotificationCenter from '../components/developer/DevNotificationCenter';
+import DeveloperProfileMenu from '../components/developer/DeveloperProfileMenu';
 import { IconHelp, IconBackup } from '../components/Icons';
 import { errorMessage } from '../utils/errors';
 import { formatMoney } from '../utils/money';
@@ -19,7 +22,7 @@ import { urduClass, urduInputProps } from '../utils/urdu';
 
 /* ─────────────── Feature Config ─────────────── */
 
-const fallbackFeatureKeys: FeatureKey[] = ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes', 'data-sync'];
+const fallbackFeatureKeys: FeatureKey[] = ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes', 'data-sync', 'stock-replenishment', 'collections-forecast'];
 const fallbackFeatureNames: Record<FeatureKey, string> = {
   pos: 'POS',
   inventory: 'Inventory',
@@ -28,6 +31,8 @@ const fallbackFeatureNames: Record<FeatureKey, string> = {
   installments: 'Installments',
   barcodes: 'Barcode tools',
   'data-sync': 'Data Sync',
+  'stock-replenishment': 'Stock Replenishment',
+  'collections-forecast': 'Installment Collections Forecast',
 };
 
 const featureDescriptions: Record<FeatureKey, string> = {
@@ -38,11 +43,15 @@ const featureDescriptions: Record<FeatureKey, string> = {
   installments: 'Installment plans & schedules',
   barcodes: 'Barcode generator and scanner access',
   'data-sync': 'Owner-triggered business snapshots for provisioned cloud installations',
+  'stock-replenishment': 'Find active products that are out of stock or at their reorder threshold.',
+  'collections-forecast': 'Review overdue balances and upcoming scheduled installment collections.',
 };
 
 /* Feature vector icons */
 const featureIcons: Record<FeatureKey, (props: { className?: string }) => ReactNode> = {
   'data-sync': IconBackup,
+  'stock-replenishment': IconCube,
+  'collections-forecast': IconActivity,
   pos: ({ className = 'w-4 h-4' }) => (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
@@ -137,14 +146,6 @@ function IconSearch({ className = 'w-4 h-4' }: { className?: string }) {
   );
 }
 
-function IconLogout({ className = 'w-4 h-4' }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-    </svg>
-  );
-}
-
 function IconClose({ className = 'w-5 h-5' }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
@@ -222,14 +223,6 @@ function IconArrowLeft({ className = 'w-4 h-4' }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-    </svg>
-  );
-}
-
-function IconLock({ className = 'w-3.5 h-3.5' }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
     </svg>
   );
 }
@@ -545,17 +538,19 @@ function DeveloperLogin() {
               <p id="dev-sign-in-description" className="sign-in-description">{step === 'email' ? 'Access the platform workspace with your verified developer account.' : 'Use your account password to continue to the Developer Engine.'}</p>
             </div>
 
-            <ol className="sign-in-steps" aria-label={`Step ${step === 'email' ? 1 : 2} of 2`}>
-              <li aria-current={step === 'email' ? 'step' : undefined}><span aria-hidden="true">{step === 'password' ? '✓' : '1'}</span>Email</li>
-              <li aria-current={step === 'password' ? 'step' : undefined}><span aria-hidden="true">2</span>Password</li>
-            </ol>
+            <div className="sign-in-step-summary">
+              <ol className="sign-in-steps" aria-label={`Step ${step === 'email' ? 1 : 2} of 2`}>
+                <li aria-current={step === 'email' ? 'step' : undefined}><span aria-hidden="true">{step === 'password' ? '✓' : '1'}</span>Email</li>
+                <li aria-current={step === 'password' ? 'step' : undefined}><span aria-hidden="true">2</span>Password</li>
+              </ol>
 
-            {step === 'password' && (
-              <div className="sign-in-account">
-                <span><small>Signing in as</small><strong title={email}>{email}</strong></span>
-                <button type="button" disabled={login.isPending} onClick={() => { setPassword(''); setShowPassword(false); login.reset(); setStep('email'); }}>Change</button>
-              </div>
-            )}
+              {step === 'password' && (
+                <div className="sign-in-account">
+                  <span><small>Signing in as</small><strong title={email}>{email}</strong></span>
+                  <button type="button" disabled={login.isPending} onClick={() => { setPassword(''); setShowPassword(false); login.reset(); setStep('email'); }}>Change</button>
+                </div>
+              )}
+            </div>
 
             {step === 'email' ? (
               <div>
@@ -565,14 +560,13 @@ function DeveloperLogin() {
               </div>
             ) : (
               <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <label className="label" htmlFor="developer-password">Developer password</label>
-                  <button type="button" onClick={() => setShowPassword((v) => !v)} className="dev-link-btn" aria-label={showPassword ? 'Hide password' : 'Show password'}>
-                    {showPassword ? 'Hide' : 'Show'}
-                  </button>
-                </div>
+                <label className="label" htmlFor="developer-password">Developer password</label>
                 <div className="sign-in-password">
                   <input id="developer-password" className="input" type={showPassword ? 'text' : 'password'} autoComplete="current-password" enterKeyHint="go" aria-describedby="developer-password-hint" aria-invalid={login.isError || undefined} maxLength={128} placeholder="Enter your password" required disabled={login.isPending} value={password} onChange={(e) => { setPassword(e.target.value); if (login.isError) login.reset(); }} />
+                  <button type="button" disabled={login.isPending} onClick={() => setShowPassword((value) => !value)}
+                    aria-pressed={showPassword} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                    {showPassword ? <IconEyeOff /> : <IconEye />}
+                  </button>
                 </div>
                 <p id="developer-password-hint" className="sign-in-field-hint" style={{ color: 'var(--text-soft)' }}>Your password is stored as a secure hash, never as plain text.</p>
               </div>
@@ -733,7 +727,7 @@ function DeveloperPasswordSetupModal({ onClose }: { onClose: () => void }) {
    Developer Workspace
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-type Tab = 'overview' | 'businesses' | 'plans' | 'packages' | 'modules' | 'module-rights' | 'clients' | 'backup' | 'help' | 'create-business' | 'audit' | 'settings';
+type Tab = 'overview' | 'businesses' | 'trash' | 'plans' | 'packages' | 'modules' | 'module-rights' | 'clients' | 'backup' | 'data-sync' | 'help' | 'create-business' | 'audit' | 'settings';
 
 const INTERVAL_SUFFIX: Record<BillingInterval, string> = { monthly: 'mo', yearly: 'yr', lifetime: 'one-time' };
 const ROLE_BADGE: Record<ProvisionableRole, { cls: string; short: string }> = {
@@ -745,9 +739,9 @@ const MODULE_RIGHT_LABEL: Record<string, string> = Object.fromEntries(MODULE_RIG
 
 const navSections: { label: string; keys: readonly Tab[] }[] = [
     { label: 'Workspace', keys: ['overview'] },
-    { label: 'Business Management', keys: ['businesses', 'plans', 'packages', 'create-business'] },
+    { label: 'Business Management', keys: ['businesses', 'plans', 'packages', 'create-business', 'trash'] },
     { label: 'Platform Access', keys: ['modules', 'module-rights', 'clients'] },
-    { label: 'Operations', keys: ['audit', 'backup', 'help'] },
+    { label: 'Operations', keys: ['audit', 'backup', 'data-sync', 'help'] },
     { label: 'System', keys: ['settings'] },
   ];
 
@@ -779,7 +773,6 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
     localStorage.setItem(accentKey, color);
   }
   const client = useQueryClient();
-  const user = useAuth((state) => state.user);
   const logout = useAuth((state) => state.logout);
   const navigate = useNavigate();
 
@@ -810,6 +803,9 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
       developerApi.resetClientPassword(businessId, accountId),
   });
   const [inspectingBusiness, setInspectingBusiness] = useState<BusinessPlanTarget | null>(null);
+  const [trashingBusiness, setTrashingBusiness] = useState<BusinessPlanTarget | null>(null);
+  const [trashName, setTrashName] = useState('');
+  const [trashChecked, setTrashChecked] = useState(false);
   const [renamingBusiness, setRenamingBusiness] = useState<BusinessPlanTarget | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -839,10 +835,21 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
   const featureKeys = Array.isArray(catalog.data) ? catalog.data.map((feature) => feature.key) : fallbackFeatureKeys;
   const featureNames = { ...fallbackFeatureNames, ...Object.fromEntries((Array.isArray(catalog.data) ? catalog.data : []).map((feature) => [feature.key, feature.label])) } as Record<FeatureKey, string>;
   const businesses = useQuery({ queryKey: ['developer', 'businesses'], queryFn: developerApi.businesses });
+  const trash = useQuery({ queryKey: ['developer', 'trash'], queryFn: developerApi.trash, enabled: activeTab === 'trash', refetchInterval: 30_000 });
   const plans = useQuery({ queryKey: ['developer', 'plans'], queryFn: developerApi.plans });
   const rolePackages = useQuery({ queryKey: ['developer', 'role-packages'], queryFn: developerApi.rolePackages });
+  const availableRolePackages = useMemo(() => ({ ...DOMAIN_ROLE_PACKAGES, ...rolePackages.data }), [rolePackages.data]);
+  const [moduleSearch, setModuleSearch] = useState('');
   const platformModules = useQuery({ queryKey: ['developer', 'modules'], queryFn: developerApi.modules, enabled: activeTab === 'modules' || activeTab === 'module-rights' });
+  const moduleQuery = moduleSearch.trim().toLowerCase();
+  const capabilityQuery = ['installment', 'installments', 'mod-installments'].includes(moduleQuery) ? '' : moduleQuery;
+  const matchingCapabilities = findInstallmentCapabilities(capabilityQuery);
+  const visibleModules = (platformModules.data ?? []).filter((mod) =>
+    [mod.label, mod.key, mod.moduleId, mod.description || featureDescriptions[mod.key as FeatureKey], ...(mod.submodules ?? []).flatMap((child) => [child.label, child.key])]
+      .some((value) => value?.toLowerCase().includes(moduleQuery)) || (mod.key === 'installments' && matchingCapabilities.length > 0),
+  );
   const clientAccounts = useQuery({ queryKey: ['developer', 'clients'], queryFn: developerApi.clients, enabled: activeTab === 'clients' || activeTab === 'module-rights' });
+  const dataSyncStatus = useQuery({ queryKey: ['developer', 'data-sync'], queryFn: developerApi.dataSync, enabled: activeTab === 'data-sync' });
   const deliveryOptions = useQuery({ queryKey: ['developer', 'backup-options'], queryFn: developerApi.backupOptions, enabled: activeTab === 'backup' });
   const cloudDelivery = useMutation({ mutationFn: developerApi.deliverBackup, onSuccess: (result) => showToast('success', `Backup ${result.status}.`), onError: () => showToast('error', 'Delivery could not be confirmed. Check the destination before retrying or download ZIP.') });
   const [backupBusy, setBackupBusy] = useState(false);
@@ -858,10 +865,10 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
   };
 
   const sectionQueries = {
-    overview: [overview, businesses, plans, auditLogs], businesses: [businesses, plans, catalog],
+    overview: [overview, businesses, plans, auditLogs], businesses: [businesses, plans, catalog], trash: [trash],
     plans: [plans, catalog], packages: [rolePackages, businesses], modules: [platformModules],
     'module-rights': [platformModules, businesses], clients: [clientAccounts],
-    backup: [backupQuery, deliveryOptions], help: [], 'create-business': [rolePackages, plans],
+    backup: [backupQuery, deliveryOptions], 'data-sync': [dataSyncStatus, businesses], help: [], 'create-business': [rolePackages, plans],
     audit: [auditLogs], settings: [],
   }[activeTab];
   const failedQueries = sectionQueries.filter((query) => query.isError);
@@ -898,6 +905,26 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
     },
     onError: (error) => showToast('error', errorMessage(error)),
   });
+
+  const trashBusiness = useMutation({
+    mutationFn: developerApi.trashBusiness,
+    onSuccess: () => {
+      setTrashingBusiness(null);
+      showToast('success', 'Business moved to Trash.');
+      return refresh();
+    },
+  });
+  const restoreBusiness = useMutation({
+    mutationFn: developerApi.restoreBusiness,
+    onSuccess: () => {
+      showToast('success', 'Business restored.');
+      return refresh();
+    },
+    onError: (error) => showToast('error', errorMessage(error)),
+  });
+  function closeTrashDialog() {
+    if (!trashBusiness.isPending) setTrashingBusiness(null);
+  }
 
   const updateBusiness = useMutation({
     mutationFn: ({ id, body }: { id: string; body: { name?: string; status?: 'active' | 'suspended'; deploymentMode?: 'cloud' | 'offline' | 'hybrid'; branchLimit?: number; licenseExpiresAt?: string } }) =>
@@ -989,7 +1016,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
           b.name.toLowerCase().includes(query) ||
           b.businessId.toLowerCase().includes(query) ||
           (b.subscriptionPlanName && b.subscriptionPlanName.toLowerCase().includes(query)) ||
-          (b.domainType && b.domainType.toLowerCase().includes(query))
+          (b.domainType && (b.domainType.includes(query) || availableRolePackages[b.domainType]?.label.toLowerCase().includes(query)))
       );
     }
     if (businessFilter === 'active') {
@@ -1003,7 +1030,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
     }
     return businessSort === 'default' ? list : [...list].sort((a, b) =>
       businessSort === 'name-desc' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name));
-  }, [businesses.data, businessSearch, businessFilter, businessSort]);
+  }, [businesses.data, businessSearch, businessFilter, businessSort, availableRolePackages]);
   const businessPageCount = Math.max(1, Math.ceil(filteredBusinesses.length / 12));
   const currentBusinessPage = Math.min(businessPage, businessPageCount);
   const visibleBusinesses = filteredBusinesses.slice((currentBusinessPage - 1) * 12, currentBusinessPage * 12);
@@ -1153,13 +1180,15 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
   const tabs: { key: Tab; label: string; icon: ReactNode; badge?: number }[] = [
     { key: 'overview', label: 'Overview', icon: <IconActivity className="w-[18px] h-[18px]" /> },
     { key: 'businesses', label: 'Businesses', icon: <IconBuilding className="w-[18px] h-[18px]" />, badge: totalBusinesses },
+    { key: 'trash', label: 'Trash', icon: <Trash2 size={18} aria-hidden="true" /> },
     { key: 'plans', label: 'Plans', icon: <IconBadge className="w-[18px] h-[18px]" />, badge: plans.data?.length },
     { key: 'packages', label: 'Packages', icon: <IconCube className="w-[18px] h-[18px]" /> },
     { key: 'modules', label: 'Modules', icon: <IconSettings className="w-[18px] h-[18px]" /> },
     { key: 'module-rights', label: 'Module Rights', icon: <IconShield className="w-[18px] h-[18px]" /> },
     { key: 'clients', label: 'Clients', icon: <IconBuilding className="w-[18px] h-[18px]" /> },
     { key: 'backup', label: 'Backup', icon: <IconBackup className="w-[18px] h-[18px]" /> },
-    { key: 'help', label: 'Help', icon: <IconHelp className="w-[18px] h-[18px]" /> },
+    { key: 'data-sync', label: 'Data Sync', icon: <IconRefresh className="w-[18px] h-[18px]" /> },
+    { key: 'help', label: 'Support', icon: <IconHelp className="w-[18px] h-[18px]" /> },
     { key: 'create-business', label: 'Provision', icon: <IconPlus className="w-[18px] h-[18px]" /> },
     { key: 'audit', label: 'Audit Log', icon: <IconClock className="w-[18px] h-[18px]" />, badge: auditLogs.data?.length },
     { key: 'settings', label: 'Settings', icon: <IconSettings className="w-[18px] h-[18px]" /> },
@@ -1177,13 +1206,15 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
   const pageTitle =
     activeTab === 'overview' ? 'Developer Dashboard'
       : activeTab === 'businesses' ? 'Business Tenants'
+      : activeTab === 'trash' ? 'Tenant Trash'
         : activeTab === 'plans' ? 'Subscription Plans'
           : activeTab === 'packages' ? 'Account Packages'
             : activeTab === 'modules' ? 'Module Entitlements'
               : activeTab === 'module-rights' ? 'Module Rights Control'
                 : activeTab === 'clients' ? 'Client Accounts'
                 : activeTab === 'backup' ? 'Backup & Snapshot'
-                  : activeTab === 'help' ? 'Help & Playbook'
+                  : activeTab === 'data-sync' ? 'Data Sync'
+                  : activeTab === 'help' ? 'Support & Playbook'
                     : activeTab === 'create-business' ? 'Provision Tenant'
                   : activeTab === 'audit' ? 'Audit & Telemetry'
                     : 'Console Settings';
@@ -1191,13 +1222,15 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
   const pageSubtitle =
     activeTab === 'overview' ? 'Review business activity, plan coverage, and estimated monthly revenue.'
       : activeTab === 'businesses' ? 'Manage tenant organizations, assign plans, and toggle module entitlements.'
+      : activeTab === 'trash' ? 'Restore deleted businesses within 30 days.'
         : activeTab === 'plans' ? 'Configure subscription tiers, pricing, and baseline features.'
           : activeTab === 'packages' ? 'Per-industry account bundles the owner rolls out as admin, staff & cashier accounts.'
-            : activeTab === 'modules' ? 'Register new module entitlements and manage the platform catalogue.'
+            : activeTab === 'modules' ? 'Browse modules and manage their availability.'
               : activeTab === 'module-rights' ? 'Assign MOD- ids, enable/disable modules and manage sub-module rights per account package.'
                 : activeTab === 'clients' ? 'Every account across all tenants — contacts and verification status (no secrets).'
                 : activeTab === 'backup' ? 'Download a ZIP export of platform and business records, with a checksum manifest.'
-                  : activeTab === 'help' ? 'Standard patterns, account hierarchy, and step-by-step playbooks for the engine.'
+                  : activeTab === 'data-sync' ? 'Review which businesses can upload local snapshots to the cloud.'
+                  : activeTab === 'help' ? 'Find account recovery, tenant setup, and data protection guidance.'
                     : activeTab === 'create-business' ? 'Onboard a new organization with root Owner credentials.'
                   : activeTab === 'audit' ? 'Live security and administrative event stream from the POS platform.'
                     : 'Developer console appearance and workspace preferences.';
@@ -1233,21 +1266,6 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
     }
     return alerts;
   })();
-
-  const userInitial = (user?.name?.charAt(0) || 'D').toUpperCase();
-
-  const accountControls = (
-    <div className="dev-header-account" role="group" aria-label="Developer account">
-      <span className="dev-avatar !h-8 !w-8 !text-xs" aria-hidden="true">{userInitial}</span>
-      <div className="dev-header-identity">
-        <strong dir="auto" title={user?.name}>{user?.name || 'Developer'}</strong>
-        {user?.email && <span title={user.email}>{user.email}</span>}
-      </div>
-      <button type="button" className="dev-header-signout" onClick={signOut}>
-        <IconLogout className="h-4 w-4" /> Sign out
-      </button>
-    </div>
-  );
 
   return (
     <div style={{ '--dev-accent': accent, '--dev-on-accent': accentForeground(accent) } as CSSProperties} className={`dev-workspace${sidebarCollapsed ? ' dev-workspace-collapsed' : ''}`}>
@@ -1324,7 +1342,10 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
             >
               <IconRefresh className="w-4 h-4" spinning={businesses.isFetching || plans.isFetching || overview.isFetching} />
             </button>
-
+            <button type="button" className="dev-icon-btn dev-icon-btn-danger" onClick={signOut}
+              title="Sign out" aria-label="Sign out">
+              <LogOut size={16} aria-hidden="true" />
+            </button>
           </div>
         </div>
       </aside>
@@ -1337,7 +1358,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
             <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Kazmi POS</p>
           </div>
         </div>
-        {accountControls}
+        <DeveloperProfileMenu onSignOut={signOut} />
       </header>
 
       {/* ─── Main Content ─── */}
@@ -1362,7 +1383,6 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <div className="dev-mobile-tools">
-              <Link className="dev-icon-btn" to="/recover?purpose=password&source=developer" title="Account security" aria-label="Account security"><IconLock className="w-4 h-4" /></Link>
               <ThemeToggle />
               <button
                 onClick={refresh}
@@ -1375,8 +1395,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
               </button>
             </div>
             <DevNotificationCenter alerts={consoleAlerts} />
-            <Link to="/recover?purpose=password&source=developer" className="dev-topbar-security"><IconLock className="w-4 h-4" /> Account security</Link>
-            <div className="dev-desktop-account">{accountControls}</div>
+            <div className="dev-desktop-account"><DeveloperProfileMenu onSignOut={signOut} /></div>
           </div>
         </header>
         <div className="dev-mobile-section">
@@ -1690,7 +1709,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                                   )}
                                 </button>
                                 {b.domainType && (
-                                  <span className="dev-meta-chip capitalize">{b.domainType}</span>
+                                  <span className="dev-meta-chip">{availableRolePackages[b.domainType]?.label ?? b.domainType}</span>
                                 )}
                                 {b.currency && (
                                   <span className="dev-meta-chip uppercase">{b.currency}</span>
@@ -1777,6 +1796,15 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                               >
                                 <IconCube className="mr-1 inline w-3 h-3" /> Accounts
                               </button>
+                              <button type="button" className="dev-btn-danger text-xs" aria-label={`Delete ${b.name}`}
+                                onClick={() => {
+                                  setTrashName('');
+                                  setTrashChecked(false);
+                                  trashBusiness.reset();
+                                  setTrashingBusiness(b);
+                                }}>
+                                <Trash2 size={14} aria-hidden="true" /> Delete tenant
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -1794,7 +1822,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                           </div>
                           <div className="flex flex-wrap gap-2" role="group" aria-label={`Feature entitlements for ${b.name}`}>
                             {featureKeys.map((key) => {
-                              const isEnabled = key === 'data-sync' ? b.featureFlags?.['data-sync'] === true : b.featureFlags?.[key] !== false;
+                              const isEnabled = isOptInFeature(key) ? b.featureFlags?.[key] === true : b.featureFlags?.[key] !== false;
                               return (
                                 <button
                                   key={key}
@@ -1992,7 +2020,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {(Object.entries(rolePackages.data ?? DOMAIN_ROLE_PACKAGES) as [DomainType, DomainRolePackage][]).map(([domain, pkg]) => (
+                {(Object.entries(availableRolePackages) as [DomainType, DomainRolePackage][]).map(([domain, pkg]) => (
                   <div key={domain} className="dev-plan-card">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -2028,7 +2056,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                     <div className="dev-plan-actions mt-3">
                       <button
                         type="button"
-                        onClick={() => { setSeedAccountsOnProvision(true); setActiveTab('create-business'); }}
+                        onClick={() => { applyDomainPackage(domain); setSeedAccountsOnProvision(true); setActiveTab('create-business'); }}
                         className="dev-btn-secondary flex-1 text-xs justify-center"
                       >
                         <IconBuilding className="w-3.5 h-3.5" /> Provision with
@@ -2102,14 +2130,14 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                     </div>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" className="dev-btn-primary text-xs" disabled={backupQuery.isFetching} onClick={() => backupQuery.refetch()}>
+                    <button type="button" className="dev-btn-secondary text-xs" disabled={backupQuery.isFetching} onClick={() => backupQuery.refetch()}>
                       <IconRefresh className={`w-3.5 h-3.5 ${backupQuery.isFetching ? 'spinning' : ''}`} /> Refresh Preview
                     </button>
-                    <button type="button" className="dev-btn-secondary text-xs" disabled={backupBusy || backupQuery.isFetching} onClick={() => void downloadSnapshot()}>
+                    <button type="button" className="dev-btn-primary text-xs" disabled={backupBusy || backupQuery.isFetching} onClick={() => void downloadSnapshot()}>
                       <IconCopy className="w-3.5 h-3.5" /> {backupBusy ? 'Preparing ZIP...' : 'Download ZIP Backup'}
                     </button>
                   </div>
-                  <p className="text-xs text-slate-500">Offline/local mode: download ZIP using the local server. Cloud mode: send to a configured email or Drive destination. ZIP download remains available.</p>
+                  <p className="text-xs text-slate-500">Download the platform archive locally, or send it to a configured email or Drive destination.</p>
                   <div className="flex flex-wrap gap-2">
                     <button className="dev-btn-secondary text-xs" disabled={!deliveryOptions.data?.email || cloudDelivery.isPending} onClick={() => cloudDelivery.mutate('email')}>Send ZIP by email{deliveryOptions.data?.emailTo ? ` to ${deliveryOptions.data.emailTo}` : ' (not configured)'}</button>
                     <button className="dev-btn-secondary text-xs" disabled={!deliveryOptions.data?.drive || cloudDelivery.isPending} onClick={() => cloudDelivery.mutate('drive')}>Upload ZIP to Drive{!deliveryOptions.data?.drive ? ' (not configured)' : ''}</button>
@@ -2123,6 +2151,10 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
 
                 <div className="dev-card p-5">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">Restore Guidance</h3>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" className="dev-btn-secondary text-xs" onClick={() => setActiveTab('data-sync')}>Open Data Sync</button>
+                    <button type="button" className="dev-btn-secondary text-xs" onClick={() => setActiveTab('help')}>Open Support</button>
+                  </div>
                   <ul className="mt-2 space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
                     <li>Store the ZIP securely in your mail archive, Drive folder, or backup storage.</li>
                     <li>This is a sanitized logical export, not a point-in-time recovery image. Keep MongoDB backups and uploaded files separately.</li>
@@ -2137,6 +2169,90 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
           {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
              TAB: HELP
              â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+          {activeTab === 'data-sync' && (
+            <section className="space-y-4">
+              <div className="dev-card p-5">
+                <h3 className="text-sm font-semibold">Local installation</h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">A business owner starts each snapshot upload from Business Backup → Data Sync.</p>
+                {dataSyncStatus.isPending && <p className="mt-3 text-xs" role="status">Checking sync configuration…</p>}
+                {dataSyncStatus.isSuccess && (
+                  <p className="mt-3 text-xs" role="status">
+                    {dataSyncStatus.data.moduleEnabled ? 'Data Sync is enabled on this platform.' : 'Enable Data Sync in Module Entitlements.'}{' '}
+                    {dataSyncStatus.data.configuredBusinessId ? 'This installation has a configured destination.' : 'This installation needs a cloud destination.'}
+                  </p>
+                )}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" className="dev-btn-secondary text-xs" onClick={() => void dataSyncStatus.refetch()} disabled={dataSyncStatus.isFetching}>Refresh configuration</button>
+                  <button type="button" className="dev-btn-secondary text-xs" onClick={() => { setModuleSearch('data-sync'); setActiveTab('modules'); }}>Module Entitlements</button>
+                </div>
+              </div>
+              <div className="dev-card overflow-hidden">
+                <h3 className="p-4 text-sm font-semibold">Business sync access</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="border-y border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      <tr>
+                        <th scope="col" className="px-4 py-3">Business</th>
+                        <th scope="col" className="px-3 py-3">Deployment</th>
+                        <th scope="col" className="px-3 py-3">Sync status</th>
+                        <th scope="col" className="px-3 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {businesses.isSuccess && !businesses.data.length && <tr><td colSpan={4} className="p-4 text-center">No businesses found.</td></tr>}
+                      {(businesses.data ?? []).map((business) => {
+                        let syncStatus = 'Checking configuration';
+                        if (business.status === 'suspended') syncStatus = 'Suspended';
+                        else if (business.featureFlags?.['data-sync'] !== true) syncStatus = 'Entitlement off';
+                        else if (business.deploymentMode !== 'cloud' && business.deploymentMode !== 'hybrid') syncStatus = 'Requires Cloud or Hybrid';
+                        else if (dataSyncStatus.isError) syncStatus = 'Configuration unavailable';
+                        else if (dataSyncStatus.isSuccess) {
+                          if (!dataSyncStatus.data.moduleEnabled) syncStatus = 'Module disabled';
+                          else syncStatus = dataSyncStatus.data.configuredBusinessId === business.businessId ? 'Configured here' : 'No destination on this installation';
+                        }
+                        return (
+                          <tr key={business.businessId}>
+                            <th scope="row" className="px-4 py-3 font-semibold">{business.name}</th>
+                            <td className="px-3 py-3 capitalize">{business.deploymentMode ?? 'Unset'}</td>
+                            <td className="px-3 py-3">{syncStatus}</td>
+                            <td className="px-3 py-3 text-right">
+                              <button type="button" className="dev-btn-secondary text-xs" aria-label={`Manage ${business.name}`} onClick={() => setInspectingBusiness(business)}>Manage</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {activeTab === 'trash' && trash.isSuccess && (
+            <section className="dev-card space-y-3 p-4" aria-label="Deleted businesses">
+              {trash.data.length === 0 && <p className="text-sm text-slate-500">Trash is empty.</p>}
+              {trash.data.map((business) => (
+                <article key={business.businessId} className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 py-3 last:border-0 dark:border-slate-700">
+                  <div className="space-y-1">
+                    <h3 className="font-semibold"><bdi>{business.name}</bdi></h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Moved to Trash {fmtDateTime(business.trashedAt)}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {business.purgeStartedAt || Date.parse(business.purgeAt) <= Date.now()
+                        ? 'Retention expired. Permanent cleanup is pending.'
+                        : `Permanent deletion eligible from ${fmtDateTime(business.purgeAt)}`}
+                    </p>
+                    {business.purgeError && <p className="text-xs text-red-600 dark:text-red-300">{business.purgeError}</p>}
+                  </div>
+                  <button type="button" className="dev-btn-secondary" aria-label={`Restore ${business.name}`}
+                    disabled={restoreBusiness.isPending || !!business.purgeStartedAt || Date.parse(business.purgeAt) <= Date.now()}
+                    onClick={() => restoreBusiness.mutate(business.businessId)}>
+                    Restore
+                  </button>
+                </article>
+              ))}
+            </section>
+          )}
+
           {activeTab === 'help' && (
             <section className="space-y-4">
               <div className="grid gap-4 lg:grid-cols-2">
@@ -2151,15 +2267,11 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                 </div>
 
                 <div className="dev-card p-5 space-y-3">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Standard Identity Pattern</h3>
-                  <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                    Every account surface renders the same identity: tenant logo if uploaded, else a brand-gradient monogram keyed to the business domain.
-                    Names typed in Urdu automatically render right-to-left in <span className="font-semibold">Noori Nastaleeq</span>.
-                  </p>
-                  <div className="flex flex-wrap gap-2 text-[10px] font-semibold">
-                    {[['restaurant', 'Orange'], ['retail', 'Kazmi Blue'], ['supermarket', 'Emerald'], ['grocery', 'Lime'], ['pharmacy', 'Sky'], ['electronics', 'Violet'], ['salon', 'Fuchsia'], ['custom', 'Slate']].map(([domain, tone]) => (
-                      <span key={domain} className="rounded-md bg-slate-100 px-2 py-1 capitalize text-slate-600 dark:bg-slate-800 dark:text-slate-300">{domain}: {tone}</span>
-                    ))}
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Support and recovery</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Use Clients to send an account recovery link. For backup or sync issues, include the business ID and time of the failure in your support request.</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="dev-btn-secondary text-xs" onClick={() => setActiveTab('clients')}>Open Clients</button>
+                    <a className="dev-btn-secondary text-xs" href="mailto:info.kazmion@gmail.com">Email support</a>
                   </div>
                 </div>
 
@@ -2177,7 +2289,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">Playbook: Plans & Modules</h3>
                   <ol className="list-inside list-decimal space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
                     <li>Create plans under <strong>Plans</strong> — monthly, yearly or lifetime billing.</li>
-                    <li>Tick the modules each tier includes; new custom modules from <strong>Modules</strong> appear automatically.</li>
+                    <li>Choose the installed, active modules each tier includes. Review new registrations in <strong>Module Entitlements</strong>.</li>
                     <li>Assign/switch a plan on a business card — entitlements propagate to the tenant in real time.</li>
                     <li>Archived plans stay assignable-history; new tenants can only pick active ones.</li>
                   </ol>
@@ -2188,7 +2300,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                   <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                     Owner email and phone captured at provisioning power password reset and account verification (Mail/SMS badges in Clients).
                     Suspend/reactivate tenants anytime from their card; suspended tenants lose API access but keep their data.
-                    Use <strong>Backup</strong> regularly — the JSON snapshot is secrets-free and portable. Forgot your Developer password? Use the recovery link on the sign-in card.
+                    Use <strong>Backup</strong> for a platform ZIP export and <strong>Data Sync</strong> to review which tenants can upload business snapshots. Use the sign-in recovery link if you forget your developer password.
                   </p>
                 </div>
               </div>
@@ -2200,44 +2312,43 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
              â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
           {activeTab === 'modules' && (
             <section className="space-y-4">
-              <form
-                className="dev-card p-4"
-                onSubmit={(event) => {
+              <details className="dev-card p-4">
+                <summary className="cursor-pointer text-sm font-semibold">Register module</summary>
+                <form className="mt-3" onSubmit={(event) => {
                   event.preventDefault();
                   if (createModule.isPending) return;
                   const form = new FormData(event.currentTarget);
+                  const formElement = event.currentTarget;
                   createModule.mutate({
                     key: String(form.get('key') || ''),
                     label: String(form.get('label') || ''),
                     description: String(form.get('description') || '') || undefined,
-                  });
-                  (event.target as HTMLFormElement).reset();
-                }}
-              >
-                <div className="dev-step-head">
-                  <span className="dev-step-badge tone-accent">+</span>
-                  <div>
-                    <h3 className="dev-step-title">Register New Module Entitlement</h3>
-                    <p className="dev-step-sub">Register a planned module. It becomes available to packages when its implementation is installed and active.</p>
+                  }, { onSuccess: () => formElement.reset() });
+                }}>
+                <p className="text-xs text-slate-500">Registered modules become available to packages after installation and activation.</p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_1.5fr_auto]">
+                    <label className="label">Key (slug)<input className="input font-mono text-xs" name="key" placeholder="kitchen-display" pattern="[a-z0-9][a-z0-9\-]*" required minLength={2} maxLength={40} /></label>
+                    <label className="label">Display Label<input className="input text-xs" name="label" placeholder="Kitchen Display" required minLength={2} maxLength={60} /></label>
+                    <label className="label">Description<input className="input text-xs" name="description" placeholder="What this module unlocks" maxLength={300} /></label>
+                    <button type="submit" className="dev-btn-primary text-xs self-end" disabled={createModule.isPending}>
+                      <IconPlus className="w-3.5 h-3.5" /> Add Module
+                    </button>
                   </div>
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_1.5fr_auto]">
-                  <label className="label">Key (slug)<input className="input font-mono text-xs" name="key" placeholder="kitchen-display" pattern="[a-z0-9][a-z0-9-]*" required minLength={2} maxLength={40} /></label>
-                  <label className="label">Display Label<input className="input text-xs" name="label" placeholder="Kitchen Display" required minLength={2} maxLength={60} /></label>
-                  <label className="label">Description<input className="input text-xs" name="description" placeholder="What this module unlocks" maxLength={300} /></label>
-                  <button type="submit" className="dev-btn-primary text-xs self-end" disabled={createModule.isPending}>
-                    <IconPlus className="w-3.5 h-3.5" /> Add Module
-                  </button>
-                </div>
-                {createModule.isError && (
-                  <div className="dev-inline-alert mt-3" role="alert">
-                    <IconAlert className="w-4 h-4 flex-shrink-0" />
-                    <span>{errorMessage(createModule.error)}</span>
-                  </div>
+                  {createModule.isError && (
+                    <div className="dev-inline-alert mt-3" role="alert">
+                      <IconAlert className="w-4 h-4 flex-shrink-0" />
+                      <span>{errorMessage(createModule.error)}</span>
+                    </div>
                 )}
-              </form>
+                </form>
+              </details>
 
               <div className="dev-card p-0 overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+                  <input className="input w-full sm:max-w-xs" type="search" aria-label="Search modules"
+                    placeholder="Search modules" value={moduleSearch} onChange={(event) => setModuleSearch(event.target.value)} />
+                  {platformModules.isSuccess && <p className="text-xs text-slate-500" role="status">{visibleModules.length} of {platformModules.data.length} modules</p>}
+                </div>
                 {platformModules.isLoading ? (
                   <div className="p-8 text-center text-xs text-slate-400">Loading module catalogue…</div>
                 ) : (
@@ -2245,38 +2356,42 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                     <table className="w-full text-left text-xs">
                       <thead className="bg-slate-50 dark:bg-slate-800/60 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200 dark:border-slate-800">
                         <tr>
-                          <th className="py-3 px-4">Module</th>
-                          <th className="py-3 px-4">Key</th>
-                          <th className="py-3 px-4">Description</th>
-                          <th className="py-3 px-4">Type</th>
-                          <th className="py-3 px-4">State</th>
-                          <th className="py-3 px-4 text-right">Actions</th>
+                          <th scope="col" className="py-3 px-4">Module</th>
+                          <th scope="col" className="py-3 px-4">Availability</th>
+                          <th scope="col" className="py-3 px-4 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70">
-                        {(platformModules.data ?? []).map((mod) => (
+                        {platformModules.isSuccess && visibleModules.length === 0 && (
+                          <tr><td colSpan={3} className="p-6 text-center text-sm text-slate-500">{moduleQuery ? 'No matching modules.' : 'No modules available.'}</td></tr>
+                        )}
+                        {visibleModules.map((mod) => (
                           <tr key={mod.key} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
                             <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-100">
                               {featureIcons[(mod.key as FeatureKey)]?.({ className: 'w-3.5 h-3.5 inline mr-1.5 -mt-0.5 text-slate-400' }) ?? <IconCube className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5 text-slate-400" />}
                               {mod.label}
-                              <span className="ml-1.5 rounded bg-teal-500/10 px-1.5 py-0.5 font-mono text-[9px] font-bold tracking-wider text-teal-700 dark:text-teal-300">{mod.moduleId ?? `MOD-${mod.key.toUpperCase()}`}</span>
-                              {mod.universal && <span className="ml-1.5 rounded bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300">Universal</span>}
-                              {mod.releaseState === 'coming-soon' && <span className="ml-1.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">Coming soon</span>}
-                              {mod.releaseState === 'retired' && <span className="ml-1.5 rounded bg-red-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-red-700 dark:text-red-300">Retired</span>}
-                              {mod.submodules?.length ? <ul className="mt-2 pl-4 space-y-1 text-slate-500" aria-label={`${mod.label} submodules`}>
-                                {mod.submodules.map((child) => <li key={child.key}>{child.label}</li>)}
-                              </ul> : null}
+                              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                                <span className="break-all font-mono">{mod.moduleId ?? `MOD-${mod.key.toUpperCase()}`}</span>
+                                <span>{mod.builtin ? 'Built-in' : 'Custom'}</span>
+                              </div>
+                              {(mod.description || featureDescriptions[mod.key as FeatureKey]) && (
+                                <p className="mt-1 max-w-sm font-normal text-slate-500 dark:text-slate-400">{mod.description || featureDescriptions[mod.key as FeatureKey]}</p>
+                              )}
+                              {mod.submodules?.length ? <details className="mt-2 text-slate-500" open={moduleQuery ? true : undefined}>
+                                <summary className="cursor-pointer">{mod.submodules.length} submodules</summary>
+                                <ul className="mt-1 space-y-1 pl-4" aria-label={`${mod.label} submodules`}>
+                                  {mod.submodules.map((child) => <li key={child.key}>{child.label}</li>)}
+                                </ul>
+                              </details> : null}
                             </td>
-                            <td className="py-3 px-4 font-mono text-[11px] text-slate-500">{mod.key}</td>
-                            <td className="py-3 px-4 max-w-xs truncate text-slate-500">{mod.description || '—'}</td>
-                            <td className="py-3 px-4"><span className={`dev-meta-chip ${mod.builtin ? '' : '!text-emerald-600 dark:!text-emerald-400'}`}>{mod.builtin ? 'Built-in' : 'Custom'}</span></td>
                             <td className="py-3 px-4">
-                              <span className="block mb-2">{mod.releaseState === 'coming-soon' ? 'Coming Soon' : mod.installed ? `Installed ${mod.version ?? ''}` : 'Not installed'}</span>
+                              <span className="mb-2 block">{mod.releaseState === 'retired' ? 'Retired' : mod.builtin && mod.releaseState === 'coming-soon' ? 'Coming soon' : mod.installed ? `Installed ${mod.version ?? ''}` : 'Not installed'}</span>
                               {mod.universal ? <span>Included on all accounts</span> : mod._id ? (
                                 <button
                                   type="button"
                                   role="switch"
                                   aria-checked={mod.isActive}
+                                  aria-label={`${mod.label} availability`}
                                   disabled={updateModule.isPending}
                                   onClick={() => updateModule.mutate({ id: mod._id!, body: { isActive: !mod.isActive } })}
                                   className={`dev-switch-pill ${mod.isActive ? 'is-on' : 'is-off'} !text-[11px]`}
@@ -2305,6 +2420,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                   </div>
                 )}
               </div>
+              {visibleModules.some((mod) => mod.key === 'installments') && <InstallmentCapabilities query={capabilityQuery} />}
             </section>
           )}
 
@@ -2559,8 +2675,8 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                           if (applyDomainDefaults) applyDomainPackage(e.target.value as DomainType);
                         }}
                       >
-                        {['retail', 'supermarket', 'grocery', 'electronics', 'restaurant', 'pharmacy', 'salon', 'custom'].map((d) => (
-                          <option key={d} value={d}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+                        {Object.entries(availableRolePackages).map(([domain, pkg]) => (
+                          <option key={domain} value={domain}>{pkg.label}</option>
                         ))}
                       </select>
                     </div>
@@ -2578,7 +2694,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                       <label className="label" htmlFor="initial-plan">Initial Subscription Plan (optional)</label>
                       <select className="input" id="initial-plan" name="initialPlanId" defaultValue="">
                         <option value="">No initial plan (assign later)</option>
-                        {plans.data?.filter((p) => p.isActive).map((p) => (
+                        {plans.data?.filter((p) => p.isActive && (!p.domainType || p.domainType === provisionDomain)).map((p) => (
                           <option key={p._id} value={p._id}>
                             {p.name} ({formatMoney(p.price)}/{INTERVAL_SUFFIX[p.billingInterval] ?? p.billingInterval})
                           </option>
@@ -2968,7 +3084,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
               <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
                 {featureKeys.map((key) => (
                   <label key={key} className="dev-feature-checkbox">
-                    <input type="checkbox" name={`feature-${key}`} defaultChecked={key !== 'data-sync'} className="dev-checkbox" />
+                    <input type="checkbox" name={`feature-${key}`} defaultChecked={!isOptInFeature(key)} className="dev-checkbox" />
                     <span className="dev-feature-checkbox-icon">{featureIcons[key]?.({ className: 'w-4 h-4' })}</span>
                     <span>
                       <span className="block text-xs font-semibold">{featureNames[key]}</span>
@@ -3082,6 +3198,34 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
       )}
 
       {/* â•â•â• Modal: Rename Business â•â•â• */}
+      {trashingBusiness && (
+        <ModalOverlay onClose={closeTrashDialog} labelledBy="trash-business-title">
+          <ModalHeader title="Delete tenant" subtitle={trashingBusiness.name} titleId="trash-business-title" onClose={closeTrashDialog} />
+          <form className="dev-modal-body space-y-4" onSubmit={(event) => {
+            event.preventDefault();
+            if (trashBusiness.isPending || !trashChecked || trashName !== trashingBusiness.name) return;
+            trashBusiness.mutate({ id: trashingBusiness.businessId, name: trashName, confirmed: trashChecked });
+          }}>
+            <p className="text-sm">The business will lose access immediately. You can restore its records from Trash for 30 days. Permanent cleanup begins after that period.</p>
+            <label htmlFor="trash-confirm-name" className="label">Type the exact business name</label>
+            <input className="input" id="trash-confirm-name" required maxLength={120} autoComplete="off"
+              value={trashName} onChange={(event) => setTrashName(event.target.value)} />
+            <label className="flex items-start gap-2 text-sm">
+              <input className="dev-checkbox mt-0.5" type="checkbox" required checked={trashChecked}
+                onChange={(event) => setTrashChecked(event.target.checked)} />
+              I understand that this business and its staff will lose access.
+            </label>
+            {trashBusiness.isError && <p role="alert" className="text-sm text-red-600 dark:text-red-300">{errorMessage(trashBusiness.error)}</p>}
+            <div className="dev-modal-foot">
+              <button type="button" className="dev-btn-secondary" onClick={closeTrashDialog} disabled={trashBusiness.isPending}>Cancel</button>
+              <button type="submit" className="dev-btn-danger" disabled={trashBusiness.isPending || !trashChecked || trashName !== trashingBusiness.name}>
+                {trashBusiness.isPending ? 'Moving to Trash…' : 'Move to Trash'}
+              </button>
+            </div>
+          </form>
+        </ModalOverlay>
+      )}
+
       {renamingBusiness && (
         <ModalOverlay onClose={() => setRenamingBusiness(null)} labelledBy="rename-modal-title">
           <ModalHeader
@@ -3183,11 +3327,25 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
             </div>
 
             <form className="space-y-3 pt-3" onSubmit={(event) => { event.preventDefault(); const values = new FormData(event.currentTarget); updateBusiness.mutate({ id: inspectingBusiness.businessId, body: { deploymentMode: values.get('mode') as 'cloud' | 'offline' | 'hybrid', branchLimit: Number(values.get('limit')), ...(values.get('expiry') ? { licenseExpiresAt: new Date(String(values.get('expiry'))).toISOString() } : {}) } }); }}><label className="label">Permitted deployment<select className="input" name="mode" defaultValue={inspectingBusiness.deploymentMode ?? 'cloud'}><option value="cloud">Cloud</option><option value="offline">Offline installation</option><option value="hybrid">Hybrid installation</option></select></label><p className="text-xs text-slate-500">Selecting a mode records the entitlement. Offline installation and sync must be provisioned separately.</p><label className="label">Branch limit<input name="limit" className="input" type="number" min={1} max={1000} defaultValue={inspectingBusiness.branchLimit ?? 1} required /></label><label className="label">License expiry<input name="expiry" className="input" type="date" defaultValue={inspectingBusiness.licenseExpiresAt?.slice(0, 10) ?? ''} /></label><button className="dev-btn-primary" disabled={updateBusiness.isPending}>Save deployment & license</button></form>
+            {activeTab === 'data-sync' && (
+              <div className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span className="text-sm font-semibold">Data Sync entitlement</span>
+                <button type="button" role="switch" aria-label="Data Sync entitlement"
+                  aria-checked={inspectingBusiness.featureFlags?.['data-sync'] === true}
+                  disabled={updateFeatures.isPending}
+                  className="dev-btn-secondary text-xs"
+                  onClick={() => updateFeatures.mutate({ id: inspectingBusiness.businessId, featureFlags: {
+                    'data-sync': inspectingBusiness.featureFlags?.['data-sync'] !== true,
+                  } })}>
+                  {inspectingBusiness.featureFlags?.['data-sync'] === true ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
+            )}
             <div className="pt-2">
               <p className="dev-field-label">Active Modules</p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {featureKeys.map((k) => {
-                  const enabled = k === 'data-sync' ? inspectingBusiness.featureFlags?.['data-sync'] === true : inspectingBusiness.featureFlags?.[k] !== false;
+                  const enabled = isOptInFeature(k) ? inspectingBusiness.featureFlags?.[k] === true : inspectingBusiness.featureFlags?.[k] !== false;
                   return (
                     <span
                       key={k}
@@ -3334,7 +3492,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
             <div className="dev-modal-divider">
               <p className="dev-field-label">Quick presets</p>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {Object.entries(rolePackages.data ?? DOMAIN_ROLE_PACKAGES).map(([domain, pkg]) => (
+                {Object.entries(availableRolePackages).map(([domain, pkg]) => (
                   <button
                     key={domain}
                     type="button"

@@ -100,9 +100,18 @@ export default function Login() {
               <p id="sign-in-description" className="sign-in-description">{step === 'credentials' ? 'Sign in to manage your business.' : step === 'pin' ? 'Enter your admin PIN to access your workspace.' : step === 'reset-request' ? 'We’ll send a PIN reset code to your verified recovery email.' : 'Enter your recovery code and choose a new PIN.'}</p>
             </div>
 
-            {step === 'pin' && <ol className="sign-in-steps" aria-label="Sign-in progress"><li><span aria-hidden="true">✓</span>Account verified</li><li aria-current="step"><span aria-hidden="true">2</span>Security PIN</li></ol>}
-
-            {step === 'pin' && <div className="sign-in-account"><span><small>Signing in as</small><strong>{email}</strong></span><button type="button" disabled={pending} onClick={() => { changeStep('credentials'); setChallengeToken(''); }}>Change</button></div>}
+            {step === 'pin' && (
+              <div className="sign-in-step-summary">
+                <ol className="sign-in-steps" aria-label="Sign-in progress">
+                  <li><span aria-hidden="true">✓</span>Account verified</li>
+                  <li aria-current="step"><span aria-hidden="true">2</span>Security PIN</li>
+                </ol>
+                <div className="sign-in-account">
+                  <span><small>Signing in as</small><strong>{email}</strong></span>
+                  <button type="button" disabled={pending} onClick={() => { changeStep('credentials'); setChallengeToken(''); }}>Change</button>
+                </div>
+              </div>
+            )}
 
             {/* Username or Email */}
             {step !== 'pin' && (

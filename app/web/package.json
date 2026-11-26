@@ -17,6 +17,7 @@
     "@zxing/browser": "^0.2.1",
     "axios": "^1.20.0",
     "fflate": "^0.8.3",
+    "lucide-react": "^1.81.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4",

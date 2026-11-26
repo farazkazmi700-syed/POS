@@ -24,10 +24,12 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     submodules: ({
       pos: ['checkout', 'orders', 'invoices', 'voids', 'refunds'],
       inventory: ['products', 'stock-adjustments', 'stock-movements'],
-      reports: ['dashboard', 'sales'], customers: ['directory'],
+      reports: ['dashboard', 'sales', 'exports'], customers: ['directory'],
       installments: ['dashboard', 'products', 'customers', 'quotes', 'sales', 'agreements', 'payments', 'schedule', 'ledgers', 'receipts', 'overdue', 'reports', 'settings'],
       barcodes: ['generator', 'scanner', 'labels'],
       'data-sync': ['snapshots'],
+      'stock-replenishment': ['low-stock', 'product-search'],
+      'collections-forecast': ['overdue-balances', 'scheduled-collections'],
     })[key].map((name) => ({ key: `${key}.${name}`, label: name.replace(/-/g, ' ') })),
   })),
   { key: 'settings', moduleId: moduleId('settings'), label: 'Settings & Staff Management', version: '1.0.0', releaseState: 'active', universal: true,

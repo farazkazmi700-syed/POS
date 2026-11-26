@@ -24,7 +24,8 @@ export default function ProtectedRoute({ roles, superAdminOnly = false }: { role
     if (isError) return <div className="card m-8" role="alert">Could not load workspace access. <button type="button" className="btn-secondary" onClick={() => refetch()}>Retry</button></div>;
     const pages = availablePages(user, tenant);
     const section = location.pathname.split('/')[1];
-    if ((roles && !roles.includes(user.role)) || (section && !pages.some((item) => item.key === (section === 'reports' ? 'dashboard' : section)))) {
+    const pageKey = section === 'reports' ? 'dashboard' : section === 'data-sync' ? 'backup' : section;
+    if ((roles && !roles.includes(user.role)) || (section && !pages.some((item) => item.key === pageKey))) {
       return <main className="card mx-auto mt-12 max-w-lg space-y-4"><h1 className="text-xl font-semibold">Access restricted</h1><p>Your account does not have access to this module. Ask your business owner to update your rights.</p><div className="flex flex-wrap gap-3">{pages.map((item) => <Link className="btn-secondary" key={item.key} to={`/${item.key}`}>{item.label}</Link>)}</div><button type="button" className="btn-secondary" onClick={logout}>Sign out</button></main>;
     }
   }

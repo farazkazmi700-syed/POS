@@ -75,8 +75,11 @@ test('developer password recovery sends the password purpose and returns to Deve
   await page.goto('/recover?purpose=password&source=developer');
   await expect(page.getByRole('link', { name: '← Back to sign in' })).toHaveAttribute('href', '/developer');
   await expect(page.locator('option[value="developer-pin"]')).toHaveCount(0);
+  await page.getByRole('link', { name: 'Recover with WhatsApp' }).click();
+  await expect(page).toHaveURL(/\/recover\/whatsapp\?purpose=password&source=developer/);
+  await expect(page.getByRole('heading', { name: 'Recover with WhatsApp' })).toBeVisible();
+  await expect(page.getByRole('link', { name: '← Back to sign in' })).toHaveAttribute('href', '/developer');
   await page.getByLabel('Account sign-in email').fill('developer@example.test');
-  await page.getByLabel('Send verification code by').selectOption('whatsapp');
   await page.getByRole('button', { name: 'Send verification code', exact: true }).click();
   await expect(page.getByLabel('New password', { exact: true })).toBeVisible();
   expect(sent).toEqual({ email: 'developer@example.test', purpose: 'password', channel: 'whatsapp' });
@@ -86,8 +89,10 @@ test('unconfigured providers are unavailable and never imply code delivery', asy
   await page.route('**/api/auth/recovery/options', (route) => route.fulfill({ json: { email: false, whatsapp: false } }));
   await page.goto('/recover');
   await expect(page.getByRole('button', { name: 'Send verification code', exact: true })).toBeDisabled();
-  await expect(page.locator('option[value="whatsapp"]')).toBeDisabled();
   await expect(page.getByRole('status')).toContainText('Email delivery is not configured');
+  await page.getByRole('link', { name: 'Recover with WhatsApp' }).click();
+  await expect(page.getByRole('button', { name: 'Send verification code', exact: true })).toBeDisabled();
+  await expect(page.getByRole('status')).toContainText('WhatsApp delivery is not configured');
 });
 test('signed-in staff must verify a WhatsApp code before enrollment succeeds', async ({ page }) => {
   await page.addInitScript(() => { localStorage.clear(); localStorage.setItem('pos-auth', JSON.stringify({ state: { user: { _id: '222222222222222222222222', email: 'cashier@example.test', role: 'cashier' }, accessToken: 'demo', refreshToken: 'demo' }, version: 0 })); });
@@ -99,7 +104,11 @@ test('signed-in staff must verify a WhatsApp code before enrollment succeeds', a
     if (url.endsWith('/phone/confirm')) { verified = route.request().postDataJSON().code === '123456'; return route.fulfill({ json: { message: 'WhatsApp number verified for account recovery.' } }); }
     return route.fulfill({ json: {} });
   });
-  await page.goto('/recover');
+  await page.goto('/account-security');
+  await page.getByRole('link', { name: 'WhatsApp recovery', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'WhatsApp recovery' })).toBeVisible();
+  await expect(page.getByLabel('Current password')).toHaveCount(0);
+  await expect(page.getByLabel('Account sign-in email')).toHaveCount(0);
   await page.getByLabel('WhatsApp number with country code').fill('+923001234567');
   await page.getByLabel('Send account security codes to my WhatsApp number.').check();
   await page.getByRole('button', { name: 'Send WhatsApp verification code', exact: true }).click();
@@ -109,4 +118,42 @@ test('signed-in staff must verify a WhatsApp code before enrollment succeeds', a
   await page.getByRole('button', { name: 'Verify WhatsApp number', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('WhatsApp number verified');
   expect(verified).toBe(true);
+});
+
+test('signed-in Developer can open recovery and change password as separate pages', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('pos-auth', JSON.stringify({
+      state: { user: { _id: 'developer-1', email: 'developer@example.test', role: 'owner', isDeveloper: true }, accessToken: 'demo' },
+      version: 0,
+    }));
+  });
+  await page.route('**/api/auth/recovery/options', route => route.fulfill({ json: { email: true, whatsapp: true } }));
+  await page.route('**/api/auth/change-password', route => {
+    expect(route.request().postDataJSON()).toEqual({
+      currentPassword: 'current-password', newPassword: 'updated-password-123',
+    });
+    return route.fulfill({ json: { message: 'Password changed.' } });
+  });
+  await page.route('**/api/auth/logout', route => route.fulfill({ status: 204 }));
+  await page.goto('/account-security?source=developer');
+  await expect(page.getByRole('heading', { name: 'Account security' })).toBeVisible();
+  await expect(page.getByRole('textbox')).toHaveCount(0);
+
+  await page.getByRole('link', { name: 'Recover account access' }).click();
+  await expect(page).toHaveURL(/\/recover\?source=developer/);
+  await expect(page.getByLabel('Account sign-in email')).toBeVisible();
+  await expect(page.getByLabel('Current password')).toHaveCount(0);
+  await expect(page.getByLabel('WhatsApp number with country code')).toHaveCount(0);
+
+  await page.getByRole('link', { name: '← Account security' }).click();
+  await page.getByRole('link', { name: 'Change password' }).click();
+  await expect(page).toHaveURL(/\/account-security\/change-password\?source=developer/);
+  await expect(page.getByLabel('Account sign-in email')).toHaveCount(0);
+  await expect(page.getByLabel('WhatsApp number with country code')).toHaveCount(0);
+  await page.getByLabel('Current password', { exact: true }).fill('current-password');
+  await page.getByLabel('New password', { exact: true }).fill('updated-password-123');
+  await page.getByLabel('Confirm new password', { exact: true }).fill('updated-password-123');
+  await page.getByRole('button', { name: 'Save new password' }).click();
+  await expect(page.getByRole('heading', { name: 'Password changed' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Continue to sign in' })).toHaveAttribute('href', '/developer');
 });

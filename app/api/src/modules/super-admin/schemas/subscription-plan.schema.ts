@@ -5,6 +5,8 @@ import { DomainType } from '../../../common/enums';
 @Schema({ _id: false })
 export class PlanFeatures {
   @Prop({ default: false }) 'data-sync'?: boolean;
+  @Prop({ default: false }) 'stock-replenishment'?: boolean;
+  @Prop({ default: false }) 'collections-forecast'?: boolean;
   @Prop({ required: true, default: false }) barcodes: boolean;
   @Prop({ required: true, default: true }) pos: boolean;
   @Prop({ required: true, default: true }) inventory: boolean;

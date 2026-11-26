@@ -8,6 +8,7 @@ import { fmtDate, fmtDateTime, todayYmd } from '../utils/dates';
 import { errorMessage } from '../utils/errors';
 import { formatMoney } from '../utils/money';
 import { urduClass } from '../utils/urdu';
+import '../InvoicePaper.css';
 
 type PrintJob = { kind: 'agreement' } | { kind: 'receipt'; payment: PlanPayment; balanceAfter: number };
 
@@ -46,8 +47,16 @@ export default function InstallmentDetail() {
     },
   });
 
-  // Print: render the print-only block, then open the browser's print dialog.
-  const startPrint = (j: PrintJob) => { setJob(j); setTimeout(() => window.print(), 150); };
+  const startPrint = setJob;
+  useEffect(() => {
+    if (!job) return;
+    let active = true;
+    void Promise.allSettled([
+      document.fonts.load('12px "Invoice Latin"', 'Receipt 0123456789'),
+      document.fonts.load('12px "Invoice Urdu"', 'ادائیگی کی رسید'),
+    ]).then(() => { if (active) window.print(); });
+    return () => { active = false; };
+  }, [job]);
   useEffect(() => {
     const clear = () => setJob(null);
     window.addEventListener('afterprint', clear);
@@ -220,15 +229,15 @@ function Box({ label, value, strong }: { label: string; value: string; strong?: 
   );
 }
 
-const cell = { border: '1px solid #999', padding: '4px 8px', fontSize: 12 } as const;
+const cell = { borderBottom: '1px solid #e2e8f0', padding: '4px 6px', fontSize: 11 } as const;
 
 function Agreement({ plan: p, business, address, taxRegNo, logoUrl, money }: { plan: InstallmentPlan; business: string; address?: string; taxRegNo?: string; logoUrl?: string; money: (n: number) => string }) {
   const table = { borderCollapse: 'collapse', width: '100%', marginBottom: 14 } as const;
-  const headCell = { ...cell, background: '#eee', textAlign: 'left' as const };
+  const headCell = { ...cell, background: '#f8fafc', textAlign: 'left' as const };
   const remainingFor = (amount: number, paid: number) => Math.max(0, amount - paid);
 
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif', fontSize: 12, lineHeight: 1.4, color: '#000', padding: 24, position: 'relative' }}>
+    <div className="invoice-paper" style={{ padding: 20, position: 'relative' }}>
       {logoUrl && (
         <div style={{ position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%) rotate(-20deg)', opacity: 0.07, pointerEvents: 'none' }}>
           <img src={logoUrl} alt="" style={{ width: 380, height: 380, objectFit: 'contain', filter: 'grayscale(100%)' }} />
@@ -236,8 +245,8 @@ function Agreement({ plan: p, business, address, taxRegNo, logoUrl, money }: { p
       )}
       <div style={{ position: 'relative' }}>
         {logoUrl && <div style={{ textAlign: 'center', marginBottom: 8 }}><img src={logoUrl} alt="" style={{ maxHeight: 50, maxWidth: 160, objectFit: 'contain' }} /></div>}
-        <h1 style={{ textAlign: 'center', fontSize: 22, margin: 0 }}>INSTALLMENT INVOICE &amp; AGREEMENT</h1>
-        <p style={{ textAlign: 'center', margin: '4px 0 16px' }}>{business}{address ? ` · ${address}` : ''}{taxRegNo ? ` · NTN ${taxRegNo}` : ''}</p>
+        <h1 style={{ textAlign: 'center', fontSize: 18, fontWeight: 700, margin: 0 }}>Installment Invoice &amp; Agreement</h1>
+        <p style={{ textAlign: 'center', margin: '4px 0 16px' }}><bdi>{business}</bdi>{address && <> · <bdi>{address}</bdi></>}{taxRegNo ? ` · NTN ${taxRegNo}` : ''}</p>
 
         <table style={table}><tbody>
           <tr><td style={cell}>Invoice / plan no.</td><td style={cell}><b>{p.invoiceNo}</b></td><td style={cell}>Plan date</td><td style={cell}>{fmtDate(p.createdAt)}</td></tr>
@@ -301,26 +310,27 @@ function Agreement({ plan: p, business, address, taxRegNo, logoUrl, money }: { p
 
 function Receipt({ plan: p, payment, balanceAfter, business, address, logoUrl, money }: { plan: InstallmentPlan; payment: PlanPayment; balanceAfter: number; business: string; address?: string; logoUrl?: string; money: (n: number) => string }) {
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif', fontSize: 13, color: '#000', padding: 24, maxWidth: 420, position: 'relative', overflow: 'hidden' }}>
-      {logoUrl && (
-        <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%) rotate(-20deg)', opacity: 0.08, pointerEvents: 'none', zIndex: 0 }}>
-          <img src={logoUrl} alt="" style={{ width: 260, height: 260, objectFit: 'contain', filter: 'grayscale(100%)' }} />
-        </div>
-      )}
-      <div style={{ position: 'relative', zIndex: 1 }}>
-        {logoUrl && <div style={{ textAlign: 'center', marginBottom: 6 }}><img src={logoUrl} alt="" style={{ maxHeight: 44, maxWidth: 140, objectFit: 'contain' }} /></div>}
-        <h2 style={{ textAlign: 'center', margin: 0 }}>{business}</h2>
-        {address && <p style={{ textAlign: 'center', margin: '2px 0' }}>{address}</p>}
-        <h3 style={{ textAlign: 'center', letterSpacing: 2 }}>PAYMENT RECEIPT</h3>
-        <hr />
-        <p>Receipt no: <b>{payment.receiptNo}</b><br />Date: {fmtDateTime(payment.paidAt)}<br />Received from: <b className={`${urduClass(p.customerName)}`} style={{ direction: urduClass(p.customerName) ? 'rtl' : undefined }}>{p.customerName}</b> ({p.customerPhone})<br />Against invoice: {p.invoiceNo}</p>
-        <hr />
-        <p style={{ fontSize: 18 }}>Amount received: <b>{money(payment.amount)}</b></p>
-        <p>Paid by: {payment.mode.toUpperCase()}{payment.note ? ` · ${payment.note}` : ''}<br />Received by: {payment.receivedBy}</p>
-        <hr />
-        <p>Total installment price: {money(p.totalPayable)}<br />Balance remaining: <b>{money(balanceAfter)}</b></p>
-        <p style={{ textAlign: 'center', marginTop: 24, fontSize: 11 }}>Thank you. Keep this receipt as proof of payment.</p>
-      </div>
-    </div>
+    <article className="invoice-paper invoice-payment">
+      <header>
+        {logoUrl && <img src={logoUrl} alt="" />}
+        <h2><bdi>{business}</bdi></h2>
+        {address && <p><bdi>{address}</bdi></p>}
+        <h1 className="mt-2">Payment receipt</h1>
+        <p lang="ur"><bdi dir="rtl">ادائیگی کی رسید</bdi></p>
+      </header>
+      <dl>
+        <div><dt>Receipt no.</dt><dd><bdi dir="ltr">{payment.receiptNo}</bdi></dd></div>
+        <div><dt>Date</dt><dd>{fmtDateTime(payment.paidAt)}</dd></div>
+        <div><dt>Received from</dt><dd><bdi>{p.customerName}</bdi>{p.customerPhone && <> · <bdi dir="ltr">{p.customerPhone}</bdi></>}</dd></div>
+        <div><dt>Invoice no.</dt><dd><bdi dir="ltr">{p.invoiceNo}</bdi></dd></div>
+        <div className="invoice-payment-total"><dt>Amount received</dt><dd>{money(payment.amount)}</dd></div>
+        <div><dt>Payment method</dt><dd className="capitalize">{payment.mode}</dd></div>
+        {payment.note && <div><dt>Note</dt><dd><bdi>{payment.note}</bdi></dd></div>}
+        <div><dt>Received by</dt><dd><bdi>{payment.receivedBy}</bdi></dd></div>
+        <div><dt>Total payable</dt><dd>{money(p.totalPayable)}</dd></div>
+        <div><dt>Remaining balance</dt><dd className="font-semibold">{money(balanceAfter)}</dd></div>
+      </dl>
+      <footer>Keep this receipt as proof of payment.</footer>
+    </article>
   );
 }

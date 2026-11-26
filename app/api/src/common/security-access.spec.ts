@@ -20,6 +20,12 @@ describe('authorization policy helpers', () => {
     expect(hasFeatureAccess(true, { inventory: false }, 'inventory')).toBe(true);
   });
 
+  it.each(['stock-replenishment', 'collections-forecast'] as const)('requires explicit tenant opt-in for %s', (feature) => {
+    expect(hasFeatureAccess(false, {}, feature)).toBe(false);
+    expect(hasFeatureAccess(false, { [feature]: false }, feature)).toBe(false);
+    expect(hasFeatureAccess(false, { [feature]: true }, feature)).toBe(true);
+  });
+
   it('keeps POS catalog reads available when POS or Inventory is enabled', () => {
     expect(hasAnyFeatureAccess(false, { pos: true, inventory: false }, ['pos', 'inventory'])).toBe(true);
     expect(hasAnyFeatureAccess(false, { pos: false, inventory: true }, ['pos', 'inventory'])).toBe(true);

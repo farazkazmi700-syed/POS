@@ -113,10 +113,12 @@ export default function Layout() {
         return <IconDashboard className="h-5 w-5 shrink-0" />;
       case 'pos':
         return <IconPOS className="h-5 w-5 shrink-0" />;
+      case 'stock-replenishment':
       case 'products':
         return <IconProducts className="h-5 w-5 shrink-0" />;
       case 'customers':
         return <IconCustomers className="h-5 w-5 shrink-0" />;
+      case 'collections-forecast':
       case 'installments':
         return <IconInstallments className="h-5 w-5 shrink-0" />;
       case 'orders':
@@ -463,7 +465,7 @@ export default function Layout() {
                 {userMenuOpen && <div role="menu" aria-label="User account menu" onKeyDown={onUserMenuKeyDown} className="absolute right-0 z-50 mt-2 w-72 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border-slate-200 bg-white p-1.5 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
                   <div className="px-3 py-3"><p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{formattedName}</p><div className="mt-1 flex items-center gap-2"><span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-teal-700 dark:bg-teal-950 dark:text-teal-300">{user?.role}</span><p className="truncate text-xs text-slate-500 dark:text-slate-400">{user?.email}</p></div></div>
                   <div className="my-1 border-t border-slate-200 dark:border-slate-700" />
-                  <Link role="menuitem" tabIndex={menuFocusIndex === 0 ? 0 : -1} to="/recover" onClick={() => setUserMenuOpen(false)} onFocus={() => setMenuFocusIndex(0)} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none dark:text-slate-200 dark:hover:bg-slate-800 dark:focus:bg-slate-800"><ProfileIcon className="h-4 w-4" /> Account security</Link>
+                  <Link role="menuitem" tabIndex={menuFocusIndex === 0 ? 0 : -1} to="/account-security" onClick={() => setUserMenuOpen(false)} onFocus={() => setMenuFocusIndex(0)} className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none dark:text-slate-200 dark:hover:bg-slate-800 dark:focus:bg-slate-800"><ProfileIcon className="h-4 w-4" /> Account security</Link>
                   <div role="menuitem" tabIndex={menuFocusIndex === 1 ? 0 : -1} onFocus={() => setMenuFocusIndex(1)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); (event.currentTarget.querySelector('button') as HTMLButtonElement | null)?.click(); } }} className="flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 text-sm text-slate-700 hover:bg-slate-100 focus:bg-slate-100 focus:outline-none dark:text-slate-200 dark:hover:bg-slate-800 dark:focus:bg-slate-800"><span className="flex items-center gap-3"><ThemeIcon className="h-4 w-4" /> Dark mode</span><ThemeToggle /></div>
                   <div className="my-1 border-t border-slate-200 dark:border-slate-700" />
                   <button role="menuitem" tabIndex={menuFocusIndex === 2 ? 0 : -1} type="button" onFocus={() => setMenuFocusIndex(2)} onClick={() => { setUserMenuOpen(false); handleLogout(); }} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium text-red-600 hover:bg-red-50 focus:bg-red-50 focus:outline-none dark:text-red-400 dark:hover:bg-red-950/50 dark:focus:bg-red-950/50"><LogoutIcon className="h-4 w-4" /> Log out</button>

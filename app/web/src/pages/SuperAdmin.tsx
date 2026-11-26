@@ -10,6 +10,8 @@ import { Link } from 'react-router-dom';
 const featureKeys: FeatureKey[] = ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'];
 const featureNames: Record<FeatureKey, string> = {
   'data-sync': 'Data Sync',
+  'stock-replenishment': 'Stock Replenishment',
+  'collections-forecast': 'Installment Collections Forecast',
   pos: 'POS', inventory: 'Inventory', reports: 'Reports', customers: 'Customers', installments: 'Installments', barcodes: 'Barcode tools',
 };
 
@@ -43,7 +45,7 @@ export default function SuperAdmin() {
     <div className="platform-workspace mx-auto max-w-[1440px] space-y-8 px-4 py-6 sm:px-8">
       <header className="page-header">
         <PageHeading eyebrow="Platform administration" title="Super admin" description="Manage business access, feature entitlements, and platform activity." />
-        <div className="flex flex-wrap items-center gap-2"><Link className="btn-secondary" to="/recover">Account security</Link><ThemeToggle /><button type="button" className="btn-secondary" onClick={() => { client.clear(); useAuth.getState().logout(); }}>Sign out</button></div>
+        <div className="flex flex-wrap items-center gap-2"><Link className="btn-secondary" to="/account-security">Account security</Link><ThemeToggle /><button type="button" className="btn-secondary" onClick={() => { client.clear(); useAuth.getState().logout(); }}>Sign out</button></div>
       </header>
 
       {message && <p role="status" className="text-sm text-slate-600 dark:text-slate-300">{message}</p>}

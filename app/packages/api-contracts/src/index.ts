@@ -25,7 +25,9 @@ export interface RefreshRequest {
 export interface Tenant {
   _id: string;
   name: string;
-  domainType: 'retail' | 'restaurant' | 'pharmacy' | 'supermarket' | 'grocery' | 'electronics' | 'salon' | 'custom';
+  domainType: 'retail' | 'restaurant' | 'pharmacy' | 'supermarket' | 'grocery' | 'electronics' | 'salon' | 'custom'
+    | 'motorcycle-dealer' | 'electric-bike-dealer' | 'mobile-shop' | 'furniture-store'
+    | 'home-appliances' | 'solar-equipment' | 'car-dealership' | 'agricultural-machinery';
   currency: string;
   invoicePrefix: string;
   taxProfile: TaxProfile;
@@ -477,7 +479,7 @@ export interface OrderTotals {
   taxBreakdown: TaxBreakdownEntry[];
 }
 
-export type FeatureKey = 'pos' | 'inventory' | 'reports' | 'customers' | 'installments' | 'barcodes';
+export type FeatureKey = 'pos' | 'inventory' | 'reports' | 'customers' | 'installments' | 'barcodes' | 'data-sync' | 'stock-replenishment' | 'collections-forecast';
 export interface FeatureFlags {
   pos: boolean;
   inventory: boolean;
@@ -485,6 +487,9 @@ export interface FeatureFlags {
   customers: boolean;
   installments: boolean;
   barcodes: boolean;
+  'data-sync'?: boolean;
+  'stock-replenishment'?: boolean;
+  'collections-forecast'?: boolean;
 }
 
 export type ModuleRightKey =

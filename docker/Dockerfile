@@ -26,6 +26,7 @@ COPY app/web/package.json app/web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY app/packages/shared-types /repo/app/packages/shared-types
 COPY app/web ./
+COPY app/pdf-worker/src/templates/fonts /repo/app/pdf-worker/src/templates/fonts
 RUN npm run build
 
 FROM ghcr.io/ferretdb/ferretdb:2.7.0 AS gateway

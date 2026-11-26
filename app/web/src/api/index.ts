@@ -296,6 +296,7 @@ export const developerApi = {
   clients: () => api.get<ClientAccountEntry[]>('/developer/clients').then((r) => r.data),
   resetClientPassword: (businessId: string, accountId: string) =>
     api.post<{ message: string }>(`/developer/clients/${businessId}/${accountId}/password-reset`).then((r) => r.data),
+  dataSync: () => api.get<{ moduleEnabled: boolean; configuredBusinessId: string | null }>('/developer/data-sync').then(r => r.data),
   backupOptions: () => api.get<{ mode: string; email: boolean; drive: boolean; emailTo?: string }>('/developer/backup/options').then(r => r.data),
   deliverBackup: (destination: 'email' | 'drive') => api.post<{ status: string }>('/developer/backup/deliver', { destination }).then(r => r.data),
   backup: () => api.get<{
@@ -307,6 +308,10 @@ export const developerApi = {
   features: () => api.get<{ key: keyof FeatureFlags; label: string }[]>('/developer/features').then((r) => r.data),
   overview: () => api.get<SuperAdminOverview>('/developer/overview').then((r) => r.data),
   businesses: () => api.get<BusinessPlanTarget[]>('/developer/businesses').then((r) => r.data),
+  trash: () => api.get<{ businessId: string; name: string; trashedAt: string; purgeAt: string; purgeStartedAt?: string; purgeError?: string }[]>('/developer/businesses/trash').then((r) => r.data),
+  trashBusiness: ({ id, name, confirmed }: { id: string; name: string; confirmed: boolean }) =>
+    api.post(`/developer/businesses/${id}/trash`, { name, confirmed }).then((r) => r.data),
+  restoreBusiness: (id: string) => api.post(`/developer/businesses/${id}/restore`).then((r) => r.data),
   createBusiness: (body: {
     name: string; domainType: string; ownerName: string; ownerEmail: string; ownerPhone: string; ownerPassword: string;
     address?: string; currency?: string; initialPlanId?: string; accounts?: ProvisionAccountInput[];

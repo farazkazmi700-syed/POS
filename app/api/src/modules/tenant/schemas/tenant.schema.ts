@@ -62,6 +62,8 @@ export class TenantFeatureFlags {
   @Prop({ default: true }) installments: boolean;
   @Prop({ default: true }) barcodes: boolean;
   @Prop({ default: false }) 'data-sync'?: boolean;
+  @Prop({ default: false }) 'stock-replenishment'?: boolean;
+  @Prop({ default: false }) 'collections-forecast'?: boolean;
 }
 const TenantFeatureFlagsSchema = SchemaFactory.createForClass(TenantFeatureFlags);
 
@@ -93,6 +95,12 @@ export class Tenant {
   @Prop({ default: 0, min: 0, max: 100 }) installmentMarkupPercent: number;
   @Prop({ type: NavigationVisibilitySchema, default: () => ({}) }) navigationVisibility: NavigationVisibility;
   @Prop({ type: String, enum: ['active', 'suspended'], default: 'active', index: true }) status: 'active' | 'suspended';
+  @Prop({ type: Date, default: null }) trashedAt?: Date | null;
+  @Prop({ type: Date, default: null, index: true }) purgeAt?: Date | null;
+  @Prop({ type: Date, default: null }) purgeStartedAt?: Date | null;
+  @Prop({ type: Date, default: null }) purgeLeaseUntil?: Date | null;
+  @Prop() purgeError?: string;
+  @Prop({ type: String, enum: ['active', 'suspended'] }) statusBeforeTrash?: 'active' | 'suspended';
   @Prop({ type: TenantFeatureFlagsSchema, default: () => ({}) }) featureFlags: TenantFeatureFlags;
   /** Custom module entitlements granted by the developer (keys from the PlatformModule catalog). */
   @Prop({ type: [String], default: [] }) customModules: string[];

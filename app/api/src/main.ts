@@ -40,7 +40,7 @@ async function bootstrap() {
   const docsHeaders = helmet({ contentSecurityPolicy: false });
   app.use((request: Request, response: Response, next: NextFunction) => (request.path.startsWith('/api/docs') ? docsHeaders : standardHeaders)(request, response, next));
   const corsOrigin = config.get<string>('CORS_ORIGIN', '').split(',').map((origin) => origin.trim()).filter(Boolean);
-  app.enableCors({ origin: corsOrigin });
+  app.enableCors({ origin: corsOrigin, exposedHeaders: ['Content-Disposition', 'X-Snapshot-SHA256'] });
   app.use(json({ limit: '25mb' }));
   app.use(urlencoded({ extended: true, limit: '25mb' }));
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));

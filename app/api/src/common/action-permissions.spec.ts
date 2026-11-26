@@ -18,6 +18,11 @@ describe('action permissions', () => {
     expect(permittedActions({ role: 'cashier', permissions: ['users.invite', 'sales.create'] })).not.toContain('users.invite');
     expect(permittedActions({ role: 'admin', permissions: ['reports.read'] })).not.toContain('sales.void');
   });
+  it('allows signed-in accounts to change their own password', () => {
+    expect(actionForRoute('auth', 'change-password', 'POST')).toBe('account.self');
+    expect(actionForRoute('auth', 'change-password', 'GET')).toBeUndefined();
+    expect(permittedActions({ role: 'cashier', permissions: [] })).toContain('account.self');
+  });
   it('maps sensitive actions independently', () => {
     expect(actionForRoute('orders', ':id/refund', 'POST')).toBe('sales.refund.approve');
     expect(actionForRoute('auth', 'staff/:id/rights', 'PATCH')).toBe('users.roles.assign');

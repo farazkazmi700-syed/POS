@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthUser } from '../../common/auth-user';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -94,6 +94,14 @@ export class InstallmentController {
   @Post('sales/:id/payments')
   paySale(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Body() dto: RecordInstallmentSalePaymentDto) {
     return this.installments.recordSalePayment(user, id, dto);
+  }
+
+  @Get('collections-forecast')
+  @Header('Cache-Control', 'no-store')
+  @Roles(Role.Owner, Role.Admin)
+  @RequiresFeature('collections-forecast')
+  collectionForecast(@CurrentUser() user: AuthUser) {
+    return this.installments.collectionForecast(user.tenantId);
   }
 
   @Get(':id')

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthUser } from '../../common/auth-user';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -19,6 +19,17 @@ export class ProductController {
   @RequiresFeature(['pos', 'inventory'])
   findAll(@CurrentUser() user: AuthUser, @Query() query: QueryProductDto) {
     return this.products.findAll(user.tenantId, query);
+  }
+
+  @Get('replenishment')
+  @Header('Cache-Control', 'no-store')
+  @Roles(Role.Owner, Role.Admin)
+  @RequiresFeature('stock-replenishment')
+  async replenishment(@CurrentUser() user: AuthUser, @Query() query: QueryProductDto) {
+    const result = await this.products.findAll(user.tenantId, { q: query.q, page: query.page, limit: query.limit, lowStock: true });
+    return { ...result, data: result.data.map(({ _id, name, sku, stockQty, lowStockThreshold, unit }) => ({
+      _id, name, sku, stockQty, lowStockThreshold, unit,
+    })) };
   }
 
   @Get(':id')

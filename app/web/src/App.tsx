@@ -10,6 +10,7 @@ import InstallmentModulePage from './pages/InstallmentModulePage';
 import Installments from './pages/Installments';
 import Login from './pages/Login';
 import Recovery from './pages/Recovery';
+import { AccountSecurity, ChangePasswordPage, WhatsAppSettings } from './pages/AccountSecurity';
 import ResetPassword from './pages/ResetPassword';
 import Orders from './pages/Orders';
 import POS from './pages/POS';
@@ -23,6 +24,9 @@ import { useAuth } from './store/auth';
 import { useTenant } from './hooks/useTenant';
 import { availablePages } from './utils/access';
 
+const StockReplenishment = lazy(() => import('./pages/OperationalModules').then(({ StockReplenishment }) => ({ default: StockReplenishment })));
+const CollectionsForecast = lazy(() => import('./pages/OperationalModules').then(({ CollectionsForecast }) => ({ default: CollectionsForecast })));
+const DataSync = lazy(() => import('./pages/DataSync'));
 const Developer = lazy(() => import('./pages/Developer'));
 const Settings = lazy(() => import('./pages/Settings'));
 const SuperAdmin = lazy(() => import('./pages/SuperAdmin'));
@@ -40,7 +44,11 @@ export default function App() {
   return (
     <Suspense fallback={<p className="m-6" role="status">Loading page…</p>}><Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/recover" element={<Recovery />} />
+      <Route path="/account-security" element={<AccountSecurity />} />
+      <Route path="/account-security/change-password" element={<ChangePasswordPage />} />
+      <Route path="/account-security/whatsapp" element={<WhatsAppSettings />} />
+      <Route path="/recover" element={<Recovery key="email" />} />
+      <Route path="/recover/whatsapp" element={<Recovery key="whatsapp" channel="whatsapp" />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/register" element={<Register />} />
 
@@ -54,6 +62,9 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="help" element={<Help />} />
           <Route path="backup" element={<Backup />} />
+          <Route element={<ProtectedRoute roles={['owner']} />}>
+            <Route path="data-sync" element={<DataSync />} />
+          </Route>
           <Route index element={<HomeRedirect />} />
           <Route path="pos" element={<POS />} />
           <Route path="orders" element={<Orders />} />
@@ -79,6 +90,8 @@ export default function App() {
           <Route element={<ProtectedRoute roles={['owner', 'admin']} />}>
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="stock-replenishment" element={<StockReplenishment />} />
+            <Route path="collections-forecast" element={<CollectionsForecast />} />
             <Route path="products" element={<Products />} />
             <Route path="settings" element={<Settings />} />
             <Route path="spare" element={<Spare />} />

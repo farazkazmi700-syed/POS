@@ -9,9 +9,9 @@
   @page { size: {{paper.width}}mm {{paper.height}}mm; margin: {{paper.margin}}mm; }
 
   :root {
-    --navy: #0f4c81;
-    --navy-dark: #0a3660;
-    --navy-soft: #eef4fb;
+    --navy: #334155;
+    --navy-dark: #111827;
+    --navy-soft: #f8fafc;
     --amber: #f59e0b;
     --amber-light: #fef3c7;
     --red: #dc2626;
@@ -26,9 +26,9 @@
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'InvSans', 'InvUrdu', sans-serif; font-size: 10.5px; line-height: 1.55; color: var(--ink); background: #fff; position: relative; }
+  body { font-family: 'InvSans', 'InvUrdu', sans-serif; font-size: 11px; line-height: 1.5; font-variant-numeric: lining-nums tabular-nums; color: var(--ink); background: #fff; position: relative; }
   bdi { unicode-bidi: isolate; }
-  .urdu { font-family: 'InvUrdu', 'InvSans', sans-serif; direction: rtl; letter-spacing: 0; line-height: 1.9; }
+  .urdu, .invoice-urdu { direction: rtl; unicode-bidi: isolate; letter-spacing: 0; line-height: 1.65; }
 
   /* ── Watermarks ── */
   .text-watermark { position: fixed; top: 45%; left: 5%; width: 90%; text-align: center; transform: rotate(-25deg); opacity: .08; font-size: 28px; font-weight: 700; letter-spacing: 2px; overflow-wrap: anywhere; color: var(--ink); pointer-events: none; z-index: 0; }
@@ -38,8 +38,6 @@
   .page { position: relative; z-index: 1; }
 
   /* ── Header ── */
-  .accent-bar { height: 5px; border-radius: 3px; margin-bottom: 12px;
-    background: linear-gradient(90deg, var(--navy-dark) 0%, var(--navy) 55%, #3b82f6 100%); }
   .header { display: table; width: 100%; border-collapse: collapse; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
   .header-left { display: table-cell; width: 58%; vertical-align: top; padding-right: 16px; }
   .header-right { display: table-cell; vertical-align: top; padding-left: 10px; text-align: right; }
@@ -48,20 +46,19 @@
   .biz-detail { color: var(--slate); font-size: 9.5px; margin-top: 2px; }
   .biz-ntn { color: var(--slate); font-size: 9.5px; margin-top: 2px; }
   .invoice-title { display: inline-block; color: var(--navy-dark); font-size: 19px; font-weight: 900; letter-spacing: -0.4px; line-height: 1.2; }
-  .invoice-urdu { font-family: 'InvUrdu', sans-serif; direction: rtl; font-size: 11px; color: var(--slate); margin-top: 1px; }
-  .payment-badge { display: inline-block; background: var(--navy-soft); color: var(--navy-dark); border: 1px solid #c7d9f0; border-radius: 999px; padding: 2px 10px; font-size: 8px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-top: 5px; }
-  .payment-badge.mode-installment { background: var(--amber-light); border-color: #fde68a; color: #92400e; }
+  .invoice-urdu { font-size: 11px; color: var(--slate); margin-top: 1px; }
+  .payment-badge { display: inline-block; color: var(--slate); font-size: 9px; font-weight: 600; margin-top: 4px; }
   .meta-table { margin-top: 8px; border-collapse: collapse; width: 100%; }
   .meta-table td { padding: 2px 0 2px 8px; font-size: 9.5px; }
   .meta-table td:first-child { color: var(--slate); padding-left: 0; white-space: nowrap; }
-  .meta-table td:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .meta-table td:last-child { text-align: right; font-weight: 600; }
   .meta-table tr:first-child td:last-child { color: var(--navy-dark); font-size: 11px; font-weight: 800; letter-spacing: .2px; }
 
   /* ── Customer card ── */
-  .customer-card { display: table; width: 100%; border-collapse: collapse; background: #f8fafc; border: 1px solid var(--line); border-left: 4px solid var(--navy); border-radius: 6px; margin-top: 4px; padding: 9px 12px; }
+  .customer-card { display: table; width: 100%; border-collapse: collapse; margin: 8px 0 12px; }
   .customer-card-row { display: table-row; }
   .customer-col { display: table-cell; width: 50%; vertical-align: top; padding-right: 12px; }
-  .customer-col:last-child { padding-right: 0; padding-left: 12px; border-left: 1px solid var(--line); }
+  .customer-col + .customer-col { padding-right: 0; padding-left: 12px; border-left: 1px solid var(--line); }
   .card-eyebrow { color: var(--navy); font-size: 8px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
   .card-name { color: var(--ink); font-size: 11.5px; font-weight: 700; margin-bottom: 2px; }
   .card-detail { color: var(--slate); font-size: 9px; margin-top: 1px; }
@@ -70,38 +67,38 @@
   .rule { border: 0; border-top: 1px solid var(--line); margin: 10px 0; }
 
   /* ── Items table ── */
-  .items { width: 100%; border-collapse: collapse; margin-top: 4px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-  .items thead tr { background: var(--navy); }
-  .items th { color: #fff; text-align: left; padding: 8px 7px; font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; white-space: nowrap; }
+  .items { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  .items th { color: var(--ink); text-align: left; padding: 7px; font-size: 9px; font-weight: 700; border-block: 1px solid var(--line); }
+  .items tr { break-inside: avoid; }
+  .items .col-desc { overflow-wrap: anywhere; }
+  .compact-detail { display: none; }
   .items th.right, .items td.right { text-align: right; }
   .items td { padding: 7px; border-bottom: 1px solid var(--line); font-size: 9.5px; vertical-align: top; }
-  .items tbody tr:nth-child(even) td { background: #f8fafc; }
   .items tbody tr:last-child td { border-bottom: none; }
-  .items td:last-child, .items td.amt { font-weight: 700; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .items td.num { font-variant-numeric: tabular-nums; }
+  .items td:last-child, .items td.amt { font-weight: 700; color: var(--ink); white-space: nowrap; }
   .product-sub { display: block; color: var(--slate); font-size: 8px; margin-top: 2px; }
   .items tfoot td { background: var(--navy-soft); font-weight: 700; }
 
   /* ── Totals ── */
   .totals-wrap { width: 56%; margin-left: auto; margin-top: 14px; }
-  .totals { width: 100%; border-collapse: collapse; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .totals { width: 100%; border-collapse: collapse; break-inside: avoid; }
   .totals td { padding: 5px 9px; font-size: 9.5px; border-bottom: 1px solid var(--line); background: #fff; }
   .totals tr:last-child td { border-bottom: none; }
-  .totals td:last-child { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .totals td:last-child { text-align: right; white-space: nowrap; font-weight: 600; }
   .totals td:first-child { color: var(--slate); }
-  .totals .grand td { background: linear-gradient(90deg, var(--navy-dark), var(--navy)); color: #fff; font-size: 12.5px; font-weight: 800; padding: 9px; border-bottom: none; }
+  .totals .grand td { color: var(--navy-dark); font-size: 14px; font-weight: 800; padding: 9px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
   .totals .grand td:first-child { letter-spacing: .4px; }
   .totals .grand td:last-child { font-weight: 800; }
 
   /* ── Sections ── */
   .section { margin-top: 15px; }
-  .section-title { color: var(--navy-dark); font-size: 9px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid var(--navy); padding-bottom: 4px; margin-bottom: 8px; }
+  .section-title { color: var(--navy-dark); font-size: 10px; font-weight: 700; border-bottom: 1px solid var(--line); padding-bottom: 4px; margin-bottom: 8px; }
 
   /* ── Tax table ── */
   .tax-table { width: 100%; border-collapse: collapse; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
   .tax-table th { background: var(--navy-soft); color: var(--navy-dark); padding: 6px 8px; font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; text-align: right; border-bottom: 1px solid var(--line); }
   .tax-table th:first-child, .tax-table td:first-child { text-align: left; }
-  .tax-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: 9.5px; text-align: right; font-variant-numeric: tabular-nums; }
+  .tax-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: 9.5px; text-align: right; }
   .tax-table tbody tr:last-child td { border-bottom: none; }
   .tax-rate-chip { display: inline-block; background: var(--navy-soft); color: var(--navy-dark); border-radius: 999px; padding: 1px 8px; font-size: 8.5px; font-weight: 700; }
 
@@ -118,7 +115,7 @@
   .inst-summary td { padding: 5px 9px; border-bottom: 1px solid var(--line); font-size: 9.5px; vertical-align: top; }
   .inst-summary tr:last-child td { border-bottom: none; }
   .inst-summary td:first-child { width: 50%; background: #f8fafc; color: var(--slate); }
-  .inst-summary td:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .inst-summary td:last-child { font-weight: 600; }
   .inst-summary tr.highlight td:last-child { font-weight: 800; color: var(--navy-dark); }
   .inst-summary tr.highlight-green td:last-child { color: var(--green); font-weight: 800; }
   .inst-summary tr.highlight-amber td:last-child { color: #b45309; font-weight: 800; }
@@ -138,14 +135,14 @@
   .sched-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
   .sched-table th { background: var(--navy-soft); color: var(--navy-dark); padding: 5px 6px; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--line); }
   .sched-table th:not(:first-child), .sched-table td:not(:first-child) { text-align: right; }
-  .sched-table td { padding: 5px 6px; border-bottom: 1px solid var(--line); font-size: 9px; font-variant-numeric: tabular-nums; }
+  .sched-table td { padding: 5px 6px; border-bottom: 1px solid var(--line); font-size: 9px; }
   .sched-table tbody tr:nth-child(even) td { background: #f8fafc; }
   .sched-table tbody tr:last-child td { border-bottom: none; }
 
   /* Payment history */
   .pay-hist { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
   .pay-hist th { background: var(--navy-soft); color: var(--navy-dark); padding: 5px 7px; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--line); }
-  .pay-hist td { padding: 5px 7px; border-bottom: 1px solid var(--line); font-size: 9px; font-variant-numeric: tabular-nums; vertical-align: top; }
+  .pay-hist td { padding: 5px 7px; border-bottom: 1px solid var(--line); font-size: 9px; vertical-align: top; }
   .pay-hist td:last-child { text-align: right; font-weight: 700; }
   .pay-hist tbody tr:nth-child(even) td { background: #f8fafc; }
   .pay-hist tbody tr:last-child td { border-bottom: none; }
@@ -177,8 +174,7 @@
 
   /* ── COMPACT / RECEIPT PAPER ── */
   {{#if paper.compact}}
-  body { font-size: 8px; line-height: 1.35; }
-  .accent-bar { height: 3px; margin-bottom: 6px; }
+  body { font-size: 9px; line-height: 1.4; }
   .header { padding-bottom: 6px; margin-bottom: 6px; }
   .header-left, .header-right { display: block; width: 100%; padding: 0; text-align: left; }
   .header-right { padding-top: 5px; }
@@ -191,20 +187,19 @@
   .meta-table tr:first-child td:last-child { font-size: 9px; }
   .customer-card { margin-top: 6px; padding: 5px 7px; }
   .customer-col { display: block; width: 100%; padding: 0 0 5px; border: none; }
-  .customer-col:last-child { padding: 5px 0 0; border-top: 1px solid var(--line); border-left: none; }
+  .customer-col + .customer-col { padding: 5px 0 0; border-top: 1px solid var(--line); border-left: none; }
   .card-name { font-size: 9.5px; }
   .card-detail { font-size: 8px; }
   .items { table-layout: fixed; }
-  .items th, .items td { padding: 3px 3px; font-size: 7px; }
-  .items th.col-idx, .items td.col-idx,
-  .items th.col-disc, .items td.col-disc { display: none; }
-  .items th.col-desc, .items td.col-desc { width: 40%; }
-  .items th.col-qty, .items td.col-qty { width: 11%; }
-  .items th.col-price, .items td.col-price,
-  .items th.col-amt, .items td.col-amt { width: 16%; }
+  .items th, .items td { padding: 4px 3px; font-size: 8px; }
+  .items .col-idx, .items .col-price, .items .col-disc, .items .col-tax { display: none; }
+  .items .col-desc { width: 46%; }
+  .items .col-qty { width: 17%; overflow-wrap: anywhere; }
+  .items .col-amt { width: 37%; white-space: normal; overflow-wrap: anywhere; }
+  .items .compact-detail { display: block; }
   .totals-wrap { width: 100%; margin-top: 6px; }
   .totals td { padding: 2px 5px; font-size: 8px; }
-  .totals .grand td { font-size: 9.5px; padding: 5px 5px; }
+  .totals .grand td { font-size: 11px; padding: 5px; }
   .section { margin-top: 8px; }
   .section-title { font-size: 7.5px; }
   .tax-table th, .tax-table td { padding: 3px 3px; font-size: 7.5px; }
@@ -221,6 +216,7 @@
   .thanks { margin-top: 7px; font-size: 7.5px; }
   .powered { font-size: 6.5px; }
   .logo-watermark { width: 70%; height: auto; }
+  .header .meta-table td:last-child { overflow-wrap: anywhere; }
   {{/if}}
 </style>
 </head>
@@ -234,7 +230,6 @@
 {{#if tenant.watermark}}<div class="text-watermark">{{tenant.watermark}}</div>{{/if}}
 
 <!-- ═══════════════ HEADER ═══════════════ -->
-<div class="accent-bar"></div>
 <div class="header">
   <div class="header-left">
     {{#if tenant.logoUrl}}<img class="brand-logo" src="{{tenant.logoUrl}}" alt="Logo" />{{/if}}
@@ -249,7 +244,7 @@
     <table class="meta-table">
       <tr><td>Invoice no.</td><td>{{invoiceNo}}</td></tr>
       <tr><td>Date</td><td>{{issuedAt}}</td></tr>
-      <tr><td>Cashier</td><td>{{cashierName}}</td></tr>
+      <tr><td>Cashier</td><td><bdi>{{cashierName}}</bdi></td></tr>
       {{#each payments}}<tr><td>{{upper mode}}</td><td>{{money amount}}</td></tr>{{/each}}
     </table>
   </div>
@@ -263,7 +258,7 @@
       <div class="customer-col">
         <div class="card-eyebrow">Buyer / <span class="urdu" lang="ur" style="font-size:9px">خریدار</span></div>
         <div class="card-name"><bdi>{{installment.customer.name}}</bdi></div>
-        {{#if installment.customer.phone}}<div class="card-detail">📞 {{installment.customer.phone}}</div>{{/if}}
+        {{#if installment.customer.phone}}<div class="card-detail">Phone {{installment.customer.phone}}</div>{{/if}}
         {{#if installment.customer.cnic}}<div class="card-detail">ID: {{installment.customer.cnic}}</div>{{/if}}
         {{#if installment.customer.address}}<div class="card-detail"><bdi>{{installment.customer.address}}</bdi></div>{{/if}}
       </div>
@@ -271,7 +266,7 @@
       <div class="customer-col">
         <div class="card-eyebrow">Guarantor / <span class="urdu" lang="ur" style="font-size:9px">ضامن</span></div>
         <div class="card-name"><bdi>{{installment.guarantor.name}}</bdi></div>
-        {{#if installment.guarantor.phone}}<div class="card-detail">📞 {{installment.guarantor.phone}}</div>{{/if}}
+        {{#if installment.guarantor.phone}}<div class="card-detail">Phone {{installment.guarantor.phone}}</div>{{/if}}
         {{#if installment.guarantor.cnic}}<div class="card-detail">ID: {{installment.guarantor.cnic}}</div>{{/if}}
         {{#if installment.guarantor.address}}<div class="card-detail"><bdi>{{installment.guarantor.address}}</bdi></div>{{/if}}
       </div>
@@ -284,16 +279,16 @@
   <div class="customer-card-row">
     <div class="customer-col">
       <div class="card-eyebrow">Billed to</div>
-      {{#if customer.name}}<div class="card-name">{{customer.name}}</div>{{/if}}
-      {{#if customer.phone}}<div class="card-detail">📞 {{customer.phone}}</div>{{/if}}
+      {{#if customer.name}}<div class="card-name"><bdi>{{customer.name}}</bdi></div>{{/if}}
+      {{#if customer.phone}}<div class="card-detail">Phone {{customer.phone}}</div>{{/if}}
       {{#if customer.cnic}}<div class="card-detail">ID: {{customer.cnic}}</div>{{/if}}
       {{#if customer.address}}<div class="card-detail"><bdi>{{customer.address}}</bdi></div>{{/if}}
     </div>
     {{#if customer.guarantor}}
     <div class="customer-col">
       <div class="card-eyebrow">Guarantor</div>
-      <div class="card-name">{{customer.guarantor.name}}</div>
-      {{#if customer.guarantor.phone}}<div class="card-detail">📞 {{customer.guarantor.phone}}</div>{{/if}}
+      <div class="card-name"><bdi>{{customer.guarantor.name}}</bdi></div>
+      {{#if customer.guarantor.phone}}<div class="card-detail">Phone {{customer.guarantor.phone}}</div>{{/if}}
       {{#if customer.guarantor.cnic}}<div class="card-detail">ID: {{customer.guarantor.cnic}}</div>{{/if}}
       {{#if customer.guarantor.address}}<div class="card-detail"><bdi>{{customer.guarantor.address}}</bdi></div>{{/if}}
     </div>
@@ -323,6 +318,7 @@
       <td class="col-idx">{{inc @index}}</td>
       <td class="col-desc">
         <bdi>{{name}}</bdi>
+        {{#if ../paper.compact}}<span class="product-sub compact-detail">Unit {{money unitPrice}}{{#if discountAmount}} · Disc. {{money discountAmount}}{{/if}}{{#if ../totals.taxTotal}} · Tax {{pct taxPercent}}{{/if}}</span>{{/if}}
         {{#if productId}}<span class="product-sub">ID: <bdi dir="ltr">{{productId}}</bdi></span>{{/if}}
         {{#if serialNo}}<span class="product-sub">S/N: <bdi dir="ltr">{{serialNo}}</bdi></span>{{/if}}
       </td>

@@ -20,6 +20,7 @@ export function actionForRoute(controller: string, handler: string, method: stri
   if (controller === 'support' && method === 'POST' && handler === 'backup/sync') return 'backup.export';
   if (controller === 'support') return method === 'GET' ? handler === 'backup' ? 'backup.export' : 'workspace.read' : undefined;
   if (controller === 'auth') {
+    if (handler === 'change-password' && method === 'POST') return 'account.self';
     if (handler === 'logout' || handler === 'me' || handler.startsWith('me/')) return 'account.self';
     if (handler === 'staff') return method === 'GET' ? 'users.read' : 'users.invite';
     if (handler === 'staff/:id/rights') return 'users.roles.assign';

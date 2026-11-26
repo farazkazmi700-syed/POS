@@ -7,16 +7,21 @@ import './Support.css';
 interface SupportResponse {
   help: { email: string; recoveryUrl: string; channels: { email: boolean; whatsapp: boolean }; codeExpiryMinutes: number };
   entitlements: { help: boolean; backup: boolean };
+  backup?: { sync?: { entitled: boolean; configured: boolean } };
 }
 
 const FALLBACK_EMAIL = 'info.kazmion@gmail.com';
 
 export default function Help() {
-  const role = useAuth((state) => state.user?.role);
-  const support = useQuery({ queryKey: ['support'], queryFn: () => api.get<SupportResponse>('/support').then((response) => response.data) });
+  const user = useAuth((state) => state.user);
+  const support = useQuery({
+    queryKey: ['support', 'help', user?.tenantId, user?._id],
+    queryFn: ({ signal }) => api.get<SupportResponse>('/support', { signal }).then((response) => response.data),
+  });
   const help = support.data?.help;
   const email = help?.email ?? FALLBACK_EMAIL;
-  const canExport = role === 'owner' && support.data?.entitlements.backup;
+  const canExport = user?.role === 'owner' && support.data?.entitlements.backup;
+  const canSync = canExport && support.data?.backup?.sync?.entitled;
   const emailLink = (subject: string) => `mailto:${email}?subject=${encodeURIComponent(subject)}`;
 
   return (
@@ -29,6 +34,7 @@ export default function Help() {
           <Link className="support-button support-button--primary" to={help?.recoveryUrl ?? '/recover'}><KeyIcon /> Recover account access</Link>
           <a className="support-button" href={emailLink('KazmiOn support request')}><MailIcon /> Email support</a>
           {canExport && <Link className="support-button" to="/backup"><ArchiveIcon /> Business export</Link>}
+          {canSync && <Link className="support-button" to="/data-sync">Data Sync</Link>}
         </div>
       </section>
 

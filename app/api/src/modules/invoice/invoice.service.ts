@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bullmq';
 import { existsSync } from 'fs';
+import { rm } from 'node:fs/promises';
 import * as path from 'path';
 import { Model } from 'mongoose';
 import { InvoiceStatus } from '../../common/enums';
@@ -55,6 +56,44 @@ export class InvoiceService {
   /** Set R2 bucket (called from Worker entry point) */
   setR2Bucket(bucket: R2Bucket) {
     this.r2Bucket = bucket;
+  }
+
+  async purgeTenantInvoices(tenantId: string): Promise<void> {
+    if (!/^[a-f0-9]{24}$/.test(tenantId)) throw new Error('Invalid tenant identity');
+    if (this.config.get<string>('STORAGE_MODE', 'local') !== 'local') {
+      throw new Error('Remote invoice cleanup is unavailable');
+    }
+
+    if (await this.queue.isPaused()) throw new Error('Invoice cleanup will retry once the queue resumes');
+    const states = ['waiting', 'active', 'delayed', 'prioritized', 'failed', 'completed', 'waiting-children'] as const;
+    const size = 100;
+    for (const state of states) {
+      let offset = 0;
+      for (;;) {
+        const jobs = await this.queue.getJobs(state, offset, offset + size - 1, true);
+        let retained = 0;
+        for (const job of jobs) {
+          if (job.data.tenant?.id === tenantId) await job.remove();
+          else retained++;
+        }
+        if (jobs.length < size) break;
+        offset += retained;
+      }
+    }
+
+    const configured = this.config.get<string>('STORAGE_DIR', './storage/record of business');
+    const roots = new Set([
+      path.resolve(configured),
+      path.resolve('storage', 'record of business'),
+      path.resolve('storage', 'invoices'),
+    ]);
+    for (const root of roots) {
+      const directory = path.join(root, tenantId);
+      if (path.relative(root, directory) !== tenantId) throw new Error('Invalid invoice directory');
+      await rm(directory, { recursive: true, force: true });
+    }
+
+    await this.state.postgres?.purge(tenantId);
   }
 
   /** Queue PDF generation. Never throws: a queue outage must not fail a completed sale. */

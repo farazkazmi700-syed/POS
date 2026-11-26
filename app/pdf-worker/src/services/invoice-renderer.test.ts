@@ -56,6 +56,20 @@ describe('renderInvoiceHtml', () => {
     assert.match(html, /1,710\.00<\/td><td>[^<]*307\.80/);
     assert.match(html, /2,103\.30/);
   });
+  it('keeps bilingual labels and monetary detail readable on 58mm receipts', async () => {
+    const html = await renderInvoiceHtml({
+      ...sample,
+      tenant: { ...sample.tenant, invoicePaperSize: '58mm' },
+      cashierName: 'علی رضا',
+      items: [{ ...sample.items[0], name: 'موبائل فون Phone', qty: 1.25 }],
+    });
+    assert.match(html, /@page \{ size: 58mm 200mm/);
+    assert.match(html, /font-variant-numeric: lining-nums tabular-nums/);
+    assert.match(html, /<bdi>علی رضا<\/bdi>/u);
+    assert.match(html, /<bdi>موبائل فون Phone<\/bdi>/u);
+    assert.match(html, /Unit 1,800\.00 · Disc\. 90\.00 · Tax 18%/u);
+    assert.match(html, /col-qty num">1\.25<\/td>/);
+  });
   it('prints mixed tenders and escapes business-controlled text', async () => {
     const html = await renderInvoiceHtml({ ...sample, tenant: { ...sample.tenant, name: '<script>alert(1)</script>' }, paymentMode: 'mixed', payments: [{ mode: 'cash', amount: 1000 }, { mode: 'card', amount: 1017.8 }] });
     assert.match(html, /1,017\.80/); assert.match(html, /MIXED/); assert.doesNotMatch(html, /<script>alert/);

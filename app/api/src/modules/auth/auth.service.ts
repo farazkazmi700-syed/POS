@@ -523,7 +523,7 @@ export class AuthService {
       user.email,
       this.config.get<string>('PLATFORM_DEVELOPER_EMAIL'),
     ));
-    if (!tenant || !hasTenantAccess(tenant.status, hasGlobalAccess)) {
+    if (!tenant || tenant.trashedAt || !hasTenantAccess(tenant.status, hasGlobalAccess)) {
       throw new UnauthorizedException('Business is suspended or unavailable');
     }
     if (!hasGlobalAccess && tenant.licenseExpiresAt && tenant.licenseExpiresAt.getTime() <= Date.now()) throw new UnauthorizedException('Business license has expired');

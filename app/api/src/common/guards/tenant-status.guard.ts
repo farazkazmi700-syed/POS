@@ -13,12 +13,11 @@ export class TenantStatusGuard implements CanActivate {
     const allowSuspended = this.reflector.getAllAndOverride<boolean>(ALLOW_SUSPENDED_TENANT_KEY, [
       context.getHandler(), context.getClass(),
     ]);
-    if (allowSuspended) return true;
-
     const user = context.switchToHttp().getRequest().user as AuthUser | undefined;
-    if (!user) return true;
+    if (!user || (allowSuspended && (user.isDeveloper || user.isSuperAdmin))) return true;
     const tenant = await this.tenants.findById(user.tenantId).catch(() => null);
-    if (!tenant) throw new UnauthorizedException('Business not found');
+    if (!tenant || tenant.trashedAt) throw new UnauthorizedException('Business unavailable');
+    if (allowSuspended) return true;
     if (!hasTenantAccess(tenant.status, false)) throw new UnauthorizedException('Business is suspended');
     if (tenant.licenseExpiresAt && tenant.licenseExpiresAt.getTime() <= Date.now()) throw new UnauthorizedException('Business license has expired. Contact the platform owner.');
     return true;

@@ -5,6 +5,7 @@ import { installmentSaleApi } from '../api';
 import { useTenant } from '../hooks/useTenant';
 import { errorMessage } from '../utils/errors';
 import { formatMoney } from '../utils/money';
+import '../InvoicePaper.css';
 import type { InstallmentSale, InvoicePrintSettings } from '@pos/shared-types';
 
 function paperSize(settings?: InvoicePrintSettings) {
@@ -41,7 +42,7 @@ export default function InstallmentSaleLedger({ collect = false }: { collect?: b
     const next = s.schedule.find((r) => r.remainingAmount > 0);
     const overdue = s.schedule.filter((r) => r.dueDate < today).reduce((n, r) => n + Math.round(r.remainingAmount * 100), 0) / 100;
     return <>
-      <h2 className="text-lg font-bold">{tenant?.name} — Installment agreement</h2><p>{s.agreementId}</p><p>Customer reference: {s.customerId}</p>
+      <h2 className="text-base font-bold">Installment agreement</h2><p><bdi>{tenant?.name}</bdi> · <bdi dir="ltr">{s.agreementId}</bdi></p><p>Customer reference: {s.customerId}</p>
       <dl className="grid grid-cols-2 gap-2 my-4">
         {Object.entries({ 'Cash price': money(s.actualPrice), 'Down payment': money(s.advancePayment), Principal: money((Math.round(s.actualPrice * 100) - Math.round(s.advancePayment * 100)) / 100), Charges: money(s.commissionAmount), 'Total payable': money(s.totalInstallmentPrice), 'Paid to date': money(s.totalPaid), Remaining: money(s.outstandingBalance), Overdue: money(overdue), Frequency: `${s.installmentDuration} ${s.paymentFrequency}`, 'Next due': next ? `${next.dueDate}: ${money(next.remainingAmount)}` : 'Settled' }).map(([label, value]) => <div key={label}><dt className="text-xs">{label}</dt><dd className="font-semibold">{value}</dd></div>)}
       </dl>
@@ -73,9 +74,9 @@ export default function InstallmentSaleLedger({ collect = false }: { collect?: b
       {pay.isError && <p role="alert">{errorMessage(pay.error)}</p>}{pay.isSuccess && <p role="status">Payment posted to the ledger.</p>}
     </>}
     {preview && sale && createPortal(<div id="agreement-preview" role="dialog" aria-modal="true" aria-label="Installment print preview" className="fixed inset-0 z-[100] overflow-auto bg-slate-100 p-6 text-black">
-      <style>{`@page { size: ${size.w}mm ${size.h}mm; margin: 4mm; } #agreement-preview td,#agreement-preview th{padding:4px;overflow-wrap:anywhere;text-align:left} #agreement-preview table{table-layout:fixed} @media print{body > :not(#agreement-preview){display:none!important} #agreement-preview{position:static;padding:0;background:white;overflow:visible} #agreement-preview article{width:auto!important;box-shadow:none;padding:0} #agreement-preview tr{break-inside:avoid}}`}</style>
+      <style>{`@page { size: ${size.w}mm ${size.h}mm; margin: 4mm; } @media print{body > :not(#agreement-preview){display:none!important} #agreement-preview{position:static;padding:0;background:white;overflow:visible} #agreement-preview article{width:auto!important;box-shadow:none;padding:0} #agreement-preview tr{break-inside:avoid}}`}</style>
       <div className="no-print flex gap-3 mb-4"><button className="btn-primary" onClick={() => window.print()}>Print / Save as PDF</button><button className="btn-secondary" onClick={() => setPreview(false)}>Close preview</button></div>
-      <article className="mx-auto bg-white p-4 shadow" style={{ width: `${size.w - 8}mm` }}>{summary(sale)}</article>
+      <article className="invoice-paper invoice-preview-sheet mx-auto p-4 shadow-sm" style={{ width: `${size.w - 8}mm` }}>{summary(sale)}</article>
     </div>, document.body)}
   </section>;
 }

@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'crypto';
 
-import { FeatureKey } from './features';
+import { FeatureKey, OPT_IN_FEATURES } from './features';
 
 export function isPersistedSuperAdmin(user?: { superAdmin?: boolean } | null): boolean {
   return user?.superAdmin === true;
@@ -44,7 +44,7 @@ export function hasFeatureAccess(
   features: Partial<Record<FeatureKey, boolean>> | null | undefined,
   feature: FeatureKey,
 ): boolean {
-  return isAdmin || (feature === 'data-sync' ? features?.[feature] === true : features?.[feature] !== false);
+  return isAdmin || (OPT_IN_FEATURES.includes(feature) ? features?.[feature] === true : features?.[feature] !== false);
 }
 
 export function hasAnyFeatureAccess(

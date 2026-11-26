@@ -22,7 +22,54 @@ export interface DomainRolePackage {
   accounts: RoleTemplateEntry[];
 }
 
+function installmentPackage(
+  label: string,
+  icon: string,
+  managerTitle: string,
+  managerDescription: string,
+  advisorTitle: string,
+  advisorDescription: string,
+  barcodes = false,
+): DomainRolePackage {
+  const managementRights: string[] = ['dashboard', 'pos', 'products', 'customers', 'installments', 'orders', 'settings'];
+  if (barcodes) managementRights.push('barcode-generator', 'barcode-scanner');
+
+  return {
+    label,
+    icon,
+    accounts: [
+      { role: 'admin', title: managerTitle, description: managerDescription, moduleRights: managementRights },
+      { role: 'staff', title: advisorTitle, description: advisorDescription, moduleRights: ['pos', 'customers', 'installments', 'settings'] },
+      { role: 'cashier', title: 'Payments Cashier', description: 'Record sales, installment payments and receipts.', moduleRights: ['pos', 'orders', 'installments', 'settings'] },
+    ],
+  };
+}
+
 export const DOMAIN_ROLE_PACKAGES: Record<string, DomainRolePackage> = {
+  'motorcycle-dealer': installmentPackage("Motorcycle Dealers", "🏍️",
+    "Dealership Manager", "Manage motorcycle stock, sales reports and installment accounts.",
+    "Motorcycle Sales Advisor", "Prepare motorcycle quotes and manage customer agreements."),
+  'electric-bike-dealer': installmentPackage("Electric Bike Dealers", "⚡",
+    "Showroom Manager", "Manage e-bike stock, pricing and installment accounts.",
+    "Electric Bike Sales Advisor", "Prepare e-bike quotes and manage customer agreements."),
+  'mobile-shop': installmentPackage("Mobile Shops", "📱",
+    "Mobile Shop Manager", "Manage handset stock, barcode tools and installment sales.",
+    "Device Sales Advisor", "Handle device sales, customer records and installment quotes.", true),
+  'furniture-store': installmentPackage("Furniture Stores", "🪑",
+    "Furniture Showroom Manager", "Manage showroom inventory, sales reports and payment plans.",
+    "Furniture Sales Advisor", "Prepare furniture quotes and manage customer agreements."),
+  'home-appliances': installmentPackage("Home Appliances", "🧺",
+    "Appliance Store Manager", "Manage appliance stock, barcode tools and installment sales.",
+    "Appliance Sales Advisor", "Prepare appliance quotes and manage customer agreements.", true),
+  'solar-equipment': installmentPackage("Solar Equipment", "☀️",
+    "Solar Equipment Manager", "Manage equipment inventory, sales reports and installment accounts.",
+    "Solar Sales Advisor", "Prepare equipment quotes and manage customer agreements."),
+  'car-dealership': installmentPackage("Car Dealerships", "🚗",
+    "Dealership Manager", "Manage vehicle inventory, sales reports and installment accounts.",
+    "Vehicle Sales Advisor", "Prepare vehicle quotes and manage customer agreements."),
+  'agricultural-machinery': installmentPackage("Agricultural Machinery", "🚜",
+    "Machinery Dealership Manager", "Manage machinery inventory, sales reports and installment accounts.",
+    "Machinery Sales Advisor", "Prepare machinery quotes and manage customer agreements."),
   restaurant: {
     label: 'Restaurant',
     icon: '🍽️',
@@ -67,7 +114,7 @@ export const DOMAIN_ROLE_PACKAGES: Record<string, DomainRolePackage> = {
     ],
   },
   electronics: {
-    label: 'Electronics',
+    label: 'Electronics Shops',
     icon: '🔌',
     accounts: [
       { role: 'admin', title: 'Showroom Admin', description: 'High-value inventory & installment plans', moduleRights: ['dashboard', 'pos', 'products', 'customers', 'installments', 'orders', 'settings', 'barcode-generator'] },
