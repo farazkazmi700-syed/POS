@@ -186,14 +186,11 @@ export default function Layout() {
           <img
             src={activeLogoUrl}
             alt={tenant?.name || 'KazmiOn POS'}
-            className="h-10 w-10 rounded-xl object-contain bg-white dark:bg-slate-900 p-0.5 shadow-md shadow-sky-600/20 ring-2 ring-white/60 dark:ring-slate-800/80"
+            className="h-10 w-10 shrink-0 rounded-xl object-contain bg-white dark:bg-slate-900 p-0.5 shadow-md shadow-sky-600/20 ring-2 ring-white/60 dark:ring-slate-800/80"
           />
           <div className="min-w-0 flex-1">
-            <span className={`block line-clamp-2 text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-base ${urduClass(tenant?.name ?? '')}`}>
+            <span className={`line-clamp-2 break-words text-sm font-bold tracking-tight text-[var(--text)] sm:text-base ${urduClass(tenant?.name ?? '')}`}>
               {tenant?.name ?? 'KazmiOn POS'}
-            </span>
-            <span className={`block truncate text-[11px] font-medium text-slate-500 dark:text-slate-400 capitalize ${urduClass(tenant?.domainType ?? '')}`}>
-              {tenant?.domainType ?? 'Retail'} System
             </span>
           </div>
         </div>
@@ -262,25 +259,22 @@ export default function Layout() {
           {/* Drawer content */}
           <aside className="fixed inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col gap-4 border-r border-[var(--panel-border)] bg-[var(--panel)] p-5 shadow-2xl transition-transform animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between border-b border-[var(--panel-border)] pb-4">
-              <div className="flex items-center gap-2.5">
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
                 <img
                   src={activeLogoUrl}
                   alt={tenant?.name || 'KazmiOn POS'}
-                  className="h-9 w-9 rounded-xl object-contain bg-white dark:bg-slate-900 p-0.5 ring-1 ring-slate-200 dark:ring-slate-700 shadow-xs"
+                  className="h-9 w-9 shrink-0 rounded-xl object-contain bg-white dark:bg-slate-900 p-0.5 ring-1 ring-slate-200 dark:ring-slate-700 shadow-xs"
                 />
                 <div className="min-w-0">
-                  <span className="block truncate text-sm font-bold text-slate-900 dark:text-slate-100">
+                  <span className={`line-clamp-2 break-words text-sm font-bold text-[var(--text)] ${urduClass(tenant?.name ?? '')}`}>
                     {tenant?.name ?? 'KazmiOn POS'}
-                  </span>
-                  <span className="block truncate text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                    {tenant?.domainType ?? 'Retail'}
                   </span>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                 aria-label="Close menu"
               >
                 <IconClose className="h-5 w-5" />
