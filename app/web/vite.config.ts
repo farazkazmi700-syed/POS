@@ -15,6 +15,13 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    fs: {
+      allow: [
+        fileURLToPath(new URL('.', import.meta.url)),
+        fileURLToPath(new URL('../pdf-worker/src/templates/fonts/NotoSans.ttf', import.meta.url)),
+        fileURLToPath(new URL('../pdf-worker/src/templates/fonts/NotoSansArabic.ttf', import.meta.url)),
+      ],
+    },
     // Vite proxy: forwards /api to the backend.
     // Docker stack (npm run infra): API is on port 8080 (nginx → NestJS inside container).
     // Native dev (npm run dev:api): API is on port 3000.

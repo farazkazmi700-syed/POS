@@ -1,0 +1,81 @@
+name: Release V1
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Approved delivery target
+        type: choice
+        options: [container, pages]
+        required: true
+      pilot_approved:
+        description: Required tests and the V1 pilot are signed off
+        type: boolean
+        default: false
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+jobs:
+  approval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PILOT_APPROVED: ${{ inputs.pilot_approved }}
+    steps:
+      - name: Check release approval
+        run: |
+          if [[ "$GITHUB_REF" != refs/heads/main || "$PILOT_APPROVED" != true ]]; then
+            echo "Release requires main and recorded test and pilot approval."
+            exit 1
+          fi
+
+  verify:
+    needs: approval
+    uses: ./.github/workflows/ci.yml
+
+  publish-image:
+    needs: verify
+    if: inputs.target == 'container'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
+      - run: bash .github/scripts/setup-node.sh
+      - run: npm ci
+      - run: npx --no-install playwright install --with-deps chromium
+      - name: Build commit-tagged image and verify packaged runtime
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_SHA}"
+          docker build --platform linux/amd64 -f docker/Dockerfile \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            -t "$image" .
+          node qa/smoke-container.cjs "$image"
+      - name: Publish the tested image
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_SHA}"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$image"
+          docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$image" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-pages:
+    needs: verify
+    if: inputs.target == 'pages'
+    permissions:
+      contents: read
+      deployments: write
+    uses: ./.github/workflows/deploy-cloudflare.yml
+    secrets: inherit

@@ -1,0 +1,65 @@
+KAZMION POS OFFLINE 1.0.1 - PILOT AND RELEASE GATES
+Decision: HOLD. Every approval line below is blank pending named review.
+Do not release, send to customers, or promote a Docker tag while on hold.
+
+Before controlled pilot
+[ ] Release owner names the pilot site, responsible operator, support contact,
+    approvers, test dates, and rollback window.
+[ ] Match every installer file to a trusted SHA256SUMS.txt and record the
+    installer version and exact image ID. Confirm the candidate may be used
+    for the controlled evaluation under organization and vendor terms.
+[ ] Prepare isolated test devices, approved Docker/WSL offline media, recovery
+    key copies, spare storage, and a verified initial backup.
+[ ] Use synthetic or authorized pilot data and record baseline totals.
+
+Required release verification
+[ ] Test prerequisites on clean disconnected Windows 10 and Windows 11 x64
+    systems within the approved vendor lifecycle. Include virtualization, WSL,
+    Docker Desktop start without a network, setup/reboot, shortcuts/firewall,
+    first launch, upgrade, rollback and uninstall while preserving volumes.
+[ ] Complete a clean repeatable production image build against the recorded
+    source revision. Run the release test suite on that exact build. Sign or
+    otherwise authenticate production media under the approved distribution
+    process. Recompute delivery checksums after any packaging change.
+
+Pilot acceptance
+[ ] Clerk and owner verify sales, refunds/voids, inventory, customers,
+    installments, collections, invoices, reports, Help and ZIP exports.
+[ ] Reconcile concurrent sales and shifts against stock, payments and invoice
+    totals. Verify local barcode/QR and actual printer output at the site.
+[ ] Verify tenant/branch scope, role and module restrictions, expired licence,
+    recovery delivery, reset replay rejection and session revocation.
+[ ] Verify offline startup and, if separately enabled, test allowed and denied
+    LAN terminals with the production firewall and trusted certificate.
+[ ] Verify recovery from restart and a forced stop, then authenticate and
+    restore an encrypted backup to separate volumes. Reconcile business
+    records, stock, counters and PDF checksums before approving cutover.
+[ ] Record defects, evidence, severity and disposition. Any unresolved data
+    integrity, access-control, restore or install failure keeps release on hold.
+
+Open gates and exclusions
+- No clean disconnected Windows VM test or Windows 11 run. Fresh Docker
+  Desktop/WSL setup, real installer GUI and firewall action remain unverified.
+  The 1.0.1 image archive import stalled on the existing Windows host. A
+  successful fresh import of the exact candidate is required before approval.
+- Clean full-image rebuild, immutable source/version provenance, production
+  media authentication and vendor/dependency distribution review remain open.
+  The available Inno Setup compiler was marked non-commercial use.
+- Dedicated lint is unconfigured. Agree on required lint coverage and run it,
+  or document an explicit release-policy disposition.
+- Purchases and suppliers have no standalone modules in this checkout.
+  Record the approved scope or complete implementation and verification if
+  they are release requirements.
+- Native PostgreSQL V2 synchronization is a separate cutover. The rehearsal
+  does not certify it against live writes from the current runtime.
+- No pilot or approvals have been recorded.
+
+Record approval against exact candidate files and scope
+Required test reviewer / date / evidence ______________________________
+Data protection and restore reviewer / date / evidence ________________
+Pilot business owner / date / evidence ________________________________
+Release owner / date / approved checksums and scope ___________________
+
+Only after required testing passes, the pilot is accepted and the release owner
+records explicit approval may the hold be lifted. Changed binaries or scope
+require a new candidate and renewed approval of affected checks.

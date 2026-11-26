@@ -420,6 +420,10 @@ export class SuperAdminService {
 
   private completeFeatures(features?: Partial<Record<FeatureKey, boolean>> | null) {
     const base = Object.fromEntries(FEATURE_KEYS.map((key) => [key, features?.[key] ?? false])) as Record<FeatureKey, boolean>;
+    // Legacy tenants/plans created before `dashboard` was separated inherit its state from `reports`.
+    if (features && features.dashboard === undefined && typeof features.reports === 'boolean') {
+      base.dashboard = features.reports;
+    }
     // Settings module is mandatory for all accounts - always enabled
     base.settings = true;
     return base;

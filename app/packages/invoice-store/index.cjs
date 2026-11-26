@@ -85,6 +85,18 @@ class PostgresInvoiceStore {
     identifier(tenant);
     await this.query(tenant, 'DELETE FROM invoice_store.invoices WHERE tenant_id=$1', [tenant]);
   }
+  async readAppearance(tenant) {
+    const result = await this.query(tenant, 'SELECT preferences FROM invoice_store.business_appearance WHERE tenant_id = $1', [tenant]);
+    return result.rows[0]?.preferences ?? null;
+  }
+  async writeAppearance(tenant, preferences) {
+    const result = await this.query(tenant, `
+      INSERT INTO invoice_store.business_appearance (tenant_id, preferences) VALUES ($1, $2)
+      ON CONFLICT (tenant_id) DO UPDATE SET preferences = EXCLUDED.preferences, updated_at = now()
+      RETURNING preferences
+    `, [tenant, preferences]);
+    return result.rows[0].preferences;
+  }
   async close() { await Promise.all([...this.pools.values()].map(pool => pool.end())); this.pools.clear(); }
 }
 module.exports = { PostgresInvoiceStore };

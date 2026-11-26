@@ -335,6 +335,8 @@ export interface Branch { _id: string; name: string; code: string; address?: str
 export const branchApi = {
   list: () => api.get<Branch[]>('/branches').then((response) => response.data),
   create: (body: { name: string; code: string; address?: string }) => api.post<Branch>('/branches', body).then((response) => response.data),
+  update: (id: string, body: Partial<Pick<Branch, 'name' | 'code' | 'address' | 'isActive'>>) => api.patch<Branch>(`/branches/${id}`, body).then((response) => response.data),
+  deactivate: (id: string) => api.delete<Branch>(`/branches/${id}`).then((response) => response.data),
 };
 export const auditApi = { list: () => api.get<Paginated<{ _id: string; actorId: string; action: string; resource: string; createdAt: string }>>('/audit', { params: { limit: 30 } }).then((response) => response.data) };
 export const stockApi = {

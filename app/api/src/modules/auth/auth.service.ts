@@ -146,7 +146,7 @@ export class AuthService {
       isActive: true,
     });
     if (!user) {
-      const tenant = await this.tenants.create({ name: 'Developer Console', featureFlags: { pos: false, inventory: false, reports: false, customers: false, installments: false, barcodes: false } });
+      const tenant = await this.tenants.create({ name: 'Developer Console', featureFlags: { dashboard: false, pos: false, inventory: false, reports: false, customers: false, installments: false, barcodes: false } });
       try { user = await this.users.create({ tenantId: tenant._id, name: 'Platform Developer', email, passwordHash, role: Role.Owner, isActive: true }); }
       catch (error) { await this.tenants.delete(tenant.id); throw error; }
     }

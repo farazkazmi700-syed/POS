@@ -180,7 +180,7 @@ export default function Reports() {
                   <li key={d.date} className="flex items-center gap-3 text-sm">
                     <span className="w-24 shrink-0 text-slate-500">{fmtDate(d.date)}</span>
                     <div className="h-5 flex-1 rounded bg-slate-100 dark:bg-slate-800">
-                      <div className="h-5 rounded bg-gradient-to-r from-teal-400 to-teal-600" style={{ width: `${(d.revenue / maxRevenue) * 100}%` }} />
+                      <div className="appearance-chart-bar h-5 rounded bg-gradient-to-r from-teal-400 to-teal-600" style={{ width: `${(d.revenue / maxRevenue) * 100}%` }} />
                     </div>
                     <span className="w-28 shrink-0 text-right">{money(d.revenue)}</span>
                   </li>
@@ -211,7 +211,7 @@ export default function Reports() {
                       <span className="w-24 shrink-0 capitalize text-slate-500">{m.mode}</span>
                       <div className="h-5 flex-1 rounded bg-slate-100 dark:bg-slate-800">
                         <div
-                          className="h-5 rounded bg-teal-500 dark:bg-teal-400"
+                          className="appearance-chart-bar h-5 rounded bg-teal-500 dark:bg-teal-400"
                           style={{ width: `${r.revenue ? (m.revenue / r.revenue) * 100 : 0}%` }}
                         />
                       </div>

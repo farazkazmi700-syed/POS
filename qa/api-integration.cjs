@@ -20,18 +20,50 @@ if (endpoint.protocol !== 'mongodb:' || endpoint.hostname !== '127.0.0.1') throw
 endpoint.pathname = '/' + databaseName;
 const uri = endpoint.toString();
 let child; let database; let recoveryFixtures; let checks = 0; let output = '';
+let appearancePostgres;
+let appearanceDirectory;
+const appearanceDatabases = [];
+
+async function prepareAppearance(tenants) {
+  const { Client } = requireApi('pg');
+  const fs = require('node:fs');
+  const connection = new URL(process.env.SPEC_APPEARANCE_POSTGRES_URL);
+  if (connection.hostname !== '127.0.0.1' || connection.pathname !== '/pos_appearance_test') {
+    throw new Error('Use the isolated local pos_appearance_test PostgreSQL database');
+  }
+  appearancePostgres = new Client({ connectionString: connection.toString() });
+  await appearancePostgres.connect();
+  const schema = fs.readFileSync(path.join(root, 'app/packages/invoice-store/schema.sql'), 'utf8');
+  appearanceDirectory = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'pos-appearance-'));
+  for (const tenant of tenants) {
+    const id = tenant._id.toString();
+    const name = 'pos_appearance_' + id;
+    await appearancePostgres.query(`CREATE DATABASE "${name}"`);
+    appearanceDatabases.push(name);
+    connection.pathname = '/' + name;
+    const client = new Client({ connectionString: connection.toString() });
+    await client.connect();
+    try {
+      await client.query(schema);
+      await client.query('INSERT INTO invoice_store.business(tenant_id) VALUES ($1)', [id]);
+    } finally { await client.end(); }
+    fs.writeFileSync(path.join(appearanceDirectory, id), connection.toString(), { mode: 0o600 });
+  }
+  fs.writeFileSync(path.join(appearanceDirectory, 'ready'), '');
+}
 async function check(name, task) { await task(); checks++; console.log(`PASS ${name}`); }
 async function request(url, token, body, method = body === undefined ? 'GET' : 'POST', branch) {
   const response = await fetch(`http://127.0.0.1:${port}/api${url}`, { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(branch ? { 'X-Branch-Id': branch } : {}) }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(45000) }).catch((error) => { throw new Error(`${method} ${url}: ${error.message}`); });
   return { status: response.status, data: await response.json() };
 }
-async function login(email, password = 'test-password-123', pin = '1234', newPin) {
+async function loginSession(email, password = 'test-password-123', pin = '1234', newPin) {
   let result = await request('/auth/login', null, { email, password });
   assert.equal(result.status, 201, JSON.stringify(result.data));
   if (result.data.requiresPin) result = await request('/auth/login/pin', null, { challengeToken: result.data.challengeToken, pin, ...(newPin ? { newPin } : {}) });
   assert.equal(result.status, 201, JSON.stringify(result.data));
-  assert.ok(result.data.accessToken); return result.data.accessToken;
+  assert.ok(result.data.accessToken); return result.data;
 }
+async function login(...args) { return (await loginSession(...args)).accessToken; }
 async function main() {
   assert.match(databaseName, /^pos_spec_test_\d+_[a-f0-9]{8}$/);
   database = await mongoose.createConnection(uri, { serverSelectionTimeoutMS: 10000 }).asPromise();
@@ -41,16 +73,261 @@ async function main() {
   const owners = await Promise.all(tenants.map(async (tenant, index) => ({ _id: new mongoose.Types.ObjectId(), tenantId: tenant._id, name: `Owner ${index}`, email: `owner${index}@spec.test`, passwordHash: await bcrypt.hash('test-password-123', 4), pinHash: await bcrypt.hash('1234', 4), pinVersion: 0, sessionVersion: 0, pinRequiresChange: false, role: 'owner', isActive: true, superAdmin: false, branchIds: [] })));
   await database.collection('users').insertMany(owners);
   recoveryFixtures = await require('./recovery-fixtures.cjs').startRecoveryFixtures();
-  child = spawn(process.execPath, ['-r', path.join(root, 'qa/recovery-provider-hook.cjs'), 'dist/main.js'], { cwd: path.join(root, 'app/api'), env: { ...process.env, PORT: String(port), DEV_ACCOUNT_EMAIL: 'provisioner@spec.test', DEV_ACCOUNT_PASSWORD_HASH: await bcrypt.hash(registrationPassword, 4), MONGO_URI: uri, REDIS_URL: 'redis://127.0.0.1:6379/0', BULL_PREFIX: prefix, JWT_ACCESS_SECRET: randomBytes(32).toString('hex'), JWT_REFRESH_SECRET: randomBytes(32).toString('hex'), PLATFORM_DEVELOPER_EMAIL: 'developer@spec.test', PLATFORM_DEVELOPER_SETUP_TOKEN: setupToken, CORS_ORIGIN: 'http://localhost:5173', THROTTLE_LIMIT: '10000', SMTP_HOST: '127.0.0.1', SMTP_PORT: String(recoveryFixtures.smtpPort), SMTP_SECURE: 'false', SMTP_USER: 'test@spec.test', SMTP_PASSWORD: randomBytes(16).toString('hex'), SMTP_FROM: 'test@spec.test', TWILIO_ACCOUNT_SID: 'AC-test', TWILIO_AUTH_TOKEN: 'test-only', TWILIO_WHATSAPP_FROM: '+15005550006', TWILIO_WHATSAPP_CONTENT_SID: 'HX-test', RECOVERY_TEST_PROVIDER: recoveryFixtures.whatsappUrl }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  if (process.argv.includes('--appearance')) await prepareAppearance(tenants);
+  child = spawn(process.execPath, ['-r', path.join(root, 'qa/recovery-provider-hook.cjs'), 'dist/main.js'], { cwd: path.join(root, 'app/api'), env: { ...process.env, ...(appearanceDirectory ? { BUSINESS_DB_DIRECTORY: appearanceDirectory } : {}),
+    ...(process.argv.includes('--backup') ? { DATA_SYNC_TENANT_ID: tenants[0]._id.toString(), DATA_SYNC_URL: 'https://127.0.0.1:1/v1/business-snapshot', DATA_SYNC_TOKEN: randomBytes(32).toString('hex') } : {}),
+    PORT: String(port), DEV_ACCOUNT_EMAIL: 'provisioner@spec.test', DEV_ACCOUNT_PASSWORD_HASH: await bcrypt.hash(registrationPassword, 4), MONGO_URI: uri, REDIS_URL: 'redis://127.0.0.1:6379/0', BULL_PREFIX: prefix, JWT_ACCESS_SECRET: randomBytes(32).toString('hex'), JWT_REFRESH_SECRET: randomBytes(32).toString('hex'), PLATFORM_DEVELOPER_EMAIL: 'developer@spec.test', PLATFORM_DEVELOPER_SETUP_TOKEN: setupToken, CORS_ORIGIN: 'http://localhost:5173', THROTTLE_LIMIT: '10000', SMTP_HOST: '127.0.0.1', SMTP_PORT: String(recoveryFixtures.smtpPort), SMTP_SECURE: 'false', SMTP_USER: 'test@spec.test', SMTP_PASSWORD: randomBytes(16).toString('hex'), SMTP_FROM: 'test@spec.test', TWILIO_ACCOUNT_SID: 'AC-test', TWILIO_AUTH_TOKEN: 'test-only', TWILIO_WHATSAPP_FROM: '+15005550006', TWILIO_WHATSAPP_CONTENT_SID: 'HX-test', RECOVERY_TEST_PROVIDER: recoveryFixtures.whatsappUrl }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   child.stdout.on('data', (data) => { output = (output + data).slice(-18000); }); child.stderr.on('data', (data) => { output = (output + data).slice(-18000); });
   let ready = false;
-  for (let attempt = 0; attempt < 80; attempt++) {
+  for (let attempt = 0; attempt < 240; attempt++) {
     if (child.exitCode !== null) throw new Error(`Test API exited: ${output}`);
     try { if ((await request('/health')).status === 200) { ready = true; break; } } catch {}
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   assert.ok(ready, `API did not become ready: ${output}`);
   await check('health and unauthenticated access', async () => { assert.equal((await request('/health')).status, 200); assert.equal((await request('/products')).status, 401); });
+  if (!process.argv.includes('--appearance') && !process.argv.includes('--backup') && !process.argv.includes('--branches')) {
+    await check('license expiry blocks sign-in, existing business sessions, and refresh for only the expired tenant', async () => {
+      const session = await loginSession(owners[0].email);
+      const otherSession = await login(owners[1].email);
+      await database.collection('tenants').updateOne({ _id: tenants[0]._id }, {
+        $set: { licenseExpiresAt: new Date(Date.now() - 60_000) },
+      });
+      try {
+        assert.equal((await request('/auth/login', null, { email: owners[0].email, password: 'test-password-123' })).status, 401);
+        assert.equal((await request('/products', session.accessToken)).status, 401);
+        assert.equal((await request('/auth/refresh', null, { refreshToken: session.refreshToken })).status, 401);
+        assert.equal((await request('/products', otherSession)).status, 200);
+      } finally {
+        await database.collection('tenants').updateOne({ _id: tenants[0]._id }, { $unset: { licenseExpiresAt: '' } });
+      }
+      assert.equal((await request('/products', session.accessToken)).status, 200);
+      assert.equal((await request('/tenant/me', session.accessToken, { licenseExpiresAt: '2099-01-01' }, 'PATCH')).status, 400);
+    });
+    if (process.argv.includes('--license')) return;
+    await check('collection forecasts include only the entitled tenant’s remaining scheduled balances', async () => {
+      const forecast = '/installments/collections-forecast';
+      const first = await login(owners[0].email);
+      const second = await login(owners[1].email);
+      assert.equal((await request(forecast, first)).status, 403);
+      const fixtures = [
+        { _id: new mongoose.Types.ObjectId(), tenantId: tenants[0]._id, status: 'active',
+          schedule: [{ dueDate: '2000-01-01', amount: 100, paidAmount: 25, status: 'pending' }] },
+        { _id: new mongoose.Types.ObjectId(), tenantId: tenants[1]._id, status: 'active',
+          schedule: [{ dueDate: '2000-01-01', amount: 900, paidAmount: 0, status: 'pending' }] },
+      ];
+      await database.collection('installmentplans').insertMany(fixtures);
+      await database.collection('tenants').updateMany({ _id: { $in: tenants.map(tenant => tenant._id) } }, {
+        $set: { 'featureFlags.collections-forecast': true },
+      });
+      try {
+        const results = await Promise.all([request(forecast, first), request(forecast, second)]);
+        assert.deepEqual(results.map(result => result.status), [200, 200]);
+        assert.deepEqual(results.map(result => result.data.overdue), [{ amount: 75, count: 1 }, { amount: 900, count: 1 }]);
+      } finally {
+        await database.collection('installmentplans').deleteMany({ _id: { $in: fixtures.map(fixture => fixture._id) } });
+        await database.collection('tenants').updateMany({ _id: { $in: tenants.map(tenant => tenant._id) } }, {
+          $unset: { 'featureFlags.collections-forecast': '' },
+        });
+      }
+    });
+    if (process.argv.includes('--collections')) return;
+  }
+  if (process.argv.includes('--backup')) {
+    const owner = await login(owners[0].email);
+    const tenantId = tenants[0]._id;
+    const text = 'a'.repeat(33_000);
+    const rows = {
+      products: { name: '=1+1', sku: '000123', price: 12.5, notes: text },
+      customers: { name: 'Example customer', phone: '03001234567' },
+      orders: { invoiceNo: 'INV-001', grandTotal: 12.5, items: [{ name: 'Example item', qty: 1 }] },
+      invoicecounters: { year: 2026, lastNumber: 1 },
+      installmentplans: { invoiceNo: 'INS-001', totalPayable: 12.5, payments: [] },
+    };
+    for (const [name, row] of Object.entries(rows)) {
+      await database.collection(name).insertMany([{ tenantId, ...row }, { tenantId: tenants[1]._id, ...row }]);
+    }
+    await database.collection('users').updateOne({ _id: owners[0]._id }, { $set: { futureAuthSecret: 'must-not-export' } });
+    await check('manual backup exports typed Excel workbooks and verified tenant-scoped records', async () => {
+      const response = await fetch(`http://127.0.0.1:${port}/api/support/backup`, { headers: { Authorization: `Bearer ${owner}` } });
+      assert.equal(response.status, 200, await (response.ok ? Promise.resolve('') : response.clone().text()));
+      assert.match(response.headers.get('content-type') ?? '', /application\/zip/);
+      const archive = new Uint8Array(await response.arrayBuffer());
+      const sheets = await require('./backup-workbooks.cjs').verifyBackup(archive, tenantId.toString());
+      for (const name of Object.keys(rows)) assert.equal(sheets[name + '.xlsx'].rowCount, 2);
+      const products = sheets['products.xlsx'];
+      const headers = products.getRow(1).values;
+      assert.equal(products.getRow(2).getCell(headers.indexOf('Name')).value, '=1+1');
+      assert.equal(products.getRow(2).getCell(headers.indexOf('Sku')).value, '000123');
+      assert.equal(products.getRow(2).getCell(headers.indexOf('Price')).value, 12.5);
+      assert.equal(products.getRow(2).getCell(headers.indexOf('Price')).numFmt, '#,##0.00');
+      const longValues = products.workbook.getWorksheet('Long Values');
+      assert.equal(longValues.getColumn(4).values.slice(2).join(''), text);
+      assert.equal(response.headers.get('X-Snapshot-SHA256'), require('node:crypto').createHash('sha256').update(archive).digest('hex'));
+    });
+    await check('manual backup optionally exports JSON or both formats in one ZIP', async () => {
+      const { unzipSync, strFromU8 } = requireApi('fflate');
+      const { createHash } = require('node:crypto');
+      for (const format of ['json', 'both']) {
+        const response = await fetch(`http://127.0.0.1:${port}/api/support/backup?format=${format}`, { headers: { Authorization: `Bearer ${owner}` } });
+        assert.equal(response.status, 200);
+        const files = unzipSync(new Uint8Array(await response.arrayBuffer()));
+        const manifest = JSON.parse(strFromU8(files['manifest.json']));
+        for (const [name, record] of Object.entries(rows)) {
+          const exported = JSON.parse(strFromU8(files[name + '.json']));
+          assert.equal(exported.length, 1);
+          assert.equal(exported[0].tenantId, tenantId.toString());
+          for (const [field, value] of Object.entries(record)) assert.deepEqual(exported[0][field], value);
+          assert.equal(!!files[name + '.xlsx'], format === 'both');
+          assert.equal(manifest.counts[name], 1);
+        }
+        assert.equal(!!files['manifest.xlsx'], format === 'both');
+        assert.equal(Object.keys(files).length, manifest.files.length + (format === 'both' ? 2 : 1));
+        for (const file of manifest.files) {
+          assert.equal(files[file.name].length, file.bytes);
+          assert.equal(createHash('sha256').update(files[file.name]).digest('hex'), file.sha256);
+        }
+      }
+      assert.equal((await request('/support/backup?format=csv', owner)).status, 400);
+    });
+    await check('V1 refuses cloud synchronization even with a destination configured', async () => {
+      await database.collection('tenants').updateOne({ _id: tenantId }, {
+        $set: { 'featureFlags.data-sync': true, deploymentMode: 'hybrid' },
+      });
+      const policy = await request('/support', owner);
+      assert.deepEqual(policy.data.backup.sync, { entitled: true, configured: false, lastSyncedAt: null });
+      const result = await request('/support/backup/sync', owner, {});
+      assert.equal(result.status, 503);
+      assert.match(result.data.message, /disabled in V1/);
+    });
+    return;
+  }
+  if (appearanceDirectory) {
+    const owner = await login(owners[0].email);
+    const otherOwner = await login(owners[1].email);
+    const adminEmail = 'appearance-admin@spec.test';
+    await database.collection('users').insertOne({ ...owners[0], _id: new mongoose.Types.ObjectId(), email: adminEmail, role: 'admin' });
+    const admin = await login(adminEmail);
+    const url = '/tenant/me/appearance';
+    const defaults = { preset: 'minimal', mode: 'system', sidebar: 'preset', dashboardDensity: 'comfortable', tableDensity: 'comfortable', primary: null, secondary: null, logo: '' };
+    await check('appearance is private and only owners can save it', async () => {
+      assert.equal((await request(url)).status, 401);
+      assert.equal((await request(url, admin, defaults, 'PATCH')).status, 403);
+      assert.deepEqual((await request(url, owner)).data, defaults);
+    });
+    await check('appearance validates all presets and PostgreSQL persists updates for the right business', async () => {
+      assert.equal((await request(url, owner, { ...defaults, primary: 'red' }, 'PATCH')).status, 400);
+      assert.equal((await request(url, owner, { ...defaults, logo: 'https://example.test/logo' }, 'PATCH')).status, 400);
+      assert.equal((await request(url, owner, { ...defaults, preset: 'unknown' }, 'PATCH')).status, 400);
+      for (const preset of [
+        'minimal', 'modern', 'enterprise', 'premium', 'compact',
+        'glassmorphism', 'skeuomorphism', 'neo-brutalism', 'claymorphism', 'liquid-glass',
+      ]) {
+        const preferences = { ...defaults, preset, mode: 'dark', primary: '#C9A227', secondary: '#475569' };
+        const result = await request(url, owner, preferences, 'PATCH');
+        assert.equal(result.status, 200, JSON.stringify(result.data));
+        assert.deepEqual(result.data, preferences);
+        assert.deepEqual((await request(url, admin)).data, preferences);
+        assert.deepEqual((await request(url, otherOwner)).data, defaults);
+      }
+      const { PostgresInvoiceStore } = requireApi('@pos/invoice-store');
+      const reopened = PostgresInvoiceStore.fromDirectory(appearanceDirectory);
+      try {
+        assert.equal((await reopened.readAppearance(tenants[0]._id.toString())).preset, 'liquid-glass');
+        assert.equal(await reopened.readAppearance(tenants[1]._id.toString()), null);
+      } finally { await reopened.close(); }
+      assert.deepEqual((await request(url, owner, defaults, 'PATCH')).data, defaults);
+    });
+    console.log(`${checks} live appearance integration checks passed.`);
+    return;
+  }
+  if (process.argv.includes('--branches')) {
+    const owner = await login(owners[0].email);
+    const otherOwner = await login(owners[1].email);
+    let mainId;
+    let northId;
+    let admin;
+    await check('branch and audit APIs require authentication', async () => {
+      for (const [path, method, body] of [
+        ['/branches', 'GET'], ['/branches', 'POST', { name: 'North', code: 'NORTH' }],
+        ['/branches/' + tenants[0]._id, 'PATCH', { name: 'North' }],
+        ['/branches/' + tenants[0]._id, 'DELETE'], ['/audit', 'GET'],
+      ]) assert.equal((await request(path, null, body, method)).status, 401);
+    });
+    await check('owners can list and create branches and the branch limit is enforced', async () => {
+      assert.deepEqual((await request('/branches', owner)).data, []);
+      const created = await request('/branches', owner, { name: 'Main branch', code: 'main' });
+      assert.equal(created.status, 201, JSON.stringify(created.data));
+      mainId = created.data._id;
+      assert.deepEqual((await request('/branches', owner)).data.map((branch) => branch._id), [mainId]);
+      assert.deepEqual((await request('/branches', otherOwner)).data, []);
+      assert.equal((await request('/branches', owner, { name: 'North', code: 'NORTH' })).status, 403);
+    });
+    await check('administrators can manage newly created branches within their assigned scope', async () => {
+      await database.collection('tenants').updateOne({ _id: tenants[0]._id }, { $set: { branchLimit: 2 } });
+      const fixture = { ...owners[0], _id: new mongoose.Types.ObjectId(), email: 'branch-admin@spec.test', role: 'admin' };
+      await database.collection('users').insertOne(fixture);
+      admin = await login(fixture.email);
+      const duplicate = await request('/branches', admin, { name: 'Duplicate', code: 'MAIN' });
+      assert.equal(duplicate.status, 409, JSON.stringify(duplicate.data));
+      assert.deepEqual((await database.collection('users').findOne({ _id: fixture._id })).branchIds, []);
+      const created = await request('/branches', admin, { name: 'North branch', code: 'north', address: ' 10 Main Street ' });
+      assert.equal(created.status, 201, JSON.stringify(created.data));
+      northId = created.data._id;
+      assert.equal(created.data.address, '10 Main Street');
+      const listed = await request('/branches', admin);
+      assert.equal(listed.status, 200, JSON.stringify(listed.data));
+      assert.deepEqual(listed.data.map((branch) => branch._id), [northId]);
+      assert.equal((await request(`/branches/${mainId}`, admin, { name: 'Outside scope' }, 'PATCH')).status, 403);
+    });
+    await check('branch edits validate fields, normalize values and prevent conflicting codes', async () => {
+      const url = `/branches/${northId}`;
+      assert.equal((await request(url, admin, { code: 'MAIN' }, 'PATCH')).status, 409);
+      assert.equal((await request(url, admin, { name: '  ' }, 'PATCH')).status, 400);
+      assert.equal((await request(url, admin, { address: null }, 'PATCH')).status, 400);
+      assert.equal((await request('/branches/invalid', owner, { name: 'North' }, 'PATCH')).status, 400);
+      assert.equal((await request(url, otherOwner, { name: 'Outside tenant' }, 'PATCH')).status, 404);
+      const updated = await request(url, admin, { name: ' North Outlet ', code: ' north-1 ', address: '' }, 'PATCH');
+      assert.equal(updated.status, 200, JSON.stringify(updated.data));
+      assert.deepEqual([updated.data.name, updated.data.code, updated.data.address], ['North Outlet', 'NORTH-1', '']);
+    });
+    await check('deactivation preserves branch history, protects the default and can be reversed', async () => {
+      const url = `/branches/${northId}`;
+      assert.equal((await request(`/branches/${mainId}`, owner, undefined, 'DELETE')).status, 403);
+      assert.equal((await request(url, otherOwner, undefined, 'DELETE')).status, 404);
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const deactivated = await request(url, admin, undefined, 'DELETE');
+        assert.equal(deactivated.status, 200, JSON.stringify(deactivated.data));
+        assert.equal(deactivated.data.isActive, false);
+      }
+      const listed = await request('/branches', owner);
+      assert.equal(listed.data.find((branch) => branch._id === northId)?.isActive, false);
+      assert.equal((await request('/products', owner, undefined, 'GET', northId)).status, 403);
+      assert.equal((await request('/branches', owner, { name: 'New branch', code: 'NEW' })).status, 403);
+      const restored = await request(url, admin, { isActive: true }, 'PATCH');
+      assert.equal(restored.status, 200, JSON.stringify(restored.data));
+      assert.equal(restored.data.isActive, true);
+      assert.equal((await request('/products', owner, undefined, 'GET', northId)).status, 200);
+    });
+    await check('audit events show branch mutations and respect tenant and branch scope', async () => {
+      const audit = await request('/audit?page=1&limit=20', admin, undefined, 'GET', northId);
+      assert.equal(audit.status, 200, JSON.stringify(audit.data));
+      assert.ok(audit.data.data.every((event) => event.branchId === northId));
+      const events = audit.data.data.filter((event) => event.details?.resourceId === northId);
+      assert.deepEqual(new Set(events.map((event) => event.action)), new Set(['POST', 'PATCH', 'DELETE']));
+      const ownAudit = await request('/audit', owner);
+      assert.equal(ownAudit.status, 200);
+      assert.ok(ownAudit.data.data.some((event) => event.details?.resourceId === mainId));
+      const foreignBranch = await request('/branches', otherOwner, { name: 'Other business', code: 'NORTH-1' });
+      assert.equal(foreignBranch.status, 201, JSON.stringify(foreignBranch.data));
+      const foreignAudit = await request('/audit', otherOwner);
+      assert.equal(foreignAudit.status, 200);
+      assert.ok(foreignAudit.data.data.some((event) => event.details?.resourceId === foreignBranch.data._id));
+      assert.ok(foreignAudit.data.data.every((event) => event.tenantId === tenants[1]._id.toString()));
+    });
+    console.log(`${checks} Branches & operations integration checks passed.`);
+    return;
+  }
   await check('registration persists the tenant and owner with a unique email', async () => {
     const registration = { developerEmail: 'provisioner@spec.test', developerPassword: registrationPassword,
       businessName: 'Provisioned business', domainType: 'retail', ownerName: 'New owner',
@@ -178,6 +455,28 @@ async function main() {
   });
   await check('platform settings require developer scope', async () => { assert.equal((await request(`/developer/businesses/${tenants[0]._id}`, owner, { branchLimit: 2 }, 'PATCH')).status, 403); assert.equal((await request(`/developer/businesses/${tenants[0]._id}`, developer, { branchLimit: 2, deploymentMode: 'hybrid' }, 'PATCH')).status, 200); });
   const secondBranch = await request('/branches', owner, { name: 'Second branch', code: 'SECOND' }); assert.equal(secondBranch.status, 201, JSON.stringify(secondBranch.data));
+  await check('branches can be edited, deactivated, and reactivated within their tenant', async () => {
+    const branchUrl = `/branches/${secondBranch.data._id}`;
+    const updated = await request(branchUrl, owner, { name: ' North Branch ', code: ' north-1 ', address: ' 12 Main Street ' }, 'PATCH');
+    assert.equal(updated.status, 200);
+    assert.deepEqual(
+      [updated.data.name, updated.data.code, updated.data.address],
+      ['North Branch', 'NORTH-1', '12 Main Street'],
+    );
+    assert.equal((await request(branchUrl, owner, { code: 'MAIN' }, 'PATCH')).status, 409);
+    assert.equal((await request(branchUrl, otherOwner, undefined, 'DELETE')).status, 404);
+    assert.equal((await request(`/branches/${defaultBranch.data._id}`, owner, undefined, 'DELETE')).status, 403);
+    const deactivated = await request(branchUrl, owner, undefined, 'DELETE');
+    assert.equal(deactivated.status, 200);
+    assert.equal(deactivated.data.isActive, false);
+    const listed = await request('/branches', owner);
+    assert.equal(listed.status, 200);
+    assert.equal(listed.data.find((branch) => branch._id === secondBranch.data._id)?.isActive, false);
+    assert.equal((await request('/products', owner, undefined, 'GET', secondBranch.data._id)).status, 403);
+    const reactivated = await request(branchUrl, owner, { isActive: true }, 'PATCH');
+    assert.equal(reactivated.status, 200);
+    assert.equal(reactivated.data.isActive, true);
+  });
   await check('developer catalog and subscription edits propagate to existing accounts', async () => {
     const catalog = await request('/developer/features', developer);
     assert.equal(catalog.status, 200); assert.ok(catalog.data.some((item) => item.key === 'barcodes'));
@@ -338,6 +637,16 @@ async function main() {
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; }).finally(async () => {
   child?.kill();
+  if (appearancePostgres) {
+    try {
+      for (const name of appearanceDatabases) await appearancePostgres.query(`DROP DATABASE "${name}" WITH (FORCE)`);
+    } finally { await appearancePostgres.end(); }
+  }
+  if (appearanceDirectory) {
+    const fs = require('node:fs');
+    for (const name of fs.readdirSync(appearanceDirectory)) fs.unlinkSync(path.join(appearanceDirectory, name));
+    fs.rmdirSync(appearanceDirectory);
+  }
   if (recoveryFixtures) await recoveryFixtures.close();
   if (database && /^pos_spec_test_\d+_[a-f0-9]{8}$/.test(databaseName) && database.name === databaseName) { await database.dropDatabase(); await database.close(); }
   const Redis = requireApi('ioredis'); const redis = new Redis('redis://127.0.0.1:6379/0', { maxRetriesPerRequest: 1 });

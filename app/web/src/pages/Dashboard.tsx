@@ -20,7 +20,7 @@ export default function Dashboard() {
   const maxRevenue = Math.max(1, ...(s?.daily.map((d) => d.revenue) ?? [1]));
 
   return (
-    <div className="space-y-5">
+    <div className="appearance-dashboard space-y-5">
       {/* ─────────────── Dashboard Header ─────────────── */}
       <div className="page-header">
         <PageHeading eyebrow="Overview" title="Business dashboard" description={`Sales, revenue, and product performance for ${tenant?.name ?? 'your business'}.`} />
@@ -117,7 +117,7 @@ export default function Dashboard() {
                     </span>
                     <div className="h-5 flex-1 rounded-md bg-slate-100 dark:bg-slate-800 overflow-hidden">
                       <div
-                        className="h-full rounded-md bg-gradient-to-r from-teal-500 to-teal-600 transition-all duration-500"
+                        className="appearance-chart-bar h-full rounded-md bg-gradient-to-r from-teal-500 to-teal-600 transition-all duration-500"
                         style={{ width: `${Math.max(2, pct)}%` }}
                       />
                     </div>

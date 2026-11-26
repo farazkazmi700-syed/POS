@@ -5,16 +5,16 @@ const sections = { overview: 'Developer Dashboard', businesses: 'Business Tenant
 const labels = ['Overview', 'Businesses', 'Trash', 'Plans', 'Packages', 'Module Rights', 'Modules', 'Clients', 'Backup', 'Data Sync', 'Support', 'Provision', 'Audit Log', 'Settings'];
 const businesses = Array.from({ length: 14 }, (_, i) => ({ businessId: `business-${i}`, _id: `business-${i}`, name: `Business ${String(i + 1).padStart(2, '0')}`, status: i === 13 ? 'suspended' : 'active', domainType: 'retail', currency: 'PKR', featureFlags: { pos: true }, subscriptionPlanId: null }));
 const user = { _id: 'developer-demo', name: 'Demo Developer', email: 'demo@example.test', role: 'owner', isDeveloper: true, isActive: true, moduleRights: [] };
-async function setup(page, theme) {
+async function setup(page, theme, developer = user) {
   await page.addInitScript(({ user, theme }) => {
     localStorage.setItem('pos-theme', theme);
     localStorage.setItem('pos-auth', JSON.stringify({ state: { user, accessToken: 'demo', refreshToken: 'demo' }, version: 0 }));
-  }, { user, theme });
+  }, { user: developer, theme });
   await page.route('**/api/**', async route => {
     const url = new URL(route.request().url()).pathname;
     if (!url.startsWith('/api/')) return route.continue();
     let data = [];
-    if (url.endsWith('/auth/me')) data = user;
+    if (url.endsWith('/auth/me')) data = developer;
     else if (url.endsWith('/overview')) data = { businesses: 14, activeBusinesses: 13, suspendedBusinesses: 1, plans: 1, auditEvents: 1 };
     else if (url.endsWith('/businesses')) data = businesses;
     else if (url.endsWith('/businesses/trash')) data = [];
@@ -238,7 +238,7 @@ test('installment catalogue lists all ten features with priorities and availabil
   await expect(features.getByRole('row', { name: /WhatsApp payment reminders/ })).toContainText('Planned');
 });
 
-test('developer can enable Data Sync and review destination readiness', async ({ page }) => {
+test('developer can grant Data Sync entitlement while V1 uploads stay disabled', async ({ page }) => {
   await setup(page, 'light');
   let enabled = false;
   await page.route('**/api/developer/businesses', route => route.fulfill({ json: [
@@ -250,7 +250,7 @@ test('developer can enable Data Sync and review destination readiness', async ({
     return route.fulfill({ json: { businessId: 'business-0', featureFlags: { 'data-sync': enabled } } });
   });
   await page.route('**/api/developer/data-sync', route => route.fulfill({
-    json: { moduleEnabled: true, configuredBusinessId: 'business-0' },
+    json: { moduleEnabled: true, configuredBusinessId: null },
   }));
   await section(page, 'data-sync', false);
   const business = page.getByRole('row', { name: /Business 01/ });
@@ -260,7 +260,7 @@ test('developer can enable Data Sync and review destination readiness', async ({
   await page.getByRole('switch', { name: 'Data Sync entitlement' }).click();
   await expect(page.getByRole('switch', { name: 'Data Sync entitlement' })).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
-  await expect(business).toContainText('Configured here');
+  await expect(business).toContainText('Cloud sync disabled in V1');
 });
 
 test('module catalogue searches module and submodule names', async ({ page }) => {
@@ -280,23 +280,23 @@ test('module catalogue searches module and submodule names', async ({ page }) =>
   await expect(page.getByText('No matching modules.')).toBeVisible();
 });
 
-test('business owner opens Data Sync and sees upload confirmation after reload', async ({ page }) => {
+test('business owner can reach local backup but has no V1 cloud upload action', async ({ page }) => {
   const owner = { _id: 'owner-1', tenantId: 'tenant-1', name: 'Owner', email: 'owner@example.test', role: 'owner', isActive: true };
   await page.addInitScript((account) => {
     localStorage.setItem('pos-auth', JSON.stringify({ state: { user: account, accessToken: 'demo', refreshToken: 'demo' }, version: 0 }));
   }, owner);
-  let lastSyncedAt = null;
+  let uploadAttempts = 0;
   await page.route('**/api/**', route => {
     const url = new URL(route.request().url()).pathname;
     if (!url.startsWith('/api/')) return route.continue();
     if (url.endsWith('/auth/me')) return route.fulfill({ json: owner });
     if (url.endsWith('/tenant/me')) return route.fulfill({ json: { _id: owner.tenantId, name: 'Test Business', featureFlags: { 'data-sync': true } } });
     if (url.endsWith('/support/backup/sync') && route.request().method() === 'POST') {
-      lastSyncedAt = '2026-11-26T10:00:00.000Z';
-      return route.fulfill({ status: 201, json: { syncedAt: lastSyncedAt } });
+      uploadAttempts += 1;
+      return route.fulfill({ status: 503, json: { message: 'Cloud synchronization is disabled in V1.' } });
     }
     if (url.endsWith('/support')) return route.fulfill({ json: {
-      backup: { canExport: true, included: [], excluded: [], sync: { entitled: true, configured: true, lastSyncedAt } },
+      backup: { canExport: true, included: [], excluded: [], sync: { entitled: true, configured: false, lastSyncedAt: null } },
       entitlements: { backup: true },
     } });
     return route.fulfill({ json: { data: [] } });
@@ -304,11 +304,12 @@ test('business owner opens Data Sync and sees upload confirmation after reload',
   await page.goto('/backup');
   await page.getByRole('link', { name: 'Open Data Sync' }).click();
   await expect(page.getByRole('heading', { name: 'Data Sync', exact: true })).toBeVisible();
-  await expect(page.getByText('No confirmed uploads yet.')).toBeVisible();
-  await page.getByRole('button', { name: 'Sync to cloud' }).click();
-  await expect(page.getByText('Last confirmed upload')).toBeVisible();
+  await expect(page.getByText(/Cloud synchronization is disabled in V1/)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Business Backup' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sync to cloud' })).toHaveCount(0);
   await page.reload();
-  await expect(page.getByText('Last confirmed upload')).toBeVisible();
+  await expect(page.getByText(/Cloud synchronization is disabled in V1/)).toBeVisible();
+  expect(uploadAttempts).toBe(0);
 });
 
 test('module catalogue failure offers a retry and recovers', async ({ page }) => {
@@ -436,7 +437,46 @@ test('developer accent previews, persists and resets', async ({ page }) => {
   await violet.click();
   await page.screenshot({ path: 'qa/artifacts/developer-theme-settings.png', fullPage: true });
   await page.getByRole('button', { name: 'Reset to default' }).click();
-  await expect(picker).toHaveValue('#2463eb');
+  await expect(picker).toHaveValue('#0f172a');
+});
+
+test('developer theme presets preview, save and stay scoped to the developer account', async ({ page, context }) => {
+  await setup(page, 'light');
+  await section(page, 'settings', false);
+  const themes = page.getByRole('group', { name: 'Theme', exact: true });
+  const consoleView = page.locator('.dev-workspace');
+  await expect(themes.getByRole('radio')).toHaveCount(10);
+
+  for (const [name, preset] of [
+    ['Glassmorphism', 'glassmorphism'], ['Skeuomorphism', 'skeuomorphism'],
+    ['Neo-Brutalism', 'neo-brutalism'], ['Claymorphism', 'claymorphism'], ['Liquid Glass', 'liquid-glass'],
+  ]) {
+    await themes.getByRole('radio', { name, exact: true }).check();
+    await expect(consoleView).toHaveAttribute('data-appearance', preset);
+  }
+  await expect(page.locator('html')).not.toHaveAttribute('data-appearance', /.+/);
+  await themes.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(themes.getByRole('radio', { name: 'Minimalism' })).toBeChecked();
+
+  await themes.getByRole('radio', { name: 'Liquid Glass' }).check();
+  await expect(consoleView).toHaveCSS('--appearance-radius', '1.65rem');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await themes.getByLabel('Mode', { exact: true }).selectOption('system');
+  await expect(consoleView).toHaveAttribute('data-theme', 'dark');
+  await themes.getByRole('button', { name: 'Save appearance' }).click();
+  await expect(themes.getByRole('status')).toHaveText('Developer appearance saved.');
+  await page.reload();
+  await expect(themes.getByRole('radio', { name: 'Liquid Glass' })).toBeChecked();
+  await expect(themes.getByLabel('Mode', { exact: true })).toHaveValue('system');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('pos-theme'))).toBe('light');
+
+  const other = await context.newPage();
+  await setup(other, 'light', { ...user, _id: 'developer-second' });
+  await expect(other.locator('.dev-workspace')).toHaveAttribute('data-appearance', 'minimal');
+  await other.close();
+  await themes.getByRole('button', { name: 'Restore theme defaults' }).click();
+  await themes.getByRole('button', { name: 'Save appearance' }).click();
+  await expect(consoleView).toHaveAttribute('data-appearance', 'minimal');
 });
 
 
@@ -464,4 +504,23 @@ test('developer can open business entitlements and request a client password res
   await dialog.getByRole('button', { name: 'Send reset link' }).click();
   await expect(dialog.getByRole('status')).toHaveText('Reset link sent.');
   expect(sent).toBe(1);
+});
+
+test('Business Tenants card actions fit inside card bounds and Dashboard appears in Module Entitlements', async ({ page }) => {
+  await setup(page, 'light');
+  await section(page, 'businesses', false);
+  const firstCard = page.getByRole('article').first();
+  const cardBox = await firstCard.boundingBox();
+  for (const label of ['Details', 'Accounts', 'Suspend Tenant', 'Delete Business 01']) {
+    const btnBox = await firstCard.getByRole('button', { name: label, exact: true }).boundingBox();
+    expect(btnBox.x).toBeGreaterThanOrEqual(cardBox.x);
+    expect(btnBox.x + btnBox.width).toBeLessThanOrEqual(cardBox.x + cardBox.width + 1);
+  }
+  const entitlements = firstCard.getByRole('group', { name: 'Feature entitlements for Business 01' });
+  await expect(entitlements.getByRole('switch', { name: 'Dashboard' })).toHaveAttribute('aria-checked', 'true');
+  await page.route('**/api/developer/modules', route => route.fulfill({ json: [
+    { key: 'dashboard', moduleId: 'MOD-DASHBOARD', label: 'Dashboard', installed: true, executable: true, isActive: true, releaseState: 'active', builtin: true },
+  ] }));
+  await section(page, 'modules', false);
+  await expect(page.getByRole('row', { name: /MOD-DASHBOARD/ })).toContainText('Installed');
 });

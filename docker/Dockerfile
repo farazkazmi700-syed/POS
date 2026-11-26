@@ -1,5 +1,7 @@
 # Unified image for the single-container pos-system deployment.
-FROM node:24-bookworm-slim AS api-build
+FROM node:24-bookworm-slim@sha256:873f586f3794f52281bd039bf02c048a0be08fde619338f9941bad1eb6b34530 AS node-base
+
+FROM node-base AS api-build
 WORKDIR /app
 COPY app/api/package.json app/api/package-lock.json ./
 COPY app/api/.npmrc ./
@@ -9,7 +11,7 @@ COPY app/api/tsconfig.json app/api/tsconfig.build.json app/api/nest-cli.json ./
 COPY app/api/src ./src
 RUN npm run build && npm prune --omit=dev --ignore-scripts --no-audit --no-fund --offline
 
-FROM node:24-bookworm-slim AS worker-build
+FROM node-base AS worker-build
 WORKDIR /app
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY app/pdf-worker/package.json app/pdf-worker/package-lock.json ./
@@ -20,7 +22,7 @@ COPY app/pdf-worker/tsconfig.json ./
 COPY app/pdf-worker/src ./src
 RUN npm run build && npm prune --omit=dev --ignore-scripts --no-audit --no-fund --offline
 
-FROM node:24-bookworm-slim AS web-build
+FROM node-base AS web-build
 WORKDIR /repo/app/web
 COPY app/web/package.json app/web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -29,8 +31,8 @@ COPY app/web ./
 COPY app/pdf-worker/src/templates/fonts /repo/app/pdf-worker/src/templates/fonts
 RUN npm run build
 
-FROM ghcr.io/ferretdb/ferretdb:2.7.0 AS gateway
-FROM ghcr.io/ferretdb/postgres-documentdb:17-0.107.0-ferretdb-2.7.0 AS postgres-base
+FROM ghcr.io/ferretdb/ferretdb:2.7.0@sha256:5706414241eb84f0515512c37b46db0f1b1eac9e5ceb7e4c2523211c184b1985 AS gateway
+FROM ghcr.io/ferretdb/postgres-documentdb:17-0.107.0-ferretdb-2.7.0@sha256:2386795ec2aa7ae559304361979f1dc5708d383ee9020ae63dadc2940dfe58f7 AS postgres-base
 FROM postgres-base
 COPY --from=gateway /ferretdb /usr/local/bin/ferretdb
 COPY --from=api-build /usr/local/ /usr/local/
@@ -71,6 +73,6 @@ ENV BUSINESS_DB_DIRECTORY=/run/pos/businesses
 ENV POS_DOCUMENT_URI_FILE=/run/pos/app-uri
 EXPOSE 8080
 VOLUME ["/data/redis", "/data/invoices", "/app/backups"]
-HEALTHCHECK --interval=20s --timeout=5s --start-period=120s --retries=5 \
+HEALTHCHECK --interval=20s --timeout=5s --start-period=240s --retries=5 \
   CMD /usr/local/bin/pos-healthcheck
 ENTRYPOINT ["/usr/local/bin/pos-system-entrypoint"]

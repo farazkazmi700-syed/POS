@@ -1,4 +1,5 @@
 import { CallHandler, Controller, ExecutionContext, Get, Global, Injectable, Module, NestInterceptor, Query } from '@nestjs/common';
+import { PATH_METADATA } from '@nestjs/common/constants';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { InjectModel, MongooseModule, Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -43,7 +44,13 @@ class AuditInterceptor implements NestInterceptor {
     if (!request.user || ['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return next.handle();
     return next.handle().pipe(concatMap(async (result) => {
       // Never persist bodies, credentials, tokens, PINs, or personal contact fields.
-      await this.audit.record(request.user, request.method, request.route?.path ?? request.path, { resourceId: request.params?.id ?? null, status: context.switchToHttp().getResponse().statusCode });
+      const isBranchWrite = Reflect.getMetadata(PATH_METADATA, context.getClass()) === 'branches';
+      const branchId = isBranchWrite && result?._id ? String(result._id) : undefined;
+      const actor = branchId ? { ...request.user, branchId } : request.user;
+      await this.audit.record(actor, request.method, request.route?.path ?? request.path, {
+        resourceId: branchId ?? request.params?.id ?? null,
+        status: context.switchToHttp().getResponse().statusCode,
+      });
       return result;
     }));
   }

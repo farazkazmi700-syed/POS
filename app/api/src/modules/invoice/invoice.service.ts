@@ -3,7 +3,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bullmq';
-import { existsSync } from 'fs';
+import { createReadStream, existsSync } from 'fs';
 import { rm } from 'node:fs/promises';
 import * as path from 'path';
 import { Model } from 'mongoose';
@@ -234,7 +234,6 @@ export class InvoiceService {
       const file = path.resolve(root, rel);
       if (file !== root && !file.startsWith(root + path.sep)) continue;
       if (existsSync(file)) {
-        const { createReadStream } = await import('fs');
         return createReadStream(file);
       }
     }

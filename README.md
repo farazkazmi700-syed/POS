@@ -17,9 +17,9 @@ KazmiOn POS manages sales, inventory, customer accounts, installments and tax in
 | `desktop/windows/` | Windows launcher scripts and installer sources |
 | `qa/` | Integration, browser and deployment tests |
 | `docs/` | API specification, migration reports and technical reference |
-| `.github/workflows/` | Continuous integration |
+| `.github/workflows/` | CI and approval-gated release workflows |
 
-The Docker build context is the repository root. The image is defined at `docker/Dockerfile` and the default stack at `docker/compose/compose.yaml`; always pass the file explicitly, e.g. `docker compose -f docker/compose/compose.yaml up -d`. Existing launch scripts can use the compatibility Compose files. The standalone `docker/compose/docker-compose.postgres.yml` supports development and migration work.
+The Docker build context is the repository root. The image is defined at `docker/Dockerfile` and the default stack at `docker/compose/compose.yaml`. Use `npm run docker:start` or pass both `--env-file .env` and `-f docker/compose/compose.yaml` from the repository root. Existing launch scripts can use the compatibility Compose files. The standalone `docker/compose/docker-compose.postgres.yml` supports development and migration work.
 
 ## Windows installation
 
@@ -36,51 +36,80 @@ Open the POS at `http://localhost:8080`. nginx exposes API documentation at `/ap
 CI uses Node.js 24. Each shipped service has an npm lockfile. Run these commands from the repository root.
 
 ```sh
+npm ci
 npm ci --prefix app/api
 npm ci --prefix app/pdf-worker
 npm ci --prefix app/web
 npm run build
 npm run test:all
-docker compose -f docker/compose/compose.yaml config --quiet
+docker compose --env-file .env -f docker/compose/compose.yaml config --quiet
 ```
 
 Use `npm run dev:web` for the Vite development server on port 5173. Its default API proxy targets port 8080. Owners manage invoice taxes under **Settings > Tax and service charges**.
 
 ## CI and deployment
 
-GitHub Actions builds and tests the API, PDF worker and web app. It runs API
-integration tests with isolated MongoDB and Redis services and runs browser
-checks in Chromium. The Docker build must pass before a Pages deployment.
+GitHub Actions validates repository syntax, builds the API, PDF worker and web
+app, and runs unit tests, live API tests, PostgreSQL migration rehearsals and
+Chromium suites. The packaged image also runs a real browser smoke test and an
+isolated LAN, checkout, restart and encrypted restore rehearsal. MongoDB and
+Redis service containers used by the API test jobs are disposable fixtures.
 
-### Production Docker
+Pushes and pull requests only validate code. After the required tests and V1
+pilot are approved, dispatch **Release V1** from `main`, select `container`
+or `pages`, and record the approval in the workflow input. Configure the
+GitHub `production` environment with required reviewers and restrict it to
+`main`. The workflow reruns CI for that commit before it can publish. The
+[pilot checklist](desktop/windows/offline/handoff/PILOT-AND-RELEASE-GATES.txt)
+records the required approvals and outstanding gates.
 
-Use the unified image and Compose configuration described above for the API,
-PostgreSQL, FerretDB, Redis and the invoice worker. Keep the database and queue
-private. If Cloudflare Pages serves the UI, give it an HTTPS API origin through
-a TLS proxy or Cloudflare Tunnel in front of the container.
+### Single-host cloud deployment
 
-Set the GitHub repository variable `PUBLISH_CONTAINER_IMAGE` to `true` to
-publish the unified image to GHCR after CI passes on `main`. The image is tagged
-with the commit SHA. To promote a release, set `KAZMION_IMAGE` in the host
-`.env` to the published `ghcr.io/<owner>/<repo>:<commit-sha>` and run
-`docker compose --env-file .env -f docker/compose/compose.yaml up -d --no-build --pull always`.
-Publishing an image does not restart a running installation.
+Use a Linux x86-64 host with Docker and Compose V2. Keep the container bound to
+`127.0.0.1:8080` and terminate TLS at a host reverse proxy or tunnel. The
+proxy should pass the original host and client address. The PostgreSQL,
+FerretDB and Redis ports stay inside the container. Run a single active stack
+per data volume set.
+
+1. Create a restricted `.env` from `.env.example`. Set independent random JWT
+   and setup secrets, a platform developer email, the exact HTTPS browser
+   origin in `CORS_ORIGIN`, and the public `/reset-password` URL. Configure
+   verified delivery channels if password recovery needs them.
+2. The container release job builds, browser-tests and publishes a commit-tagged
+   image to GHCR. Copy the approved registry digest from its job summary into
+   `KAZMION_IMAGE` as `ghcr.io/<owner>/<repo>@sha256:<digest>`. Authenticate
+   the deployment host to GHCR if the package is private.
+3. Before an upgrade, record the previous image digest, protect a copy of
+   `.env` and take a verified encrypted backup. Keep existing volume
+   mappings and run:
+
+   ```sh
+   docker compose --env-file .env -f docker/compose/compose.yaml config --quiet
+   docker compose --env-file .env -f docker/compose/compose.yaml pull kazmion
+   docker compose --env-file .env -f docker/compose/compose.yaml up -d --no-build --pull never --wait --wait-timeout 300
+   curl --fail --silent --show-error http://127.0.0.1:8080/api/health
+   ```
+
+4. Verify health and sign-in through the public HTTPS endpoint. Keep the old
+   image and backup until acceptance. For rollback after a data change, restore
+   the backup into new volumes with the matching image and verify records before
+   cutover.
+
+The V1 image uses the PostgreSQL DocumentDB extension through FerretDB. The
+native relational cutover remains a separate migration and approval gate.
 
 ### Cloudflare Pages
 
-The deploy job is opt-in. Set the GitHub repository variable
-`DEPLOY_CLOUDFLARE_PAGES` to `true`, configure the `production` environment,
-and supply `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as Actions secrets.
+For a separate Pages frontend, configure `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID` as `production` environment secrets. Verify the
+compatible API deployment over HTTPS before dispatching the Pages release.
 The target project is `kazmion-pos-web`. Set `VITE_API_BASE_URL` to the HTTPS
 API origin including `/api`, `CORS_ORIGIN` on the API to the Pages origin,
 and `PASSWORD_RESET_BASE_URL` on the API to the Pages URL ending in
 `/reset-password`.
 
-Deployments run after successful CI on `main`. For a manually managed Pages
-project, Node.js 24 and authenticated Wrangler are required to use
-`deploy/cloudflare/deploy.ps1`. Choose one deployment mechanism per Pages
-project to avoid duplicate releases. SPA routing and cache rules ship with the
-static build via `_redirects` and `_headers`.
+SPA routing and cache rules ship with the static build via `_redirects` and
+`_headers`.
 
 ## Tenant Trash
 
@@ -145,39 +174,27 @@ Run the isolated automated rehearsal by setting `SPEC_LAN_POS_IMAGE` to a locall
 
 ## Business Data Sync
 
-Data Sync is off by default. Provision it only for a business that requests
-cloud service. Create a dedicated Cloudflare D1 database and Worker for that
-business. In `deploy/cloudflare/data-sync/wrangler.toml`, set a unique Worker
-name, the D1 database name and ID, and the business ID. Apply the D1
-migrations with `wrangler d1 migrations apply SNAPSHOTS --remote`, install a
-random 32-byte hex secret with `wrangler secret put DATA_SYNC_TOKEN`, and set
-an independent 32-byte hex key with `wrangler secret put DATA_SYNC_ENCRYPTION_KEY`.
-Keep a secure copy of the encryption key. Deploy the Worker with `wrangler deploy`
-before updating the local API. Run Wrangler from that directory.
+V1 supports local backup downloads. It does not send synchronization requests, even if a cloud destination was previously configured.
 
-Set the matching token, business ID, and HTTPS Worker endpoint ending in
-`/v1/business-snapshot` in the local API environment using
-`DATA_SYNC_TOKEN`, `DATA_SYNC_TENANT_ID`, and `DATA_SYNC_URL`. Grant Data
-Sync in Module Entitlements and set the business deployment mode to Cloud
-or Hybrid. Developers can review a business's entitlement, deployment mode, and local destination in Developer Engine → Data Sync.
-The owner can open Data Sync from Business Backup and start an upload.
+### V2 PostgreSQL contract
 
-Sync sends a sanitized ZIP of formatted JSON up to 50 MiB over HTTPS. The
-Worker encrypts new D1 chunks with AES-256-GCM and changes the current snapshot
-only after the complete upload matches the checksum sent by the updated POS. The Worker
-returns that checksum as confirmation. Older snapshots remain readable until
-replaced. Upload and verify a fresh snapshot after upgrading to replace the
-legacy current copy with an encrypted one. Retained encrypted snapshots
-require their original encryption key. The access token can be rotated separately. A daily cleanup removes superseded and incomplete snapshots older
-than one day. An authorized operator can download the current archive with
-`GET /v1/business-snapshot` using the same bearer token and `X-Business-Id`
-header. The Worker authenticates encrypted chunks before streaming them as a ZIP.
-Verify the download against the `X-Snapshot-SHA256` response header. Store local
-ZIPs in an access-restricted folder on an encrypted volume. The JSON remains
-readable after extracting the ZIP.
-The local application remains authoritative. This workflow
-does not provide incremental replication, cloud reporting tables, or
-automatic restore. The snapshot contains customer and financial data.
+Apply `004_sync_v2.sql` to the native relational PostgreSQL database through the migration runner. Existing UUIDs, tenant IDs, and financial rows are preserved. Existing rows start at version 1 with a sync timestamp set at migration time. Business timestamps retain their original values. The initial export includes pre-migration rows. The current DocumentDB-backed production tables require a separate native PostgreSQL cutover before they can emit these events.
+
+The contract ID is `kazmion.sync`, version `2`. Export functions are local SQL operations for a trusted database operator.
+
+| Function | Envelope |
+| --- | --- |
+| `pos_sync.snapshot(tenant_id)` | `kind=snapshot`, `sourceId`, `tenantId`, `checkpoint`, `exportedAt`, `collections`, and `financialHistory`. The rows and checkpoint come from one consistent view. |
+| `pos_sync.changes(tenant_id, after, limit)` | `kind=changes`, `sourceId`, `tenantId`, `after`, `checkpoint`, `hasMore`, and ordered `events`. Pages contain at most 1,000 events. |
+
+Each event includes an immutable UUID `eventId`, `sequence`, `entity`, `entityId`, `entityVersion`, `operation`, `occurredAt`, and `record`. Operation is `upsert` or `tombstone`. Sequence, cursor, and version values are decimal strings. Timestamps use UTC. Preserve PostgreSQL numeric values using a decimal-aware parser for financial figures. Exports contain customer and financial data and require restricted storage. Credentials, authentication material, and local invoice file paths are outside the contract.
+
+- **Baseline and replay.** Install a snapshot atomically, then request changes after its checkpoint. A consumer durably records the checkpoint per `(sourceId, tenantId)` in the same transaction as applying a page. Deduplicate by event UUID. A repeated UUID with different content, a gap, or a tenant/source mismatch rejects the page. A cursor below the retained floor requires a new snapshot. Keep a restored source single-writer and preserve its source ID. A separately writable copy needs a new source identity before onboarding.
+- **Conflicts.** This contract assumes one authoritative writer per tenant. Compare entity versions within that source. A late lower version is a replay and cannot overwrite a newer row. Divergent data at the same version, unsolicited competing edits, or a version gap require review. Time is for audit only. A tombstone prevents automatic resurrection. Reference records are retired by setting `deleted_at`. Operational queries must exclude these records. Physical deletion is prohibited for synchronized tables.
+- **Financial history.** Financial records cannot be deleted or tombstoned. Invoice counters are monotonic. Use authorized voids, refunds, and adjustment workflows for corrections. The outbox records the committed version, while a separate financial history ledger retains both the before and after states of financial changes. Historical source rows predating migration are preserved in the baseline.
+- **Acknowledgements and retention.** `pos_sync.acknowledge(tenant_id, consumer_id, checkpoint)` accepts monotonic acknowledgements after durable application. `pos_sync.prune(tenant_id)` removes only a contiguous prefix at least 90 days old and acknowledged by every registered consumer. Without acknowledgements, the outbox is retained. Pruning leaves the financial history ledger and tombstones intact. V1 has no scheduled pruning or cloud consumer.
+
+For rehearsal, run `node --test qa/sync-v2-postgres.test.cjs` with `SPEC_SYNC_POSTGRES_URL` pointed at an empty isolated local PostgreSQL database named `pos_sync_rehearsal`. The test seeds V1 records before applying the migration and checks baseline and incremental exports, rollback, tenant isolation, tombstones, acknowledgements, and retention.
 
 ## Technical reference
 

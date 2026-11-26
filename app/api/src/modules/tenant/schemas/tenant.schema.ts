@@ -55,6 +55,7 @@ const NavigationVisibilitySchema = SchemaFactory.createForClass(NavigationVisibi
 
 @Schema({ _id: false })
 export class TenantFeatureFlags {
+  @Prop({ default: true }) dashboard: boolean;
   @Prop({ default: true }) pos: boolean;
   @Prop({ default: true }) inventory: boolean;
   @Prop({ default: true }) reports: boolean;

@@ -30,7 +30,8 @@ function listen(server) {
 
 async function ready(container) {
   const port = Number(docker('port', container, '8080/tcp').split(':').at(-1));
-  for (let i = 0; i < 45; i++) {
+  const deadline = Date.now() + 240_000;
+  while (Date.now() < deadline) {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2000) });
       if (response.ok) { await response.body.cancel(); return port; }
@@ -40,7 +41,7 @@ async function ready(container) {
   throw new Error('Isolated POS container did not become ready.');
 }
 
-test('authorized TLS access, concurrent sales, restart, and encrypted restore', { skip: !image, timeout: 360_000 }, async () => {
+test('authorized TLS access, concurrent sales, restart, and encrypted restore', { skip: !image, timeout: 600_000 }, async () => {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'pos-lan-rehearsal-'));
   const storage = fs.mkdtempSync(path.join(os.tmpdir(), 'pos-lan-archive-'));
   const identifier = randomBytes(5).toString('hex');
@@ -182,6 +183,14 @@ test('authorized TLS access, concurrent sales, restart, and encrypted restore', 
     const restartedOwner = await login(restarted, 'owner');
     assert.equal((await restarted('/orders/' + orderId, restartedOwner)).status, 200);
     assert.equal((await restarted('/auth/me', cashier)).status, 401);
+
+    docker('kill', '--signal', 'KILL', source);
+    docker('start', source);
+    const recovered = await client(await ready(source));
+    const recoveredOrder = await recovered('/orders/' + orderId, restartedOwner);
+    assert.equal(recoveredOrder.status, 200);
+    assert.equal(recoveredOrder.json.grandTotal, replay.json.grandTotal);
+    assert.equal((await recovered('/products/' + product.json._id, restartedOwner)).json.stockQty, 0);
 
     archive('keygen', keyPath);
     assert.throws(() => archive('backup', source, target, keyPath), /Stop the POS container/);

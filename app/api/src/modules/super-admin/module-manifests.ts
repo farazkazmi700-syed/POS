@@ -22,9 +22,10 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
   ...FEATURE_KEYS.filter((key) => key !== 'settings').map((key): ModuleManifest => ({
     key, moduleId: moduleId(key), label: FEATURE_LABELS[key], version: '1.0.0', releaseState: 'active',
     submodules: ({
+      dashboard: ['overview', 'kpis', 'trends'],
       pos: ['checkout', 'orders', 'invoices', 'voids', 'refunds'],
       inventory: ['products', 'stock-adjustments', 'stock-movements'],
-      reports: ['dashboard', 'sales', 'exports'], customers: ['directory'],
+      reports: ['sales', 'exports'], customers: ['directory'],
       installments: ['dashboard', 'products', 'customers', 'quotes', 'sales', 'agreements', 'payments', 'schedule', 'ledgers', 'receipts', 'overdue', 'reports', 'settings'],
       barcodes: ['generator', 'scanner', 'labels'],
       'data-sync': ['snapshots'],

@@ -1,0 +1,42 @@
+KAZMION POS OFFLINE 1.0.1 - CANDIDATE RELEASE NOTES
+Status: HOLD. No production release or pilot approval recorded.
+
+Package and scope
+- Windows x64 Inno Setup installer, companion image payload and SHA-256 checksums.
+  Package version 1.0.1 is the installer version.
+- The payload is the locally audited release-audit-runtime Linux amd64 image.
+  Docker image ID
+  sha256:619471cc134d8424e669eb3f8afe788c44ffdc23d9243f1b2f43e15287f28e49
+  It combines compiled API, web and PDF worker artifacts with the tested
+  container base. The source workspace at audit time included local changes
+  beyond commit 5ffad67. This candidate is unsigned.
+- Launch loads the local image and binds to 127.0.0.1:8080. PostgreSQL and Redis
+  stay private. Compatible upgrades use copied volumes and retain the prior set.
+- Business settings include Appearance and branch management. Manual backups
+  offer a ZIP of JSON, Excel or both. Platform licence expiry and verified
+  password resets are enforced. Local barcode, QR and invoice printing remain
+  available. Encrypted cold backup and isolated restore are supported.
+- V1 cloud sync uploads are disabled. Native PostgreSQL V2 sync migrations,
+  outbox and local export contracts were rehearsed separately. This installer
+  continues to use the existing DocumentDB-backed runtime for business data.
+
+Audit evidence from the candidate runtime and source
+- API, web and PDF-worker builds passed. Syntax and whitespace checks passed.
+  A standalone repository lint task was unavailable.
+- 93 API unit tests, 9 PDF-worker tests, 11 standalone integration checks and
+  52 live API checks passed. Targeted formats, branches and Appearance checks
+  passed. PostgreSQL invoice authority and V2 migration rehearsals passed.
+- The broad browser run passed 131 of 134. The three initial failures passed
+  on a focused rerun after fixing stale Appearance and V1 sync expectations.
+  Desktop and mobile print checks also passed with the bundled fonts loading.
+- Isolated TLS access control, concurrent checkout, forced restart after an
+  acknowledged sale, and encrypted restore passed. Restored totals, stock
+  and invoice bytes matched. The earlier Windows 1.0.0 rehearsal on an
+  existing host preserved PostgreSQL data, files and secrets on upgrade.
+- A full clean Docker rebuild was interrupted under host resource pressure.
+- Inno Setup compiled the 1.0.1 installer and its Windows product version
+  was verified. The 1.0.1 archive import stalled on the existing Windows host.
+  A run with the exact image preloaded missed the health deadline. An isolated
+  retry passed loopback-only launch, repeat launch and compatible upgrade with
+  PostgreSQL data, file and secret persistence. The disconnected clean Windows
+  10/11 installation matrix remains open.

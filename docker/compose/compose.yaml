@@ -7,6 +7,7 @@ services:
       context: ../..
       dockerfile: docker/Dockerfile
     restart: unless-stopped
+    stop_grace_period: 120s
     env_file:
       - ../../.env
     environment:
@@ -37,7 +38,7 @@ services:
       test: ["CMD", "/usr/local/bin/pos-healthcheck"]
       interval: 20s
       timeout: 5s
-      start_period: 120s
+      start_period: 240s
       retries: 5
 volumes:
   kazmion_pgdata:

@@ -76,7 +76,7 @@ for (const mode of [{ name: 'desktop-light', width: 1440, height: 1000, theme: '
 for (const scenario of [
   { name: 'restricted admin', permissions: ['users.read'], sections: ['Admin account', 'Staff'] },
   { name: 'business admin', permissions: ['tax.configure', 'installments.write'], sections: ['Navigation', 'Business details', 'Admin account'] },
-  { name: 'owner', role: 'owner', sections: ['Navigation', 'Business details', 'Installments', 'Admin account', 'Tax and service charges', 'Staff'] },
+  { name: 'owner', role: 'owner', sections: ['Navigation', 'Business details', 'Appearance', 'Installments', 'Admin account', 'Tax and service charges', 'Staff'] },
 ]) {
   test(`settings rights for ${scenario.name}`, async ({ page }) => {
     const user = { _id: 'settings-user', tenantId: tenant._id, name: 'Settings user', role: scenario.role ?? 'admin', moduleRights: scenario.role === 'owner' ? ['orders', 'settings', 'installments'] : ['settings', 'installments'], permissions: scenario.permissions };

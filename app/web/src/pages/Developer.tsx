@@ -1,6 +1,6 @@
 import { LogOut, Trash2 } from 'lucide-react';
 import { createBackupZip } from '../utils/backup';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import './Developer.css';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FeatureKey, SubscriptionPlan, FeatureFlags, BusinessPlanTarget, BillingInterval, DomainType, ProvisionableRole } from '@pos/shared-types';
@@ -10,6 +10,9 @@ import { developerApi, authApi } from '../api';
 import { useAuth } from '../store/auth';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import ThemePresetPicker, { AppearanceSelect, appearanceModeOptions } from '../components/ThemePresetPicker';
+import { defaultAppearance, palette, readDeveloperAppearance, saveDeveloperAppearance, systemTheme, type DeveloperAppearance } from '../store/appearance';
+import { applyTheme, useTheme } from '../store/theme';
 import DevConsoleSearch from '../components/developer/DevConsoleSearch';
 import InstallmentCapabilities, { findInstallmentCapabilities } from '../components/developer/InstallmentCapabilities';
 import DevNotificationCenter from '../components/developer/DevNotificationCenter';
@@ -22,8 +25,9 @@ import { urduClass, urduInputProps } from '../utils/urdu';
 
 /* ─────────────── Feature Config ─────────────── */
 
-const fallbackFeatureKeys: FeatureKey[] = ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes', 'data-sync', 'stock-replenishment', 'collections-forecast'];
+const fallbackFeatureKeys: FeatureKey[] = ['dashboard', 'pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes', 'data-sync', 'stock-replenishment', 'collections-forecast'];
 const fallbackFeatureNames: Record<FeatureKey, string> = {
+  dashboard: 'Dashboard',
   pos: 'POS',
   inventory: 'Inventory',
   reports: 'Reports',
@@ -36,6 +40,7 @@ const fallbackFeatureNames: Record<FeatureKey, string> = {
 };
 
 const featureDescriptions: Record<FeatureKey, string> = {
+  dashboard: 'Executive sales overview, KPIs & revenue trends',
   pos: 'Point of Sale terminal & checkout',
   inventory: 'Product catalog & stock tracking',
   reports: 'Sales reports & analytics',
@@ -49,6 +54,11 @@ const featureDescriptions: Record<FeatureKey, string> = {
 
 /* Feature vector icons */
 const featureIcons: Record<FeatureKey, (props: { className?: string }) => ReactNode> = {
+  dashboard: ({ className = 'w-4 h-4' }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+    </svg>
+  ),
   'data-sync': IconBackup,
   'stock-replenishment': IconCube,
   'collections-forecast': IconActivity,
@@ -751,27 +761,57 @@ const accentPresets = [
   { name: 'Violet', color: '#7652ce' },
   { name: 'Copper', color: '#b75528' },
 ];
-const defaultAccent = accentPresets[0].color;
-
-function accentForeground(hex: string) {
-  const channels = [1, 3, 5].map((offset) => {
-    const channel = parseInt(hex.slice(offset, offset + 2), 16) / 255;
-    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-  });
-  const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
-  return luminance > 0.179 ? '#000000' : '#ffffff';
-}
-
 function DeveloperWorkspace({ developerId }: { developerId: string }) {
   const accentKey = `pos-developer-accent:${developerId}`;
-  const [accent, setAccent] = useState(() => {
+  const [customAccent, setCustomAccent] = useState<string | null>(() => {
     const stored = localStorage.getItem(accentKey);
-    return stored && /^#[0-9a-f]{6}$/i.test(stored) ? stored.toLowerCase() : defaultAccent;
+    return stored && /^#[0-9a-f]{6}$/i.test(stored) ? stored.toLowerCase() : null;
   });
-  function chooseAccent(color: string) {
-    setAccent(color);
-    localStorage.setItem(accentKey, color);
+  const [savedAppearance, setSavedAppearance] = useState(() => readDeveloperAppearance(developerId));
+  const [draftAppearance, setDraftAppearance] = useState<DeveloperAppearance | null>(null);
+  const [appearanceStatus, setAppearanceStatus] = useState<'saved' | 'error' | null>(null);
+  const [systemDark, setSystemDark] = useState(systemTheme.matches);
+  const appearance = draftAppearance ?? savedAppearance;
+  const dark = appearance.mode === 'dark' || (appearance.mode === 'system' && systemDark);
+  const theme = dark ? 'dark' : 'light';
+  const colors = palette({ ...defaultAppearance, ...appearance, primary: customAccent }, dark);
+  const accent = colors['--appearance-primary'].toLowerCase();
+  const appearanceChanged = appearance.preset !== savedAppearance.preset || appearance.mode !== savedAppearance.mode;
+
+  useEffect(() => {
+    const sync = () => setSystemDark(systemTheme.matches);
+    systemTheme.addEventListener('change', sync);
+    return () => systemTheme.removeEventListener('change', sync);
+  }, []);
+  useLayoutEffect(() => {
+    applyTheme(theme);
+    return () => applyTheme(useTheme.getState().theme);
+  }, [theme]);
+
+  function chooseAccent(color: string | null) {
+    if (color) localStorage.setItem(accentKey, color);
+    else localStorage.removeItem(accentKey);
+    setCustomAccent(color);
   }
+  function previewAppearance(changes: Partial<DeveloperAppearance>) {
+    setAppearanceStatus(null);
+    setDraftAppearance({ ...appearance, ...changes });
+  }
+  function saveAppearance(value: DeveloperAppearance) {
+    try {
+      saveDeveloperAppearance(developerId, value);
+      setSavedAppearance(value);
+      setDraftAppearance(null);
+      setAppearanceStatus('saved');
+    } catch {
+      setAppearanceStatus('error');
+    }
+  }
+  function changeMode(mode: 'light' | 'dark') {
+    if (draftAppearance) previewAppearance({ mode });
+    else saveAppearance({ ...savedAppearance, mode });
+  }
+  const themePreference = { theme, onChange: changeMode } as const;
   const client = useQueryClient();
   const logout = useAuth((state) => state.logout);
   const navigate = useNavigate();
@@ -832,7 +872,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
   /* Data Queries */
   const overview = useQuery({ queryKey: ['developer', 'overview'], queryFn: developerApi.overview });
   const catalog = useQuery({ queryKey: ['developer', 'features'], queryFn: developerApi.features });
-  const featureKeys = Array.isArray(catalog.data) ? catalog.data.map((feature) => feature.key) : fallbackFeatureKeys;
+  const featureKeys = Array.isArray(catalog.data) && catalog.data.length > 0 ? catalog.data.map((feature) => feature.key) : fallbackFeatureKeys;
   const featureNames = { ...fallbackFeatureNames, ...Object.fromEntries((Array.isArray(catalog.data) ? catalog.data : []).map((feature) => [feature.key, feature.label])) } as Record<FeatureKey, string>;
   const businesses = useQuery({ queryKey: ['developer', 'businesses'], queryFn: developerApi.businesses });
   const trash = useQuery({ queryKey: ['developer', 'trash'], queryFn: developerApi.trash, enabled: activeTab === 'trash', refetchInterval: 30_000 });
@@ -1229,7 +1269,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
               : activeTab === 'module-rights' ? 'Assign MOD- ids, enable/disable modules and manage sub-module rights per account package.'
                 : activeTab === 'clients' ? 'Every account across all tenants — contacts and verification status (no secrets).'
                 : activeTab === 'backup' ? 'Download a ZIP export of platform and business records, with a checksum manifest.'
-                  : activeTab === 'data-sync' ? 'Review which businesses can upload local snapshots to the cloud.'
+                  : activeTab === 'data-sync' ? 'Review business sync entitlements for V2.'
                   : activeTab === 'help' ? 'Find account recovery, tenant setup, and data protection guidance.'
                     : activeTab === 'create-business' ? 'Onboard a new organization with root Owner credentials.'
                   : activeTab === 'audit' ? 'Live security and administrative event stream from the POS platform.'
@@ -1268,7 +1308,8 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
   })();
 
   return (
-    <div style={{ '--dev-accent': accent, '--dev-on-accent': accentForeground(accent) } as CSSProperties} className={`dev-workspace${sidebarCollapsed ? ' dev-workspace-collapsed' : ''}`}>
+    <div style={colors as CSSProperties} data-appearance={appearance.preset} data-theme={theme}
+      className={`dev-workspace${sidebarCollapsed ? ' dev-workspace-collapsed' : ''}`}>
       <a className="dev-skip-link" href="#developer-content">Skip to content</a>
       {/* ─── Desktop Sidebar ─── */}
       <aside className="dev-sidebar">
@@ -1332,7 +1373,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
         {/* Sidebar Footer */}
         <div className="dev-sidebar-footer">
           <div className="dev-sidebar-tools">
-            <ThemeToggle />
+            <ThemeToggle preference={themePreference} />
             <button
               onClick={refresh}
               type="button"
@@ -1383,7 +1424,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <div className="dev-mobile-tools">
-              <ThemeToggle />
+              <ThemeToggle preference={themePreference} />
               <button
                 onClick={refresh}
                 type="button"
@@ -1585,45 +1626,39 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
           {activeTab === 'businesses' && (
             <section className="space-y-4">
               {/* Search & Filter Toolbar */}
-              <div className="dev-card p-3.5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-1 items-center gap-2 max-w-md">
-                  <div className="relative w-full">
-                    <IconSearch className="pointer-events-none absolute left-3 top-1/2 w-4 h-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="search"
-                      placeholder="Search name, Business ID, plan, or domain…"
-                      className="input w-full pl-9 text-[13px]"
-                      aria-label="Search businesses"
-                      value={businessSearch}
-                      onChange={(e) => setBusinessSearch(e.target.value)}
-                    />
-                    {businessSearch && (
-                      <button
-                        type="button"
-                        onClick={() => setBusinessSearch('')}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                        title="Clear search"
-                        aria-label="Clear business search"
-                      >
-                        <IconClose className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
+              <div className="dev-card dev-biz-toolbar">
+                <div className="dev-biz-search-wrap">
+                  <IconSearch className="dev-biz-search-icon" />
+                  <input
+                    type="search"
+                    placeholder="Search name, Business ID, plan, or domain…"
+                    className="input dev-biz-search-input"
+                    aria-label="Search businesses"
+                    value={businessSearch}
+                    onChange={(e) => setBusinessSearch(e.target.value)}
+                  />
+                  {businessSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setBusinessSearch('')}
+                      className="dev-biz-search-clear"
+                      title="Clear search"
+                      aria-label="Clear business search"
+                    >
+                      <IconClose className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Filter buttons */}
-                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <div className="dev-biz-filters" role="group" aria-label="Filter businesses">
                   {(['all', 'active', 'suspended', 'has-plan', 'no-plan'] as const).map((filter) => (
                     <button
                       key={filter}
                       type="button"
                       onClick={() => setBusinessFilter(filter)}
                       aria-pressed={businessFilter === filter}
-                      className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold capitalize transition ${
-                        businessFilter === filter
-                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold'
-                          : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
-                      }`}
+                      className={`dev-biz-filter-btn ${businessFilter === filter ? 'is-active' : ''}`}
                     >
                       {filter.replace('-', ' ')}
                     </button>
@@ -1631,24 +1666,29 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                 </div>
               </div>
 
-              {/* Status Header */}
-              <div className="flex flex-wrap gap-3 items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1">
-                <p role="status">
+              {/* Status & Sort Bar */}
+              <div className="dev-biz-meta-bar">
+                <p role="status" className="dev-biz-status-text">
                   <strong>{filteredBusinesses.length}</strong> of {totalBusinesses} tenants · Page {currentBusinessPage} of {businessPageCount}
                 </p>
-                <label className="flex items-center gap-2">Sort by
-                  <select className="input" value={businessSort} onChange={(event) => setBusinessSort(event.target.value)}>
-                    <option value="default">Default order</option><option value="name-asc">Name: A–Z</option><option value="name-desc">Name: Z–A</option>
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('create-business')}
-                  className="dev-link-btn font-semibold"
-                >
-                  <IconPlus className="w-3.5 h-3.5" />
-                  Provision Tenant
-                </button>
+                <div className="dev-biz-meta-controls">
+                  <label className="dev-biz-sort-label">
+                    <span>Sort by</span>
+                    <select className="input dev-biz-sort-select" value={businessSort} onChange={(event) => setBusinessSort(event.target.value)}>
+                      <option value="default">Default order</option>
+                      <option value="name-asc">Name: A–Z</option>
+                      <option value="name-desc">Name: Z–A</option>
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('create-business')}
+                    className="dev-btn-secondary dev-btn-sm"
+                  >
+                    <IconPlus className="w-3.5 h-3.5" />
+                    Provision Tenant
+                  </button>
+                </div>
               </div>
 
               {/* Business Cards */}
@@ -1665,27 +1705,30 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                   </button>
                 </div>
               ) : filteredBusinesses.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {visibleBusinesses.map((b) => {
                     const isSuspended = b.status === 'suspended';
                     const assigning = assignPlan.isPending && assignPlan.variables?.id === b.businessId;
                     const toggling = updateFeatures.isPending && updateFeatures.variables?.id === b.businessId;
                     const updatingBiz = updateBusiness.isPending && updateBusiness.variables?.id === b.businessId;
+                    const enabledFeatureCount = featureKeys.filter((key) =>
+                      isOptInFeature(key) ? b.featureFlags?.[key] === true : b.featureFlags?.[key] !== false,
+                    ).length;
 
                     return (
-                      <article key={b.businessId} className="dev-card dev-card-hover p-0 overflow-hidden">
-                        {/* Card Header */}
-                        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <article key={b.businessId} className="dev-card dev-card-hover dev-biz-card">
+                        {/* Card Header: Identity + Subscription Plan */}
+                        <div className="dev-biz-card-head">
+                          <div className="dev-biz-identity">
                             <BusinessAvatar name={b.name} logoUrl={b.logoUrl} domainType={b.domainType} />
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
-                                <h3 className={`truncate text-sm font-bold text-slate-900 dark:text-white ${urduClass(b.name)}`} dir={urduClass(b.name) ? 'rtl' : undefined}>{b.name}</h3>
+                                <h3 className={`truncate text-[15px] font-bold text-slate-900 dark:text-white ${urduClass(b.name)}`} dir={urduClass(b.name) ? 'rtl' : undefined}>{b.name}</h3>
                                 <StatusBadge status={b.status} />
                                 <button
                                   type="button"
                                   onClick={() => setRenamingBusiness(b)}
-                                  className="dev-icon-btn !p-1 text-slate-400 hover:text-slate-600"
+                                  className="dev-icon-btn !h-7 !w-7 !p-1 text-slate-400 hover:text-slate-600"
                                   title="Rename business"
                                   aria-label={`Rename ${b.name}`}
                                 >
@@ -1693,7 +1736,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                                 </button>
                               </div>
 
-                              <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+                              <div className="dev-biz-meta-chips">
                                 <button
                                   type="button"
                                   onClick={() => copyToClipboard(b.businessId)}
@@ -1714,8 +1757,11 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                                 {b.currency && (
                                   <span className="dev-meta-chip uppercase">{b.currency}</span>
                                 )}
+                                {b.deploymentMode && (
+                                  <span className="dev-meta-chip uppercase">{b.deploymentMode}</span>
+                                )}
                                 {b.createdAt && (
-                                  <span className="inline-flex items-center gap-1">
+                                  <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
                                     <IconClock className="w-3 h-3" />
                                     {fmtDateTime(b.createdAt)}
                                   </span>
@@ -1724,95 +1770,102 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                             </div>
                           </div>
 
-                          {/* Plan Assignment & Status Toggle */}
-                          <div className="w-full shrink-0 sm:w-64 space-y-2">
-                            <div>
-                              <label
-                                className="dev-field-label"
-                                htmlFor={`plan-select-${b.businessId}`}
-                              >
-                                Subscription Plan
-                              </label>
-                              <select
-                                id={`plan-select-${b.businessId}`}
-                                className="input text-xs py-1.5"
-                                value={b.subscriptionPlanId ?? ''}
-                                disabled={assignPlan.isPending || updateFeatures.isPending || !plans.data?.some((plan) => plan.isActive)}
-                                aria-busy={assigning}
-                                onChange={(e) => {
-                                  if (e.target.value) {
-                                    assignPlan.mutate({ id: b.businessId, planId: e.target.value });
-                                  }
-                                }}
-                              >
-                                <option value="">{assigning ? 'Assigning…' : 'Choose Plan…'}</option>
-                                {plans.data
-                                  ?.filter((p) => p.isActive || p._id === b.subscriptionPlanId)
-                                  .map((p) => (
-                                    <option key={p._id} value={p._id} disabled={!p.isActive}>
-                                      {p.name} — {formatMoney(p.price)}/{INTERVAL_SUFFIX[p.billingInterval] ?? p.billingInterval}
-                                    </option>
-                                  ))}
-                              </select>
-                              {b.subscriptionPlanName ? (
-                                <p className="dev-plan-current">
-                                  Current: <strong>{b.subscriptionPlanName}</strong>
-                                </p>
-                              ) : (
-                                <p className="dev-plan-current is-empty">No plan assigned yet.</p>
-                              )}
-                            </div>
-
-                            {/* Actions Bar: Suspend / Reactivate & Inspect */}
-                            <div className="flex items-center gap-2 pt-1">
-                              <button
-                                type="button"
-                                disabled={updateBusiness.isPending}
-                                onClick={() =>
-                                  updateBusiness.mutate({
-                                    id: b.businessId,
-                                    body: { status: isSuspended ? 'active' : 'suspended' },
-                                  })
+                          {/* Plan Assignment */}
+                          <div className="dev-biz-plan-box">
+                            <label
+                              className="dev-field-label"
+                              htmlFor={`plan-select-${b.businessId}`}
+                            >
+                              Subscription Plan
+                            </label>
+                            <select
+                              id={`plan-select-${b.businessId}`}
+                              className="input dev-biz-plan-select"
+                              value={b.subscriptionPlanId ?? ''}
+                              disabled={assignPlan.isPending || updateFeatures.isPending || !plans.data?.some((plan) => plan.isActive)}
+                              aria-busy={assigning}
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  assignPlan.mutate({ id: b.businessId, planId: e.target.value });
                                 }
-                                className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition ${
-                                  isSuspended
-                                    ? 'border-emerald-500/30 text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20'
-                                    : 'border-red-500/30 text-red-600 bg-red-500/10 hover:bg-red-500/20'
-                                }`}
-                              >
-                                {updatingBiz ? 'Updating…' : isSuspended ? 'Reactivate Tenant' : 'Suspend Tenant'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setInspectingBusiness(b)}
-                                className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                              >
-                                Details
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openAccountsModal(b)}
-                                className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 dark:text-indigo-300 transition"
-                              >
-                                <IconCube className="mr-1 inline w-3 h-3" /> Accounts
-                              </button>
-                              <button type="button" className="dev-btn-danger text-xs" aria-label={`Delete ${b.name}`}
-                                onClick={() => {
-                                  setTrashName('');
-                                  setTrashChecked(false);
-                                  trashBusiness.reset();
-                                  setTrashingBusiness(b);
-                                }}>
-                                <Trash2 size={14} aria-hidden="true" /> Delete tenant
-                              </button>
-                            </div>
+                              }}
+                            >
+                              <option value="">{assigning ? 'Assigning…' : 'Choose Plan…'}</option>
+                              {plans.data
+                                ?.filter((p) => p.isActive || p._id === b.subscriptionPlanId)
+                                .map((p) => (
+                                  <option key={p._id} value={p._id} disabled={!p.isActive}>
+                                    {p.name} — {formatMoney(p.price)}/{INTERVAL_SUFFIX[p.billingInterval] ?? p.billingInterval}
+                                  </option>
+                                ))}
+                            </select>
+                            {b.subscriptionPlanName ? (
+                              <p className="dev-plan-current">
+                                Current: <strong>{b.subscriptionPlanName}</strong>
+                              </p>
+                            ) : (
+                              <p className="dev-plan-current is-empty">No plan assigned yet.</p>
+                            )}
                           </div>
                         </div>
 
-                        {/* Features Toggle Row */}
+                        {/* Tenant Actions Bar */}
+                        <div className="dev-biz-actions">
+                          <div className="dev-biz-action-group">
+                            <button
+                              type="button"
+                              onClick={() => setInspectingBusiness(b)}
+                              className="dev-biz-action-btn"
+                            >
+                              Details
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openAccountsModal(b)}
+                              className="dev-biz-action-btn is-accent"
+                            >
+                              <IconCube className="w-3.5 h-3.5" />
+                              Accounts
+                            </button>
+                          </div>
+                          <div className="dev-biz-action-group">
+                            <button
+                              type="button"
+                              disabled={updateBusiness.isPending}
+                              onClick={() =>
+                                updateBusiness.mutate({
+                                  id: b.businessId,
+                                  body: { status: isSuspended ? 'active' : 'suspended' },
+                                })
+                              }
+                              className={`dev-biz-action-btn ${isSuspended ? 'is-success' : 'is-warn'}`}
+                            >
+                              {updatingBiz ? 'Updating…' : isSuspended ? 'Reactivate Tenant' : 'Suspend Tenant'}
+                            </button>
+                            <button
+                              type="button"
+                              className="dev-btn-danger dev-biz-delete-btn"
+                              aria-label={`Delete ${b.name}`}
+                              onClick={() => {
+                                setTrashName('');
+                                setTrashChecked(false);
+                                trashBusiness.reset();
+                                setTrashingBusiness(b);
+                              }}
+                            >
+                              <Trash2 size={14} aria-hidden="true" />
+                              Delete tenant
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Module Entitlements Toggle Grid */}
                         <div className="dev-feature-strip">
-                          <div className="mb-2.5 flex items-center justify-between gap-2">
-                            <p className="dev-strip-label">Module Entitlements</p>
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <p className="dev-strip-label">Module Entitlements</p>
+                              <span className="dev-meta-chip">{enabledFeatureCount}/{featureKeys.length} enabled</span>
+                            </div>
                             {toggling && (
                               <span className="dev-inline-busy" role="status">
                                 <IconRefresh className="w-3 h-3 spinning" />
@@ -1820,7 +1873,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                               </span>
                             )}
                           </div>
-                          <div className="flex flex-wrap gap-2" role="group" aria-label={`Feature entitlements for ${b.name}`}>
+                          <div className="dev-biz-entitlements-grid" role="group" aria-label={`Feature entitlements for ${b.name}`}>
                             {featureKeys.map((key) => {
                               const isEnabled = isOptInFeature(key) ? b.featureFlags?.[key] === true : b.featureFlags?.[key] !== false;
                               return (
@@ -1839,9 +1892,11 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                                   className={`dev-switch-pill ${isEnabled ? 'is-on' : 'is-off'}`}
                                   title={`Click to ${isEnabled ? 'disable' : 'enable'} ${featureNames[key]} module`}
                                 >
-                                  <span className="dev-switch-icon">{featureIcons[key]?.({ className: 'w-3.5 h-3.5' })}</span>
-                                  <span>{featureNames[key]}</span>
-                                  <span className={`dev-switch-track ${isEnabled ? 'is-on' : ''}`} aria-hidden="true">
+                                  <span className="flex min-w-0 items-center gap-2">
+                                    <span className="dev-switch-icon shrink-0">{featureIcons[key]?.({ className: 'w-3.5 h-3.5' })}</span>
+                                    <span className="truncate">{featureNames[key]}</span>
+                                  </span>
+                                  <span className={`dev-switch-track shrink-0 ${isEnabled ? 'is-on' : ''}`} aria-hidden="true">
                                     <span className="dev-switch-thumb" />
                                   </span>
                                 </button>
@@ -2173,12 +2228,11 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
             <section className="space-y-4">
               <div className="dev-card p-5">
                 <h3 className="text-sm font-semibold">Local installation</h3>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">A business owner starts each snapshot upload from Business Backup → Data Sync.</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Cloud synchronization is disabled in V1. Businesses can download local backups.</p>
                 {dataSyncStatus.isPending && <p className="mt-3 text-xs" role="status">Checking sync configuration…</p>}
                 {dataSyncStatus.isSuccess && (
                   <p className="mt-3 text-xs" role="status">
-                    {dataSyncStatus.data.moduleEnabled ? 'Data Sync is enabled on this platform.' : 'Enable Data Sync in Module Entitlements.'}{' '}
-                    {dataSyncStatus.data.configuredBusinessId ? 'This installation has a configured destination.' : 'This installation needs a cloud destination.'}
+                    {dataSyncStatus.data.moduleEnabled ? 'The Data Sync entitlement is available.' : 'Enable Data Sync in Module Entitlements.'}{' '}
                   </p>
                 )}
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -2208,7 +2262,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                         else if (dataSyncStatus.isError) syncStatus = 'Configuration unavailable';
                         else if (dataSyncStatus.isSuccess) {
                           if (!dataSyncStatus.data.moduleEnabled) syncStatus = 'Module disabled';
-                          else syncStatus = dataSyncStatus.data.configuredBusinessId === business.businessId ? 'Configured here' : 'No destination on this installation';
+                          else syncStatus = 'Cloud sync disabled in V1';
                         }
                         return (
                           <tr key={business.businessId}>
@@ -2300,7 +2354,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                   <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                     Owner email and phone captured at provisioning power password reset and account verification (Mail/SMS badges in Clients).
                     Suspend/reactivate tenants anytime from their card; suspended tenants lose API access but keep their data.
-                    Use <strong>Backup</strong> for a platform ZIP export and <strong>Data Sync</strong> to review which tenants can upload business snapshots. Use the sign-in recovery link if you forget your developer password.
+                    Use <strong>Backup</strong> for a platform ZIP export and <strong>Data Sync</strong> to review business sync entitlements for V2. Use the sign-in recovery link if you forget your developer password.
                   </p>
                 </div>
               </div>
@@ -2513,7 +2567,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
               <section className="space-y-4">
                 <div className="flex items-center justify-between text-xs text-slate-500 px-1">
                   <p>
-                    {groups.length} client businesses ? {clientAccounts.data?.length ?? 0} accounts
+                    {groups.length} client businesses · {clientAccounts.data?.length ?? 0} accounts
                   </p>
                   <button type="button" onClick={() => clientAccounts.refetch()} className="dev-link-btn font-semibold">
                     <IconRefresh className="w-3.5 h-3.5" spinning={clientAccounts.isFetching} /> Refresh
@@ -2975,15 +3029,24 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
               <div className="dev-card p-5 space-y-5">
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Console preferences</h3>
-                  <p className="mt-1 text-xs text-slate-500">Personal workspace settings for this developer account. These do not affect business tenants.</p>
+                  <p className="mt-1 text-xs text-slate-500">Appearance preferences for this developer account are saved in this browser.</p>
                 </div>
-                <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-                  <div>
-                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Dark mode</p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">Use a dark theme across the developer console.</p>
+                <fieldset className="dev-palette space-y-4">
+                  <legend>Theme</legend>
+                  <ThemePresetPicker selected={appearance.preset} dark={dark} onSelect={(preset) => previewAppearance({ preset })} />
+                  <div className="max-w-xs">
+                    <AppearanceSelect label="Mode" value={appearance.mode} options={appearanceModeOptions} onChange={(mode) => previewAppearance({ mode })} />
                   </div>
-                  <ThemeToggle />
-                </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="dev-btn-primary" disabled={!appearanceChanged} onClick={() => saveAppearance(appearance)}>Save appearance</button>
+                    <button type="button" className="dev-btn-secondary" disabled={!draftAppearance} onClick={() => {
+                      setDraftAppearance(null); setAppearanceStatus(null);
+                    }}>Cancel</button>
+                    <button type="button" className="dev-btn-secondary" onClick={() => previewAppearance({ preset: defaultAppearance.preset, mode: defaultAppearance.mode })}>Restore theme defaults</button>
+                  </div>
+                  {appearanceStatus === 'saved' && <p role="status">Developer appearance saved.</p>}
+                  {appearanceStatus === 'error' && <p role="alert">This browser could not save developer appearance.</p>}
+                </fieldset>
                 <fieldset className="dev-palette">
                   <legend>Accent color</legend>
                   <p>Choose a preset or pick a custom color. Your choice is saved in this browser.</p>
@@ -2998,7 +3061,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                   <div className="dev-custom-accent">
                     <label>Custom color <input type="color" value={accent} onChange={(event) => chooseAccent(event.target.value)} /></label>
                     <output>{accent.toUpperCase()}</output>
-                    <button type="button" onClick={() => chooseAccent(defaultAccent)} disabled={accent === defaultAccent}>Reset to default</button>
+                    <button type="button" onClick={() => chooseAccent(null)} disabled={!customAccent}>Reset to default</button>
                   </div>
                 </fieldset>
                 <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">

@@ -5,7 +5,11 @@ export function availablePages(user: UserSummary, tenant?: Tenant) {
     (!item.managerOnly || user.role === 'owner' || user.role === 'admin')
     && (item.key !== 'backup' || user.role === 'owner')
     && (item.key === 'help' || item.key === 'backup' || user.moduleRights === undefined || user.moduleRights.includes('requiredRight' in item ? item.requiredRight : item.key))
-    && (!('feature' in item) || (isOptInFeature(item.feature) ? tenant?.featureFlags?.[item.feature] === true : tenant?.featureFlags?.[item.feature] !== false)),
+    && (!('feature' in item) || (isOptInFeature(item.feature)
+      ? tenant?.featureFlags?.[item.feature] === true
+      : item.feature === 'dashboard' && tenant?.featureFlags?.dashboard === undefined
+        ? tenant?.featureFlags?.reports !== false
+        : tenant?.featureFlags?.[item.feature] !== false)),
   );
 }
 

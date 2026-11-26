@@ -99,6 +99,7 @@ export default function Orders() {
                 <td className="td font-bold">{formatMoney(o.grandTotal, currency)}</td>
                 <td className="td no-underline">
                   <span
+                    data-financial-status={o.status === 'voided' ? 'inactive' : o.paymentMode === 'installment' ? 'information' : 'paid'}
                     className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
                       o.status === 'voided'
                         ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
@@ -172,6 +173,7 @@ export default function Orders() {
                 </span>
               </div>
               <span
+                data-financial-status={o.status === 'voided' ? 'inactive' : o.paymentMode === 'installment' ? 'information' : 'paid'}
                 className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
                   o.status === 'voided'
                     ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'

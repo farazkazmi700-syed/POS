@@ -1,0 +1,206 @@
+@media screen {
+  html[data-appearance], .dev-workspace[data-appearance] {
+    --bg: var(--appearance-bg);
+    --panel: var(--appearance-surface);
+    --panel-soft: color-mix(in srgb, var(--panel) 65%, var(--bg));
+    --panel-muted: color-mix(in srgb, var(--panel) 88%, var(--appearance-text));
+    --panel-border: var(--appearance-border);
+    --input-bg: var(--panel);
+    --text: var(--appearance-text);
+    --text-soft: color-mix(in srgb, var(--text) 82%, var(--panel));
+    --text-muted: var(--text-soft);
+    --accent: var(--appearance-focus);
+    --accent-strong: var(--appearance-focus);
+    --accent-soft: color-mix(in srgb, var(--appearance-primary) 13%, var(--panel));
+    --status-paid: #16a34a;
+    --status-overdue: #dc2626;
+    --status-pending: #d97706;
+    --status-info: #2563eb;
+    --status-partial: #7c3aed;
+    --status-inactive: #94a3b8;
+    --appearance-radius: 0.65rem;
+    --appearance-shadow: none;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  :is([data-appearance='modern'], [data-appearance='premium'], [data-appearance-sample='modern'], [data-appearance-sample='premium']):is(html, .dev-workspace, .appearance-sample) {
+    --appearance-radius: 1rem;
+    --appearance-shadow: 0 5px 18px rgb(0 0 0 / 9%);
+  }
+
+  :is([data-appearance='enterprise'], [data-appearance='compact'], [data-appearance-sample='enterprise'], [data-appearance-sample='compact']):is(html, .dev-workspace, .appearance-sample) {
+    --appearance-radius: 0.45rem;
+  }
+  html[data-appearance][data-theme='light'] { color-scheme: light; }
+  html[data-appearance][data-theme='dark'] { color-scheme: dark; }
+
+  :is([data-appearance='glassmorphism'], [data-appearance-sample='glassmorphism']):is(html, .dev-workspace, .appearance-sample) {
+    --appearance-radius: 1rem;
+    --appearance-canvas: radial-gradient(ellipse at top right, color-mix(in srgb, var(--appearance-primary) 22%, var(--appearance-bg)), transparent 65%);
+    --appearance-shadow: 0 6px 20px rgb(0 0 0 / 11%);
+    --appearance-blur: 8px;
+  }
+
+  :is([data-appearance='skeuomorphism'], [data-appearance-sample='skeuomorphism']):is(html, .dev-workspace, .appearance-sample) {
+    --appearance-radius: 0.55rem;
+    --appearance-card-finish: linear-gradient(to bottom, rgb(255 255 255 / 8%), transparent 40%, rgb(0 0 0 / 4%));
+    --appearance-shadow: inset 0 1px rgb(255 255 255 / 35%), 0 2px 0 var(--appearance-border), 0 4px 8px rgb(0 0 0 / 13%);
+    --appearance-input-shadow: inset 0 2px 4px rgb(0 0 0 / 17%);
+  }
+
+  :is([data-appearance='neo-brutalism'], [data-appearance-sample='neo-brutalism']):is(html, .dev-workspace, .appearance-sample) {
+    --appearance-radius: 0.2rem;
+    --appearance-outline-width: 2px;
+    --appearance-shadow: 3px 3px 0 var(--appearance-border);
+  }
+
+  :is([data-appearance='claymorphism'], [data-appearance-sample='claymorphism']):is(html, .dev-workspace, .appearance-sample) {
+    --appearance-radius: 1.3rem;
+    --appearance-shadow: inset 2px 3px 8px rgb(255 255 255 / 15%), inset -3px -3px 9px rgb(0 0 0 / 8%), 0 5px 16px rgb(0 0 0 / 11%);
+  }
+
+  :is([data-appearance='liquid-glass'], [data-appearance-sample='liquid-glass']):is(html, .dev-workspace, .appearance-sample) {
+    --appearance-radius: 1.65rem;
+    --appearance-canvas:
+      radial-gradient(ellipse at 12% 8%, color-mix(in srgb, var(--appearance-primary) 24%, var(--appearance-bg)), transparent 55%),
+      radial-gradient(ellipse at bottom right, color-mix(in srgb, var(--appearance-secondary) 24%, var(--appearance-bg)), transparent 62%);
+    --appearance-card-finish: linear-gradient(135deg, rgb(255 255 255 / 12%), transparent 42%);
+    --appearance-shadow: inset 0 1px 1px rgb(255 255 255 / 52%), inset 0 -1px rgb(255 255 255 / 16%), 0 8px 24px rgb(0 0 0 / 13%);
+    --appearance-blur: 14px;
+  }
+
+  html[data-appearance] :is(body, .app-shell, .app-main) { background: var(--bg); color: var(--text); }
+  html[data-appearance] .app-main { background-image: var(--appearance-canvas, none); }
+  html[data-appearance] .app-sidebar {
+    --panel: var(--appearance-sidebar);
+    --text: var(--appearance-sidebar-text);
+    --text-soft: var(--appearance-sidebar-text);
+    --text-muted: var(--appearance-sidebar-text);
+    --accent: var(--appearance-sidebar-text);
+    --accent-strong: var(--appearance-sidebar-text);
+    --accent-soft: color-mix(in srgb, var(--text) 13%, var(--panel));
+    background: var(--panel);
+    color: var(--text);
+  }
+  html[data-appearance] .app-sidebar :is(a, button) { color: inherit; }
+  html[data-appearance] .app-sidebar a[aria-current='page'] {
+    background: var(--appearance-primary);
+    color: var(--appearance-primary-text);
+  }
+  html[data-appearance] .app-main :is(.bg-white, .dark\:bg-slate-900, .dark\:bg-slate-800, .card, .input, dialog, [role='dialog'], [role='menu']) {
+    background-color: var(--panel);
+    color: var(--text);
+  }
+  html[data-appearance] .app-main :is(.text-slate-500, .text-slate-600, .text-slate-700, .text-slate-800, .text-slate-900) { color: var(--text-soft); }
+  html[data-appearance] .app-main :is(.card, .input, .btn-secondary, .appearance-option) {
+    border-color: var(--panel-border);
+    border-width: var(--appearance-outline-width, 1px);
+    border-radius: var(--appearance-radius);
+  }
+  html[data-appearance] .app-main .card {
+    background: var(--panel) var(--appearance-card-finish, none);
+    box-shadow: var(--appearance-shadow);
+  }
+  html[data-appearance='skeuomorphism'] .app-main .input { box-shadow: var(--appearance-input-shadow); }
+
+  @supports (backdrop-filter: blur(1px)) {
+    @media (prefers-reduced-transparency: no-preference) {
+      html:is([data-appearance='glassmorphism'], [data-appearance='liquid-glass']) .app-main .card,
+      .dev-workspace:is([data-appearance='glassmorphism'], [data-appearance='liquid-glass']) .dev-card,
+      :is([data-appearance-sample='glassmorphism'], [data-appearance-sample='liquid-glass']) .appearance-sample-card {
+        background-color: color-mix(in srgb, var(--appearance-surface) 89%, transparent);
+        backdrop-filter: blur(var(--appearance-blur));
+      }
+    }
+  }
+  html[data-appearance] .app-main .btn-primary {
+    background: var(--appearance-primary);
+    color: var(--appearance-primary-text);
+    border: 1px solid var(--appearance-focus);
+    border-radius: var(--appearance-radius);
+    box-shadow: var(--appearance-shadow);
+  }
+  html[data-appearance] .app-main .btn-secondary {
+    background: var(--appearance-secondary);
+    color: var(--appearance-secondary-text);
+  }
+  html[data-appearance] :is(dialog, [role='dialog']) {
+    background-color: var(--panel);
+    color: var(--text);
+    border-color: var(--panel-border);
+  }
+  html[data-appearance] .app-main :is(table thead, select option, .data-table thead th) { background: var(--panel-soft); color: var(--text); }
+  html[data-appearance] .app-main :is(th, td) { border-color: var(--panel-border); }
+  html[data-appearance] :focus-visible { outline: 2px solid var(--appearance-focus); outline-offset: 2px; }
+  html[data-appearance] .app-sidebar :focus-visible { outline-color: var(--appearance-sidebar-text); }
+  html[data-table-density='compact'] .app-main table :is(th, td) { padding-block: 0.375rem; }
+  html[data-dashboard-density='compact'] .appearance-dashboard .card { padding: 0.75rem; }
+  html[data-dashboard-density='compact'] .appearance-dashboard > .grid { gap: 0.6rem; }
+  html[data-appearance] .appearance-chart-bar { background: var(--appearance-focus); }
+  html[data-appearance] :is(.status-badge--good, .status-badge--bad, .status-badge--default, [data-financial-status]) {
+    --status-color: var(--status-inactive);
+    background: color-mix(in srgb, var(--status-color) 21%, var(--panel));
+    box-shadow: inset 3px 0 var(--status-color);
+    color: var(--text);
+  }
+  html[data-appearance] :is(.status-badge--good, [data-financial-status='paid']) { --status-color: var(--status-paid); }
+  html[data-appearance] :is(.status-badge--bad, [data-financial-status='overdue']) { --status-color: var(--status-overdue); }
+  html[data-appearance] [data-financial-status='pending'] { --status-color: var(--status-pending); }
+  html[data-appearance] [data-financial-status='partial'] { --status-color: var(--status-partial); }
+  html[data-appearance] [data-financial-status='information'] { --status-color: var(--status-info); }
+
+  .appearance-option {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 3.5rem;
+    border: 1px solid var(--panel-border);
+    padding: 0.5rem;
+    cursor: pointer;
+  }
+  .appearance-option:has(input:checked) { outline: 2px solid var(--appearance-focus); outline-offset: -2px; }
+  .appearance-option input { accent-color: var(--appearance-focus); }
+  .appearance-option-name { min-width: 0; overflow-wrap: anywhere; }
+  .appearance-sample {
+    --appearance-radius: 0.65rem;
+    --appearance-shadow: none;
+    --appearance-outline-width: 1px;
+    --appearance-canvas: none;
+    --appearance-card-finish: none;
+    grid-column: span 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+    align-items: stretch;
+    gap: 0.4rem;
+    height: 2.8rem;
+    padding: 0.35rem;
+    background: var(--appearance-bg) var(--appearance-canvas);
+    border: 1px solid var(--appearance-border);
+    border-radius: 0.4rem;
+  }
+  .appearance-sample-sidebar, .appearance-sample-card {
+    border: var(--appearance-outline-width) solid var(--appearance-border);
+    border-radius: min(var(--appearance-radius), 0.65rem);
+  }
+  .appearance-sample-sidebar { background: var(--appearance-sidebar); }
+  .appearance-sample-card {
+    display: grid;
+    align-items: end;
+    padding: 0.28rem;
+    background: var(--appearance-surface) var(--appearance-card-finish);
+    box-shadow: var(--appearance-shadow);
+  }
+  .appearance-sample-card > span {
+    width: 58%;
+    height: 0.35rem;
+    border-radius: min(var(--appearance-radius), 0.2rem);
+    background: var(--appearance-primary);
+  }
+
+  @media (forced-colors: active) {
+    html[data-appearance] .app-main .card, .dev-workspace[data-appearance] .dev-card, .appearance-sample-card { backdrop-filter: none; }
+    .appearance-option:has(input:checked) { outline-color: Highlight; }
+  }
+}

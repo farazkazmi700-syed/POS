@@ -7,7 +7,7 @@ const { randomBytes } = require('node:crypto');
 const requireApi = createRequire(path.resolve('app/api/package.json'));
 const { PostgresInvoiceStore } = requireApi('@pos/invoice-store');
 const { Client } = requireApi('pg');
-const file = path.resolve('storage/postgresql-staging/invoice-databases.json');
+const file = path.resolve(process.env.SPEC_INVOICE_DATABASES_FILE ?? 'storage/postgresql-staging/invoice-databases.json');
 test('PostgreSQL invoice authority, tenant isolation, stale-job protection and least privilege', { skip: !fs.existsSync(file) }, async () => {
   const registry = JSON.parse(fs.readFileSync(file, 'utf8'));
   const [tenant, second] = Object.keys(registry);
@@ -72,7 +72,20 @@ test('PostgreSQL invoice authority, tenant isolation, stale-job protection and l
     if (closeBrowser) await closeBrowser();
     await store.close(); await runtime.end();
     // Delete only this synthetic random test identity from the isolated local target.
-    const admin = new Client({ host: '127.0.0.1', port: 55432, database: new URL(registry[tenant]).pathname.slice(1), user: 'pos_migration', password: fs.readFileSync('storage/postgresql-staging/password', 'utf8').trim() });
+    const database = new URL(registry[tenant]);
+    let cleanupConfig;
+    if (process.env.SPEC_INVOICE_ADMIN_URL) {
+      const adminUrl = new URL(process.env.SPEC_INVOICE_ADMIN_URL);
+      assert.equal(adminUrl.hostname, '127.0.0.1');
+      assert.equal(database.hostname, adminUrl.hostname);
+      assert.equal(database.port, adminUrl.port);
+      assert.match(database.pathname, /^\/pos_invoice_audit_[a-f0-9]+$/);
+      adminUrl.pathname = database.pathname;
+      cleanupConfig = { connectionString: adminUrl.toString() };
+    } else {
+      cleanupConfig = { host: '127.0.0.1', port: 55432, database: database.pathname.slice(1), user: 'pos_migration', password: fs.readFileSync('storage/postgresql-staging/password', 'utf8').trim() };
+    }
+    const admin = new Client(cleanupConfig);
     await admin.connect();
     try { await admin.query('DELETE FROM invoice_store.invoices WHERE tenant_id=$1 AND order_id=$2', [tenant, order]); }
     finally { await admin.end(); }

@@ -8,8 +8,6 @@
 -- All timestamps: TIMESTAMPTZ (UTC stored, timezone-aware).
 -- =============================================================================
 
-BEGIN;
-
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";   -- gen_random_uuid()
 
 -- ---------------------------------------------------------------------------
@@ -499,5 +497,3 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 INSERT INTO schema_migrations(version, description)
 VALUES ('001', 'Initial schema — tenants, users, branches, products, orders, order_items, customers, installments, stock, audit')
 ON CONFLICT (version) DO NOTHING;
-
-COMMIT;

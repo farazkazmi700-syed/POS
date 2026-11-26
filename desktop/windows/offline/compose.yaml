@@ -1,0 +1,43 @@
+name: kazmion-offline
+services:
+  pos:
+    image: ${KAZMION_IMAGE:?Select a packaged POS image}
+    pull_policy: never
+    restart: unless-stopped
+    stop_grace_period: 120s
+    env_file:
+      - path: ${KAZMION_ENV_FILE:?Select the protected POS environment}
+        format: raw
+    environment:
+      APP_ENV: production
+      APP_PORT: "8080"
+      PORT: "3000"
+      PGDATA: /var/lib/postgresql/data/cluster
+      POS_SERVE: "true"
+      STORAGE_DIR: /data/invoices
+    ports:
+      - "127.0.0.1:${KAZMION_PORT:-8080}:8080"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - queue:/data/redis
+      - uploads:/data/invoices
+      - backups:/app/backups
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/pos-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      start_period: 90s
+      retries: 6
+volumes:
+  postgres:
+    name: ${KAZMION_PG_VOLUME:?Select a POS PostgreSQL volume}
+    external: true
+  queue:
+    name: ${KAZMION_QUEUE_VOLUME:?Select a POS queue volume}
+    external: true
+  uploads:
+    name: ${KAZMION_UPLOAD_VOLUME:?Select a POS uploads volume}
+    external: true
+  backups:
+    name: ${KAZMION_BACKUP_VOLUME:?Select a POS backup volume}
+    external: true

@@ -7,12 +7,12 @@ import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../store/auth';
 import { Link } from 'react-router-dom';
 
-const featureKeys: FeatureKey[] = ['pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'];
+const featureKeys: FeatureKey[] = ['dashboard', 'pos', 'inventory', 'reports', 'customers', 'installments', 'barcodes'];
 const featureNames: Record<FeatureKey, string> = {
   'data-sync': 'Data Sync',
   'stock-replenishment': 'Stock Replenishment',
   'collections-forecast': 'Installment Collections Forecast',
-  pos: 'POS', inventory: 'Inventory', reports: 'Reports', customers: 'Customers', installments: 'Installments', barcodes: 'Barcode tools',
+  dashboard: 'Dashboard', pos: 'POS', inventory: 'Inventory', reports: 'Reports', customers: 'Customers', installments: 'Installments', barcodes: 'Barcode tools',
 };
 
 export default function SuperAdmin() {

@@ -45,6 +45,10 @@ tmp/
 
 # Local backups (operational data)
 backups/
+*.kzpos
+*.key
+*.pfx
+*.p12
 
 # Editor config
 .vscode/
@@ -53,3 +57,4 @@ backups/
 
 # Compiled Windows launcher installer
 /desktop/windows/KazmiOn-Launcher/output/
+/desktop/windows/offline/output/

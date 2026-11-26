@@ -47,6 +47,7 @@ async function provision(admin, id) {
     await target.query(`GRANT USAGE ON SCHEMA invoice_store TO "${role}"`);
     await target.query(`GRANT SELECT ON invoice_store.business TO "${role}"`);
     await target.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON invoice_store.invoices TO "${role}"`);
+    await target.query(`GRANT SELECT,INSERT,UPDATE ON invoice_store.business_appearance TO "${role}"`);
     await target.query('COMMIT');
   } finally { await target.end(); }
   const uri = 'postgresql://' + role + ':' + password + '@127.0.0.1:5432/' + db;

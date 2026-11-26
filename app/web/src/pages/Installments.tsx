@@ -161,7 +161,7 @@ export default function Installments() {
                   ) : p.overdueAmount > 0 ? (
                     <Badge tone="bad">Overdue {money(p.overdueAmount)}</Badge>
                   ) : (
-                    <Badge>On track</Badge>
+                    <Badge tone={p.paidTotal > 0 ? 'partial' : 'pending'}>{p.paidTotal > 0 ? 'Partially paid' : 'Pending'}</Badge>
                   )}
                 </td>
                 <td className="td text-right">
@@ -199,7 +199,7 @@ export default function Installments() {
                 ) : p.overdueAmount > 0 ? (
                   <Badge tone="bad">Overdue {money(p.overdueAmount)}</Badge>
                 ) : (
-                  <Badge>On track</Badge>
+                  <Badge tone={p.paidTotal > 0 ? 'partial' : 'pending'}>{p.paidTotal > 0 ? 'Partially paid' : 'Pending'}</Badge>
                 )}
               </div>
             </div>
@@ -309,11 +309,11 @@ function Stat({
   );
 }
 
-function Badge({ children, tone }: { children: React.ReactNode; tone?: 'good' | 'bad' }) {
+function Badge({ children, tone }: { children: React.ReactNode; tone?: 'good' | 'bad' | 'partial' | 'pending' }) {
   const cls = tone === 'bad'
     ? 'status-badge status-badge--bad'
     : tone === 'good'
     ? 'status-badge status-badge--good'
     : 'status-badge status-badge--default';
-  return <span className={cls}>{children}</span>;
+  return <span className={cls} data-financial-status={tone === 'partial' || tone === 'pending' ? tone : undefined}>{children}</span>;
 }

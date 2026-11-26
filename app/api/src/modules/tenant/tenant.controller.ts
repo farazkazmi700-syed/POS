@@ -7,12 +7,28 @@ import { canUpdateSettings } from './settings-access';
 import { Role } from '../../common/enums';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { TenantService } from './tenant.service';
+import { AppearanceDto, AppearanceService } from './appearance.service';
 
 @ApiTags('tenant')
 @ApiBearerAuth()
 @Controller('tenant')
 export class TenantController {
-  constructor(private readonly tenants: TenantService) {}
+  constructor(private readonly tenants: TenantService, private readonly appearance: AppearanceService) {}
+
+  @Get('me/appearance')
+  getAppearance(@CurrentUser() user: AuthUser) {
+    return this.appearance.read(user.tenantId);
+  }
+
+  @Patch('me/appearance')
+  @Roles(Role.Owner)
+  async setAppearance(@CurrentUser() user: AuthUser, @Body() dto: AppearanceDto) {
+    const tenant = await this.tenants.findById(user.tenantId);
+    if (!canUpdateSettings(user, tenant.featureFlags, {})) {
+      throw new ForbiddenException('Your account cannot update business appearance');
+    }
+    return this.appearance.write(user.tenantId, dto);
+  }
 
   @Get('me')
   me(@CurrentUser() user: AuthUser) {

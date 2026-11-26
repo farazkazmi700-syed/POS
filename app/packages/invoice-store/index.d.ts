@@ -9,5 +9,7 @@ export class PostgresInvoiceStore {
   begin(tenant: string, orderId: string): Promise<string>;
   finish(tenant: string, orderId: string, generation: string, status: 'ready' | 'failed', pdfPath?: string | null): Promise<boolean>;
   purge(tenant: string): Promise<void>;
+  readAppearance(tenant: string): Promise<unknown>;
+  writeAppearance<T extends object>(tenant: string, preferences: T): Promise<T>;
   close(): Promise<void>;
 }

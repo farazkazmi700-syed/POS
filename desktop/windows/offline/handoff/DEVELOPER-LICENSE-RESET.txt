@@ -1,0 +1,44 @@
+KAZMION POS 1.0.1 - DEVELOPER LICENCE AND RESET
+Pilot candidate. Account recovery requires a verified delivery channel.
+
+Developer access
+1. On a new installation, sign in through Developer Engine using the configured
+   platform developer email. The initial password setup uses the installation's
+   setup token. The offline launcher generates it in the protected .env under
+   %LOCALAPPDATA%\KazmiOn\OfflinePOS.
+2. Use the token only for the authorized local setup. Keep it and the .env
+   private. Record the developer account owner in your access register. Never
+   include setup tokens, passwords, or JWT secrets in tickets or screenshots.
+
+Business licence
+1. In Developer Engine, open Business Tenants, locate the correct business, and
+   open its details. Confirm the tenant ID independently of its display name.
+2. In the deployment and licence section, set the approved deployment mode,
+   branch limit, and expiry, then choose Save deployment & license. Enter an
+   explicit renewal date to change the existing expiry.
+3. The date picker is saved as an ISO date at 00:00 UTC. At that instant the
+   licence expires. Confirm the corresponding local time before applying it.
+4. Verify that the intended business can sign in after an authorized renewal,
+   or that an intentionally expired pilot business cannot sign in, refresh a
+   session, or open protected business operations. Confirm a second tenant is
+   unaffected. Record the business ID, old and new expiry and approval reference
+   without recording session tokens. Cloud sync stays disabled in V1.
+
+Client password reset
+1. Verify the requester and the target business through your support procedure.
+   In Developer Engine, open the business's client account list, select the
+   correct account, and choose Reset client password.
+2. The account must be active and have a verified email. Select Send reset link.
+   The application sends a single-use link to that verified address, with a
+   15-minute validity window. The account holder chooses the new password.
+3. Verify that the holder can sign in and that prior sessions require sign-in
+   again. A used, expired, or superseded code or link should be rejected.
+   Avoid asking the account holder to forward the link or verification code.
+
+Offline delivery
+Recovery links need a working approved mail relay and a reset URL reachable by
+the recipient. An air-gapped pilot without a mail relay cannot deliver these
+links. Record the unavailable channel and escalate through the approved
+account-recovery process. Tenant licence changes and normal local sign-in can
+operate offline. Do not edit account hashes or expiry fields directly to work
+around access checks.

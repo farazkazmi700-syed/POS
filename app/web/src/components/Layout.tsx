@@ -1,11 +1,13 @@
 import { availablePages } from '../utils/access';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { productApi } from '../api';
 import BranchSwitcher from './BranchSwitcher';
 import ProductFooter from './ProductFooter';
 import { useTenant } from '../hooks/useTenant';
+import { useBusinessAppearance } from '../hooks/useBusinessAppearance';
+import { applyAppearance, cacheAppearance, systemTheme, useAppearanceMode, useAppearancePreview } from '../store/appearance';
 import ThemeToggle from './ThemeToggle';
 import { urduClass } from '../utils/urdu';
 import { useCart } from '../store/cart';
@@ -32,6 +34,27 @@ import {
 export default function Layout() {
   const { user, logout } = useAuth();
   const { tenant } = useTenant();
+  const { appearance, tenantId, query: appearanceQuery } = useBusinessAppearance();
+  const draft = useAppearancePreview((state) => state.draft);
+  const appearanceMode = useAppearanceMode((state) => state.mode);
+  useLayoutEffect(() => {
+    if (!tenantId) return;
+    const activeAppearance = draft ?? appearance;
+    const render = () => applyAppearance(activeAppearance, draft ? null : appearanceMode);
+    render();
+    systemTheme.addEventListener('change', render);
+    return () => systemTheme.removeEventListener('change', render);
+  }, [tenantId, appearance, draft, appearanceMode]);
+  useLayoutEffect(() => {
+    if (tenantId && appearanceQuery.data) cacheAppearance(tenantId, appearanceQuery.data);
+  }, [tenantId, appearanceQuery.data]);
+  useLayoutEffect(() => () => {
+    delete document.documentElement.dataset.appearance;
+    delete document.documentElement.dataset.dashboardDensity;
+    delete document.documentElement.dataset.tableDensity;
+    useAppearanceMode.setState({ mode: null });
+    useAppearancePreview.setState({ draft: null });
+  }, [tenantId]);
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -94,7 +117,7 @@ export default function Layout() {
     refetchInterval: 60_000,
   });
   const visibleStockAlerts = stockAlerts.data?.data.filter((product) => !dismissedStockAlertIds.has(product._id)) ?? [];
-  const activeLogoUrl = tenant?.logoUrl || '/kazmion-logo.jpg';
+  const activeLogoUrl = (draft ?? appearance).logo || tenant?.logoUrl || '/kazmion-logo.jpg';
 
   useEffect(() => {
     const activeIds = new Set(stockAlerts.data?.data.map((product) => product._id) ?? []);
@@ -435,7 +458,7 @@ export default function Layout() {
                 </div>
               )}
 
-              {links.some((item) => item.key === 'dashboard') && (
+              {isManager && (user?.moduleRights === undefined || user.moduleRights.includes('dashboard')) && tenant?.featureFlags?.reports !== false && (
                 <NavLink
                   to="/reports"
                   aria-label="Reports"
@@ -512,7 +535,7 @@ export default function Layout() {
             <span>Orders</span>
           </NavLink>
 
-          {isManager && (
+          {links.some((item) => item.key === 'dashboard') && (
             <NavLink
               to="/dashboard"
               className={({ isActive }) =>

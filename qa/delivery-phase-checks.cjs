@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { randomUUID, createHash } = require('node:crypto');
+const { randomUUID } = require('node:crypto');
 
 module.exports = async function deliveryChecks({ request, check, owner, cashier, otherOwner, developer, database, tenants, mongoose, uri, rawFetch }) {
   await check('business packages reject mismatched tenants and scope provisioned administrator grants', async () => {
@@ -56,7 +56,7 @@ module.exports = async function deliveryChecks({ request, check, owner, cashier,
     assert.equal((await request('/support/backup/sync', cashier, {})).status, 403);
     assert.equal((await request('/support/backup/sync', owner, {})).status, 403);
     const policy = await request('/support', owner);
-    assert.deepEqual(policy.data.backup.sync, { entitled: false, configured: false });
+    assert.deepEqual(policy.data.backup.sync, { entitled: false, configured: false, lastSyncedAt: null });
     assert.equal((await request(`/developer/businesses/${tenants[0]._id}/features`, developer,
       { featureFlags: { 'data-sync': true } }, 'PATCH')).status, 200);
     assert.equal((await request('/support/backup/sync', owner, {})).status, 403);
@@ -64,7 +64,7 @@ module.exports = async function deliveryChecks({ request, check, owner, cashier,
     assert.equal((await request('/support/backup/sync', owner, {})).status, 503);
     await database.collection('tenants').updateOne({ _id: tenants[0]._id },
       { $unset: { deploymentMode: 1, 'featureFlags.data-sync': 1 } });
-    // The v2 export endpoint streams a ZIP (application/zip), not JSON — fetch raw bytes.
+    // Download the workbook archive as raw ZIP bytes.
     await database.collection('users').updateOne(
       { tenantId: tenants[0]._id, role: 'owner' },
       { $set: { futureAuthSecret: 'test-only-excluded-field', recoveryEmail: 'recovery-only@spec.test' } },
@@ -80,28 +80,7 @@ module.exports = async function deliveryChecks({ request, check, owner, cashier,
     assert.ok(audit, 'Export was not audited');
     assert.match(download.headers.get('content-type') || '', /application\/zip/);
     const zipBytes = new Uint8Array(await download.arrayBuffer());
-    const { unzipSync, strFromU8 } = require('../app/api/node_modules/fflate');
-    const files = unzipSync(zipBytes);
-    assert.ok(files['manifest.json'], 'manifest.json missing from export');
-    const manifest = JSON.parse(strFromU8(files['manifest.json']));
-    assert.equal(manifest.tenantId, String(tenants[0]._id));
-    assert.equal(manifest.format, 'kazmion-business-export-v2'); assert.equal(manifest.includesCredentials, false);
-    const jsonFiles = Object.entries(files).filter(([name]) => name.endsWith('.json') && name !== 'manifest.json');
-    assert.ok(jsonFiles.length > 0, 'export contains no collection files');
-    let totalRows = 0;
-    for (const [name, bytes] of jsonFiles) {
-      const rows = JSON.parse(strFromU8(bytes), (key, value) => (value && typeof value === 'object' && typeof value.$oid === 'string' && Object.keys(value).length === 1) ? value.$oid : value);
-      totalRows += rows.length;
-      const declared = manifest.files.find((f) => f.name === name);
-      assert.ok(declared, `${name} missing from manifest`);
-      assert.equal(declared.bytes, bytes.length);
-      assert.equal(declared.sha256, createHash('sha256').update(bytes).digest('hex'));
-      const collection = name.replace(/\.json$/, '');
-      for (const row of rows) assert.equal(String(collection === 'tenants' ? String(row._id) : String(row.tenantId)), String(tenants[0]._id), `${name}: ${JSON.stringify(row).slice(0, 200)}`);
-    }
-    assert.equal(totalRows, manifest.totalRecords);
-    const combined = Object.values(files).map((b) => strFromU8(b)).join('\n');
-    assert.ok(!/passwordHash|pinHash|refreshToken|recoverychallenges|futureAuthSecret|recovery-only@spec.test/.test(combined), 'export leaks credential fields');
+    await require('./backup-workbooks.cjs').verifyBackup(zipBytes, String(tenants[0]._id));
   });
 
   await check('independent installment payments prevent overpayment, races, replay changes and tenant IDOR', async () => {

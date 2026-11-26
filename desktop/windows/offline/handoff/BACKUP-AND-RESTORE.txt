@@ -1,0 +1,51 @@
+KAZMION POS 1.0.1 - BACKUP, RESTORE AND KEY RECOVERY
+Pilot candidate. Run restore on an isolated instance before a cutover.
+
+Choose the backup
+- Business Backup offers an on-demand ZIP containing JSON, Excel, or both.
+  It contains tenant export data and checksums. Keep it in restricted storage.
+- Use the encrypted cold backup for full installation recovery. It captures the
+  PostgreSQL cluster, Redis queue, uploads, and invoice PDFs. Keep a separately
+  protected copy of the deployment configuration, state.json, and compatible
+  Docker image. Business export ZIPs omit credentials and uploaded files.
+
+Prepare the operator workstation
+Use pos-encrypted-backup.cjs from the candidate media on a Windows operator
+workstation with Node.js 24 and access to the local Docker engine. Stage the
+approved Node.js offline media separately for this maintenance workstation.
+Use an offline backup drive for archives and a separate protected location for
+the encryption key. Restrict Windows ACLs on both. Keep a second key copy offline.
+Record which archive uses which key and preserve the ciphertext's SHA-256
+in a trusted inventory. Losing the key makes its archive unrecoverable.
+
+Example PowerShell commands from the candidate media directory
+1. Identify the intended container and original named volumes from state.json.
+   The default offline container is kazmion-offline-pos-1. Confirm the name
+   before running maintenance. Schedule downtime and stop POS work first.
+2. Generate a key once for this backup set using an existing restricted directory.
+   node .\pos-encrypted-backup.cjs keygen E:\POS-Keys\archive.key
+3. Stop cleanly and create an archive with a new filename.
+   docker stop -t 120 kazmion-offline-pos-1
+   node .\pos-encrypted-backup.cjs backup kazmion-offline-pos-1 F:\POS-Archives\snapshot.kzpos E:\POS-Keys\archive.key
+4. Confirm success before using the backup. Restart POS.
+   docker start kazmion-offline-pos-1
+   Confirm the API and the POS page work and record the archive's checksum.
+   If backup fails, restart the original container and investigate before retrying.
+
+Isolated restore rehearsal
+1. Ensure the original image ID is available locally and retrieve the
+   corresponding recovery key. Use a fresh restore volume prefix.
+   node .\pos-encrypted-backup.cjs restore F:\POS-Archives\snapshot.kzpos E:\POS-Keys\archive.key pos-restore-pilot
+2. Restore authenticates the archive before creating the replacement volumes.
+   It returns the image ID and the new pgdata, queue and uploads volume names.
+   A wrong key or changed archive must fail. Existing volumes remain untouched.
+3. Have the operator start a separate container using that exact image, a
+   spare loopback port and the returned volumes. Mount pgdata at
+   /var/lib/postgresql/data, queue at /data/redis and uploads at /data/invoices.
+   Use a protected copy of the deployment settings with fresh JWT secrets and
+   matching local recovery URL. Keep the regular installation offline from
+   the rehearsal and keep original volumes available for rollback.
+4. Reconcile the last committed sale, stock, customers, installment balances,
+   invoice counters and invoice PDFs. Check logins and access restrictions.
+   Record totals and checksums as evidence. An operator-led cutover is a
+   separate action requiring approval.

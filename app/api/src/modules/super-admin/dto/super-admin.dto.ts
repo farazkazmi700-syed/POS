@@ -7,6 +7,7 @@ import {
 import { DomainType } from '../../../common/enums';
 
 export class FeatureFlagsDto {
+  @IsOptional() @IsBoolean() dashboard?: boolean;
   @IsOptional() @IsBoolean() pos?: boolean;
   @IsOptional() @IsBoolean() inventory?: boolean;
   @IsOptional() @IsBoolean() reports?: boolean;
@@ -20,6 +21,7 @@ export class FeatureFlagsDto {
 }
 
 export class PlanFeaturesDto {
+  @IsOptional() @IsBoolean() dashboard?: boolean;
   @IsBoolean() pos: boolean;
   @IsBoolean() inventory: boolean;
   @IsBoolean() reports: boolean;

@@ -1,7 +1,5 @@
-import { Res, BadGatewayException, ConflictException, Controller, ForbiddenException, Get, Header, Module, NotFoundException, PayloadTooLargeException, Post, ServiceUnavailableException, StreamableFile } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Res, BadRequestException, Controller, ForbiddenException, Get, Header, Module, NotFoundException, PayloadTooLargeException, Post, Query, ServiceUnavailableException, StreamableFile } from '@nestjs/common';
 import type { Response } from 'express';
-import { dataSyncDestination } from './data-sync-destination';
 import { RequiresFeature } from '../../common/decorators/feature.decorator';
 import { SuperAdminModule } from '../super-admin/super-admin.module';
 import { ModuleRegistryService } from '../super-admin/module-registry.service';
@@ -13,6 +11,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthUser } from '../../common/auth-user';
 import { permittedActions } from '../../common/action-permissions';
 import { AuditService } from '../audit/audit.module';
+import { backupWorkbook } from './backup-workbook';
 
 /** All tenant-scoped collections included in a business backup ZIP. */
 export const BUSINESS_BACKUP_COLLECTIONS = [
@@ -21,7 +20,8 @@ export const BUSINESS_BACKUP_COLLECTIONS = [
   'stockadjustments', 'auditevents', 'users', 'checkoutrequests',
 ] as const;
 
-const EXPORT_FORMAT = 'kazmion-business-export-v2';
+const EXPORT_FORMATS = { json: 'JSON in a ZIP', excel: 'Excel workbooks (.xlsx) in a ZIP', both: 'JSON and Excel workbooks in a ZIP' } as const;
+type ExportFormat = keyof typeof EXPORT_FORMATS;
 const COLLECTION_ROW_LIMIT = 50_000;
 const UNCOMPRESSED_LIMIT = 100 * 1024 * 1024;
 const ZIP_LIMIT = 50 * 1024 * 1024;
@@ -35,12 +35,9 @@ const USER_EXPORT_FIELDS = {
 
 @Controller('support')
 export class SupportController {
-  private syncInProgress = false;
-
   constructor(
     @InjectConnection() private readonly connection: Connection,
     private readonly audit: AuditService,
-    private readonly config: ConfigService,
     private readonly registry: ModuleRegistryService,
   ) {}
 
@@ -60,55 +57,21 @@ export class SupportController {
   @Header('Cache-Control', 'no-store')
   async sync(@CurrentUser() user: AuthUser) {
     if (!(await this.syncEntitled(user))) throw new ForbiddenException('Cloud sync is unavailable for this business.');
-    const destination = dataSyncDestination(this.config, user.tenantId);
-    if (!destination) throw new ServiceUnavailableException('Ask your operator to configure the cloud destination.');
-    if (this.syncInProgress) throw new ConflictException('A business sync is already in progress.');
-    this.syncInProgress = true;
-    try {
-      const { bytes } = await this.createArchive(user);
-      const sha256 = createHash('sha256').update(bytes).digest('hex');
-      try {
-        const response = await fetch(destination.url, {
-          method: 'POST', redirect: 'error', signal: AbortSignal.timeout(90_000),
-          headers: {
-            Authorization: `Bearer ${destination.token}`,
-            'Content-Type': 'application/zip',
-            'X-Business-Id': user.tenantId,
-            'X-Snapshot-SHA256': sha256,
-          },
-          body: new Uint8Array(bytes),
-        });
-        await response.body?.cancel();
-        if (response.status !== 201 || response.headers.get('X-Snapshot-SHA256') !== sha256) {
-          throw new Error('Upload integrity not confirmed');
-        }
-      } catch {
-        throw new BadGatewayException('The cloud destination did not confirm the upload. Try again.');
-      }
-      const syncedAt = new Date().toISOString();
-      await this.audit.record(user, 'backup.synced', 'support/backup/sync', { syncedAt, zipBytes: bytes.length, sha256 });
-      return { syncedAt };
-    } finally {
-      this.syncInProgress = false;
-    }
+    throw new ServiceUnavailableException('Cloud synchronization is disabled in V1. Download a local backup instead.');
   }
 
   @Get()
   @Header('Cache-Control', 'no-store')
   async information(@CurrentUser() user: AuthUser) {
     const entitled = await this.syncEntitled(user);
-    const configured = entitled && !!dataSyncDestination(this.config, user.tenantId);
-    const lastSync = configured ? await this.connection.db!.collection('auditevents').findOne(
-      { tenantId: new Types.ObjectId(user.tenantId), action: 'backup.synced' },
-      { sort: { createdAt: -1 }, projection: { 'details.syncedAt': 1 } },
-    ) : null;
+
     return { help: { email: 'info.kazmion@gmail.com', recoveryUrl: '/recover',
       channels: { email: true, whatsapp: false },
       codeExpiryMinutes: 10, maxAttempts: 5, cooldownSeconds: 60 },
       entitlements: { help: true, backup: true },
-      backup: { canExport: permittedActions(user).includes('backup.export'), format: EXPORT_FORMAT,
+      backup: { canExport: permittedActions(user).includes('backup.export'), format: 'JSON, Excel, or both in a ZIP',
         consistentSnapshot: false, includesCredentials: false, includesFiles: false,
-        sync: { entitled, configured, lastSyncedAt: lastSync?.details?.syncedAt ?? null },
+        sync: { entitled, configured: false, lastSyncedAt: null },
         delivery: { mode: 'offline', emailLimitBytes: 15 * 1024 * 1024, driveLimitBytes: 5 * 1024 * 1024 },
         included: ['tenants', ...BUSINESS_BACKUP_COLLECTIONS],
         excluded: ['credentials', 'authentication challenges', 'sessions', 'redis jobs', 'external files'] },
@@ -118,10 +81,17 @@ export class SupportController {
   /** Download a ZIP backup of all business records (tenant-scoped). */
   @Get('backup')
   @Header('Cache-Control', 'no-store')
-  async backup(@CurrentUser() user: AuthUser, @Res({ passthrough: true }) response: Response): Promise<StreamableFile> {
-    const { bytes, filename, manifest } = await this.createArchive(user);
+  async backup(
+    @CurrentUser() user: AuthUser,
+    @Res({ passthrough: true }) response: Response,
+    @Query('format') format = 'excel',
+  ): Promise<StreamableFile> {
+    if (format !== 'json' && format !== 'excel' && format !== 'both') {
+      throw new BadRequestException('Choose json, excel, or both for the backup format.');
+    }
+    const { bytes, filename, manifest } = await this.createArchive(user, format);
     await this.audit.record(user, 'backup.exported', 'support/backup', {
-      format: EXPORT_FORMAT, collections: manifest.files.length,
+      format: manifest.format, collections: Object.keys(manifest.counts).length,
       totalRecords: manifest.totalRecords, zipBytes: bytes.length,
     });
     response.setHeader('X-Snapshot-SHA256', createHash('sha256').update(bytes).digest('hex'));
@@ -131,7 +101,9 @@ export class SupportController {
     });
   }
 
-  private async createArchive(user: AuthUser) {
+  private async createArchive(user: AuthUser, format: ExportFormat) {
+    const includeExcel = format === 'excel' || format === 'both';
+    const includeJson = format !== 'excel';
     const db = this.connection.db!;
     const tenantId = new Types.ObjectId(user.tenantId);
     const allCollections = ['tenants', ...BUSINESS_BACKUP_COLLECTIONS] as const;
@@ -163,15 +135,20 @@ export class SupportController {
         if (!cursor.closed) await cursor.close();
       }
       if (name === 'tenants' && records.length === 0) throw new NotFoundException('Business not found');
-      files[`${name}.json`] = strToU8(records.length ? `[\n${records.join(',\n')}\n]\n` : '[]\n');
+      if (includeExcel) {
+        files[`${name}.xlsx`] = await backupWorkbook(name, records.map((record) => JSON.parse(record)));
+      }
+      if (includeJson) {
+        files[`${name}.json`] = strToU8(records.length ? `[\n${records.join(',\n')}\n]\n` : '[]\n');
+      }
       counts[name] = records.length;
     }
 
     const exportedAt = new Date().toISOString();
     // Build manifest with metadata + checksums
     const manifest = {
-      format: EXPORT_FORMAT,
-      version: 2,
+      format: EXPORT_FORMATS[format],
+      version: 3,
       generator: 'KazmiOn POS',
       exportedAt,
       tenantId: tenantId.toString(),
@@ -185,17 +162,17 @@ export class SupportController {
         sha256: createHash('sha256').update(bytes).digest('hex'),
       })),
     };
-    files['manifest.json'] = strToU8(JSON.stringify(manifest, null, 2));
-    files['README.txt'] = strToU8([
-      'KazmiOn POS business export',
-      '',
-      'This ZIP contains tenant-scoped business records and a manifest with record counts and SHA-256 checksums.',
-      'Account records include business contact and access assignments. Credentials, recovery data and sessions are excluded.',
-      'Uploaded files, invoice PDFs and background jobs are maintained separately.',
-      'Records are read across collections while the business is operating. Export during a quiet period for fewer concurrent changes.',
-      'Keep native database and file backups for full recovery. Store this ZIP on encrypted storage with access restricted to authorized staff.',
-      '',
-    ].join('\n'));
+    if (includeExcel) {
+      files['manifest.xlsx'] = await backupWorkbook('manifest', manifest.files.map((file) => ({
+        fileName: file.name, recordCount: counts[file.name.split('.')[0]], byteCount: file.bytes,
+        sha256: file.sha256, tenantId: manifest.tenantId, businessName: manifest.businessName,
+        exportedAt: manifest.exportedAt, formatVersion: manifest.version,
+      })));
+    }
+    if (includeJson) {
+      files['manifest.json'] = strToU8(JSON.stringify(manifest, null, 2));
+    }
+
 
     // Compress into ZIP
     const zipBytes = await new Promise<Uint8Array>((resolve, reject) =>

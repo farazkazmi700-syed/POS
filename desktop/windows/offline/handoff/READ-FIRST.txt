@@ -1,0 +1,20 @@
+KAZMION POS OFFLINE 1.0.1 - RELEASE CANDIDATE
+Status: HOLD. Local handoff for verification and a controlled pilot only.
+No production rollout, publication, or approval has been recorded.
+
+Keep the setup EXE and companion BIN together. SHA256SUMS.txt covers the
+installer media and these guides. Verify it against a trusted copy supplied by
+the release owner. A checksum verifies file contents. This candidate is unsigned.
+Run this PowerShell command from the media directory.
+  Get-FileHash -Algorithm SHA256 .\KazmiOn-POS-Offline-1.0.1.exe, .\KazmiOn-POS-Offline-1.0.1-1.bin
+
+Read in order
+  INSTALL-AND-UPGRADE.txt       Host prerequisites, first launch, upgrades
+  DEVELOPER-LICENSE-RESET.txt   Tenant licences and verified client resets
+  BACKUP-AND-RESTORE.txt       Encrypted archive, key recovery and rehearsal
+  RELEASE-NOTES.txt           Scope, provenance and test evidence
+  PILOT-AND-RELEASE-GATES.txt  Acceptance checklist and required approvals
+
+The POS bundle contains the Linux x64 application image. Obtain the approved
+Docker Desktop and Microsoft WSL offline installation media separately. Keep
+this candidate out of customer distribution until the release gates are signed.

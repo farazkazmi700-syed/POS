@@ -1,8 +1,9 @@
 name: CI
 on:
-  push: { branches: [main, dev] }
+  push: { branches: [main, dev, 'release/**'] }
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -12,6 +13,18 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  repository:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { fetch-depth: 2, persist-credentials: false }
+      - name: Check patch whitespace and shell syntax
+        run: |
+          git diff --check HEAD^ HEAD
+          bash -n .github/scripts/setup-node.sh
+          for file in docker/*.sh docker/postgres/*.sh; do sh -n "$file"; done
+
   api:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -24,25 +37,45 @@ jobs:
         image: redis:7-alpine
         ports: ['6379:6379']
         options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 6
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-fixture-only
+          POSTGRES_DB: pos_appearance_test
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U postgres -d pos_appearance_test" --health-interval 5s --health-timeout 3s --health-retries 6
     defaults: { run: { working-directory: app/api } }
     steps:
-      - name: Check out workflow commit
-        working-directory: .
-        run: |
-          git init --quiet
-          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
-          git checkout --quiet --detach FETCH_HEAD
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
       - name: Set up Node.js
         working-directory: .
         run: bash .github/scripts/setup-node.sh
       - run: npm ci
-      - run: npm test
+      - run: npm test -- --runInBand
       - run: npm run build
-      - run: node --test qa/backup-delivery.test.cjs
+      - name: Run standalone regression tests
+        run: node --test qa/backup-delivery.test.cjs qa/installment-invoice-view.test.cjs qa/invoice-snapshot.test.cjs qa/tenant-trash.test.cjs
         working-directory: .
-      - run: node ../../qa/api-integration.cjs
+      - name: Run live API regression tests
+        run: |
+          node ../../qa/api-integration.cjs
+          node ../../qa/api-integration.cjs --branches
+          node ../../qa/api-integration.cjs --backup
+          node ../../qa/api-integration.cjs --appearance
         env:
           PASSWORD_RESET_BASE_URL: http://localhost:5173/reset-password
+          SPEC_APPEARANCE_POSTGRES_URL: postgres://postgres:ci-fixture-only@127.0.0.1:5432/pos_appearance_test
+      - name: Rehearse PostgreSQL sync migration and export
+        working-directory: .
+        env:
+          POSTGRES_SERVICE: ${{ job.services.postgres.id }}
+          SPEC_SYNC_POSTGRES_URL: postgres://postgres:ci-fixture-only@127.0.0.1:5432/pos_sync_rehearsal
+        run: |
+          docker exec "$POSTGRES_SERVICE" createdb -U postgres pos_sync_rehearsal
+          npm ci --prefix deploy/scripts/migration
+          node --test qa/sync-v2-postgres.test.cjs
 
   pdf-worker:
     runs-on: ubuntu-latest
@@ -50,12 +83,8 @@ jobs:
     defaults: { run: { working-directory: app/pdf-worker } }
     env: { PUPPETEER_SKIP_DOWNLOAD: "true" }
     steps:
-      - name: Check out workflow commit
-        working-directory: .
-        run: |
-          git init --quiet
-          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
-          git checkout --quiet --detach FETCH_HEAD
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
       - name: Set up Node.js
         working-directory: .
         run: bash .github/scripts/setup-node.sh
@@ -79,12 +108,8 @@ jobs:
     env:
       POS_E2E_START_API: '1'
     steps:
-      - name: Check out workflow commit
-        working-directory: .
-        run: |
-          git init --quiet
-          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
-          git checkout --quiet --detach FETCH_HEAD
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
       - name: Set up Node.js
         working-directory: .
         run: bash .github/scripts/setup-node.sh
@@ -103,73 +128,18 @@ jobs:
         working-directory: .
 
   docker:
-    needs: [api, pdf-worker, web]
+    needs: [repository, api, pdf-worker, web]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
-      - name: Check out workflow commit
-        working-directory: .
-        run: |
-          git init --quiet
-          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
-          git checkout --quiet --detach FETCH_HEAD
-      - run: docker build -f docker/Dockerfile -t kazmion/pos:ci .
-      - name: Smoke test packaged application
-        shell: bash
-        run: |
-          docker run -d --name pos-ci -p 127.0.0.1:8080:8080 \
-            -e CORS_ORIGIN=http://localhost:8080 \
-            -e PASSWORD_RESET_BASE_URL=http://localhost:8080/reset-password \
-            -e JWT_ACCESS_SECRET="$(openssl rand -hex 32)" \
-            -e JWT_REFRESH_SECRET="$(openssl rand -hex 32)" \
-            -e PLATFORM_DEVELOPER_SETUP_TOKEN="$(openssl rand -hex 32)" \
-            kazmion/pos:ci
-          curl --fail --silent --show-error --retry 60 --retry-all-errors --retry-delay 2 --max-time 5 http://127.0.0.1:8080/api/health
-          curl --fail --silent --show-error --output /dev/null http://127.0.0.1:8080/login
-          curl --fail --silent --show-error --head http://127.0.0.1:8080/kazmion-store-banner.jpg | grep -i '^content-type: image/jpeg'
-      - name: Print container logs on failure
-        if: failure()
-        run: docker logs pos-ci
-      - name: Remove smoke-test container
-        if: always()
-        run: |
-          if docker container inspect pos-ci >/dev/null 2>&1; then
-            docker rm -fv pos-ci
-          fi
-
-  publish-image:
-    needs: [docker]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.PUBLISH_CONTAINER_IMAGE == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Check out workflow commit
-        working-directory: .
-        run: |
-          git init --quiet
-          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
-          git checkout --quiet --detach FETCH_HEAD
-      - name: Build release image
-        run: docker build -f docker/Dockerfile -t kazmion/pos:release .
-      - name: Publish commit-tagged image to GHCR
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
+      - run: bash .github/scripts/setup-node.sh
+      - run: npm ci
+      - run: npx --no-install playwright install --with-deps chromium
+      - run: docker build --platform linux/amd64 -f docker/Dockerfile -t kazmion/pos:ci .
+      - run: node qa/smoke-container.cjs kazmion/pos:ci
+      - name: Rehearse LAN access, sale recovery and encrypted restore
         env:
-          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          image="ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_SHA}"
-          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker tag kazmion/pos:release "$image"
-          docker push "$image"
-
-  deploy-pages:
-    needs: [docker]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEPLOY_CLOUDFLARE_PAGES == 'true'
-    permissions:
-      contents: read
-      deployments: write
-    uses: ./.github/workflows/deploy-cloudflare.yml
-    secrets:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SPEC_LAN_POS_IMAGE: kazmion/pos:ci
+        run: node --test qa/lan-protection.test.cjs

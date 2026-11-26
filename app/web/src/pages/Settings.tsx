@@ -6,6 +6,7 @@ import LogoBrandingManager from '../components/LogoBrandingManager';
 import PageHeading from '../components/PageHeading';
 import TaxSettings from '../components/TaxSettings';
 import OperationsSettings from '../components/OperationsSettings';
+import AppearanceSettings from '../components/AppearanceSettings';
 import { authApi, branchApi, tenantApi } from '../api';
 import { useTenant } from '../hooks/useTenant';
 import { useAuth } from '../store/auth';
@@ -22,12 +23,14 @@ export default function Settings() {
   const pages = authUser && tenant ? availablePages(authUser, tenant) : [];
   const can = (action: string) => canManageSetting(authUser, action);
   const business = can('tax.configure');
+  const canSetAppearance = business && authUser?.role === 'owner';
   const invoices = business && pages.some((page) => page.key === 'pos' || page.key === 'orders');
   const installments = business && can('installments.write') && pages.some((page) => page.key === 'installments');
   const staffAccess = can('users.read') || can('users.invite');
   const sections = [
     { id: 'navigation', label: 'Navigation', visible: business },
     { id: 'business', label: 'Business details', visible: business },
+    { id: 'appearance', label: 'Appearance', visible: canSetAppearance },
     { id: 'installments', label: 'Installments', visible: installments },
     { id: 'account', label: 'Admin account', visible: true },
     { id: 'taxes', label: 'Tax and service charges', visible: invoices },
@@ -305,6 +308,7 @@ export default function Settings() {
         </div>}
           </form>
 
+          {canSetAppearance && <AppearanceSettings key={authUser?.tenantId} />}
           {invoices && tenant?.taxProfile && <TaxSettings key={tenant._id} profile={tenant.taxProfile} currency={tenant.currency} />}
           {staffAccess ? <div id="staff" className="scroll-mt-28"><StaffSection /></div> : null}
           {(can('branches.read') || can('branches.write') || can('audit.read')) && <OperationsSettings readBranches={can('branches.read')} writeBranches={can('branches.write')} readAudit={can('audit.read')} />}

@@ -31,7 +31,11 @@ if (startApi) {
 }
 
 module.exports = {
-  testDir: '.', testMatch: ['design-smoke.spec.cjs', 'sign-in.spec.cjs', 'barcodes.spec.cjs', 'recovery.spec.cjs'],
+  testDir: '.',
+  testMatch: [
+    'design-smoke.spec.cjs', 'appearance.spec.cjs', 'sign-in.spec.cjs', 'barcodes.spec.cjs',
+    'recovery.spec.cjs', 'developer-ui.spec.cjs', 'delivery-ui.spec.cjs',
+  ],
   outputDir: 'artifacts/browser', timeout: 45000, workers: 3, fullyParallel: true,
   reporter: [['list']],
   use: { baseURL: 'http://localhost:5173', channel: process.env.CI ? undefined : 'msedge', headless: true, screenshot: 'only-on-failure' },

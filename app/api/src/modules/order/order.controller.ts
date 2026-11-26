@@ -36,7 +36,7 @@ export class OrderController {
   // must be declared before ':id'
   @Get('stats/summary')
   @Roles(Role.Owner, Role.Admin)
-  @RequiresFeature('reports')
+  @RequiresFeature(['dashboard', 'reports'])
   summary(@CurrentUser() user: AuthUser, @Query() q: SummaryQueryDto) {
     return this.orders.summary(user.tenantId, q.days);
   }

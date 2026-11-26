@@ -48,6 +48,11 @@ for (const width of [390, 1440]) {
       await page.getByRole('button', { name: 'Print preview / PDF', exact: true }).click();
       const dialog = page.getByRole('dialog', { name: 'Installment print preview' });
       await expect(dialog).toBeVisible();
+      const fonts = await page.evaluate(async () => Promise.all([
+        document.fonts.load('14px "Invoice Latin"'),
+        document.fonts.load('14px "Invoice Urdu"', 'رقم'),
+      ]).then(loaded => loaded.map(list => list.some(font => font.status === 'loaded'))));
+      expect(fonts).toEqual([true, true]);
       await expect(dialog.getByRole('heading', { name: 'Full payment schedule' })).toBeVisible();
       await expect(dialog.getByText('RCPT-1')).toBeVisible();
       await page.emulateMedia({ media: 'print' });
@@ -102,9 +107,10 @@ test('owner can recover from an export limit and download a verified ZIP', async
   await setup(page, [], true, owner);
   const zip = Buffer.from('504b0506000000000000000000000000000000000000', 'hex');
   const checksum = require('node:crypto').createHash('sha256').update(zip).digest('hex');
-  let attempts = 0;
-  await page.route('**/api/support/backup', async (route) => {
-    attempts++;
+  const formats = [];
+  await page.route(/\/api\/support\/backup\?/, async (route) => {
+    formats.push(new URL(route.request().url()).searchParams.get('format'));
+    const attempts = formats.length;
     if (attempts === 1) return route.fulfill({ status: 413, json: { message: 'Use a native backup for this business.' } });
     return route.fulfill({
       body: zip,
@@ -117,12 +123,17 @@ test('owner can recover from an export limit and download a verified ZIP', async
   });
   await page.goto('/backup');
   const button = page.getByRole('button', { name: 'Download Business Backup (ZIP)' });
+  const format = page.getByLabel('Export format');
+  await format.selectOption('json');
+  expect(formats).toEqual([]);
   await button.click();
   await expect(page.getByRole('alert')).toHaveText('Use a native backup for this business.');
+  await format.selectOption('both');
   await button.click();
   await expect(page.getByRole('alert')).toHaveText('The ZIP failed its integrity check. Try downloading it again.');
   const downloaded = page.waitForEvent('download');
   await button.click();
   expect((await downloaded).suggestedFilename()).toBe('business.zip');
+  expect(formats).toEqual(['json', 'both', 'both']);
   await expect(page.getByText('ZIP download started')).toBeVisible();
 });

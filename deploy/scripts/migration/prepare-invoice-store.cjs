@@ -59,6 +59,7 @@ async function main() {
         await target.query(`GRANT USAGE ON SCHEMA invoice_store TO "${role}"`);
         await target.query(`GRANT SELECT ON invoice_store.business TO "${role}"`);
         await target.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON invoice_store.invoices TO "${role}"`);
+        await target.query(`GRANT SELECT,INSERT,UPDATE ON invoice_store.business_appearance TO "${role}"`);
         await target.query('COMMIT');
       } catch (error) { await target.query('ROLLBACK').catch(() => {}); throw error; }
       finally { await source.end(); await target.end(); }

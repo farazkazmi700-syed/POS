@@ -18,7 +18,7 @@ export const MODULE_RIGHTS: { key: ModuleRightKey; label: string }[] = [
 export const MODULE_RIGHT_KEYS: ModuleRightKey[] = MODULE_RIGHTS.map((r) => r.key);
 export const OPT_IN_FEATURES = ['data-sync', 'stock-replenishment', 'collections-forecast'] as const;
 type OptInFeature = (typeof OPT_IN_FEATURES)[number];
-export type FeatureKey = 'pos' | 'inventory' | 'reports' | 'customers' | 'installments' | 'barcodes' | OptInFeature;
+export type FeatureKey = 'dashboard' | 'pos' | 'inventory' | 'reports' | 'customers' | 'installments' | 'barcodes' | OptInFeature;
 export type FeatureFlags = Record<Exclude<FeatureKey, OptInFeature>, boolean> & Partial<Record<OptInFeature, boolean>>;
 
 export function isOptInFeature(feature: FeatureKey): boolean {
@@ -46,7 +46,7 @@ export interface TaxProfile {
 }
 
 export const TENANT_NAVIGATION_ITEMS = [
-  { key: 'dashboard', to: '/dashboard', label: 'Dashboard', managerOnly: true, feature: 'reports' },
+  { key: 'dashboard', to: '/dashboard', label: 'Dashboard', managerOnly: true, feature: 'dashboard' },
   { key: 'pos', to: '/pos', label: 'POS', managerOnly: false, feature: 'pos' },
   { key: 'products', to: '/products', label: 'Products', managerOnly: true, feature: 'inventory' },
   { key: 'customers', to: '/customers', label: 'Customers', managerOnly: false, feature: 'customers' },
@@ -425,14 +425,59 @@ export interface Order {
   createdAt: string;
 }
 
+export interface DashboardForecastPoint {
+  date: string;
+  predictedRevenue: number;
+  lowBand: number;
+  highBand: number;
+}
+
+export interface DashboardStockoutRisk {
+  productId: string;
+  name: string;
+  sku?: string;
+  stockQty: number;
+  lowStockThreshold: number;
+  unit?: string;
+  dailyVelocity: number;
+  estimatedDaysLeft: number | null;
+  recommendedReorderQty: number;
+}
+
+export interface DashboardRecommendation {
+  id: string;
+  priority: 'high' | 'medium' | 'low';
+  category: 'inventory' | 'revenue' | 'pricing' | 'operations';
+  title: string;
+  detail: string;
+  actionLabel: string;
+  actionTo: string;
+}
+
+export interface DashboardPredictions {
+  next7DaysRevenue: number;
+  next30DaysRevenue: number;
+  projectedDailyAvg: number;
+  trendDirection: 'up' | 'down' | 'flat';
+  trendPercent: number;
+  confidence: 'high' | 'medium' | 'low';
+  forecastDaily: DashboardForecastPoint[];
+  stockoutRisks: DashboardStockoutRisk[];
+}
+
 export interface SalesSummary {
   days: number;
   revenue: number;
   orders: number;
   tax: number;
   discounts: number;
+  previousRevenue?: number;
+  lowStockCount?: number;
+  paymentModes?: { mode: string; count: number; revenue: number }[];
   daily: { date: string; revenue: number; orders: number }[];
   topProducts: { productId: string; name: string; qty: number; revenue: number }[];
+  predictions?: DashboardPredictions;
+  recommendations?: DashboardRecommendation[];
 }
 
 // ---------- reports ----------

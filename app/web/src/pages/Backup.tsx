@@ -1,9 +1,12 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../store/auth';
 import './Support.css';
+
+type BackupFormat = 'json' | 'excel' | 'both';
 
 interface BackupInfo { sync?: { entitled: boolean; configured: boolean }; canExport: boolean; format: string; consistentSnapshot: boolean; includesCredentials: boolean; included: string[]; excluded: string[]; }
 interface SupportResponse { backup: BackupInfo; entitlements: { backup: boolean }; }
@@ -20,6 +23,7 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 export default function Backup() {
+  const [format, setFormat] = useState<BackupFormat>('excel');
   const userId = useAuth((state) => state.user?._id);
   const tenantId = useAuth((state) => state.user?.tenantId);
   const support = useQuery({
@@ -29,9 +33,9 @@ export default function Backup() {
   const backup = support.data?.backup;
   const canExport = support.isSuccess && !!support.data.entitlements.backup && !!backup?.canExport;
   const download = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (selectedFormat: BackupFormat) => {
       try {
-        const response = await api.get<Blob>('/support/backup', { responseType: 'blob' });
+        const response = await api.get<Blob>('/support/backup', { params: { format: selectedFormat }, responseType: 'blob' });
         if (response.data.type !== 'application/zip' || response.data.size === 0) {
           throw new Error('The server did not return a ZIP file. Try again or contact support.');
         }
@@ -71,8 +75,25 @@ export default function Backup() {
       <section className="support-hero" aria-labelledby="backup-title">
         <p className="support-eyebrow">Business continuity</p>
         <h1 id="backup-title" className="support-title">Business Backup</h1>
-        <p className="support-copy">Export your business records to a ZIP file. The archive contains formatted JSON and a manifest with record counts and checksums. Save it in a restricted folder on an encrypted drive.</p>
-        <div className="support-actions"><button type="button" className="support-button support-button--primary" onClick={() => download.mutate()} disabled={!canExport || download.isPending}><DownloadIcon /> {download.isPending ? 'Preparing ZIP…' : 'Download Business Backup (ZIP)'}</button><Link className="support-button" to="/help"><HelpIcon /> Get backup help</Link></div>
+        <p className="support-copy">Choose a format, then download your business records as a ZIP file with record counts and checksums.</p>
+        <form className="support-actions items-end" onSubmit={(event) => {
+          event.preventDefault();
+          if (canExport && !download.isPending) download.mutate(format);
+        }}>
+          <div className="grid gap-1 text-sm font-medium">
+            <label htmlFor="backup-format">Export format</label>
+            <select id="backup-format" className="input" value={format} disabled={!canExport || download.isPending} onChange={(event) => {
+              setFormat(event.target.value as BackupFormat);
+              download.reset();
+            }}>
+              <option value="excel">Excel (.xlsx)</option>
+              <option value="json">JSON (.json)</option>
+              <option value="both">JSON and Excel</option>
+            </select>
+          </div>
+          <button type="submit" className="support-button support-button--primary" disabled={!canExport || download.isPending}><DownloadIcon /> {download.isPending ? 'Preparing ZIP…' : 'Download Business Backup (ZIP)'}</button>
+          <Link className="support-button" to="/help"><HelpIcon /> Get backup help</Link>
+        </form>
         {support.isSuccess && !canExport && <div className="support-alert mt-4" role="status"><InfoIcon /><div><strong>Only the business owner can download an export.</strong> Ask the owner to download and safeguard the file, or contact support for recovery assistance.</div></div>}
       </section>
 
@@ -84,14 +105,14 @@ export default function Backup() {
       {canExport && backup?.sync?.entitled && (
         <section className="support-card" aria-labelledby="data-sync-title">
           <h2 id="data-sync-title">Data Sync</h2>
-          <p>Send a snapshot of your business records to the cloud.</p>
+          <p>Cloud synchronization is disabled in V1.</p>
           <Link className="support-button" to="/data-sync">Open Data Sync</Link>
         </section>
       )}
 
       {backup && <>
         <section className="support-card" aria-labelledby="export-details-title"><h2 id="export-details-title">What's in the backup</h2><div className="support-export-summary"><div><span>Format</span><strong>{backup.format}</strong></div><div><span>Type</span><strong>{backup.consistentSnapshot ? 'Consistent snapshot' : 'Logical export (ZIP)'}</strong></div><div><span>Credentials</span><strong>{backup.includesCredentials ? 'Included' : 'Excluded for security'}</strong></div></div><div className="support-grid support-grid--two mt-4"><div><h3>Included records</h3><ul className="support-list">{backup.included.map((item) => <li key={item}>{item}</li>)}</ul></div><div><h3>Excluded for security</h3><ul className="support-list">{backup.excluded.map((item) => <li key={item}>{item}</li>)}</ul></div></div></section>
-        <div className="support-grid support-grid--two"><section className="support-card"><h2>Store it safely</h2><ul className="support-list"><li>Save the ZIP file outside the active workstation and restrict access.</li><li>Use encrypted storage for customer and sales data.</li><li>Each collection is a separate JSON file inside the ZIP for easy review.</li><li>Check <strong>manifest.json</strong> inside the ZIP for file checksums and record counts.</li></ul></section><section className="support-card"><h2>Recovery</h2><ul className="support-list"><li>Keep native database backups and separate copies of uploaded files and invoice PDFs for full recovery.</li><li>For an operator-reviewed import, keep the original ZIP and manifest intact.</li></ul></section></div>
+        <div className="support-grid support-grid--two"><section className="support-card"><h2>Store it safely</h2><ul className="support-list"><li>Save the ZIP file outside the active workstation and restrict access.</li><li>Use encrypted storage for customer and sales data.</li><li>Each collection has its own file in each selected format.</li><li>Check the manifest inside the ZIP for file checksums and record counts.</li></ul></section><section className="support-card"><h2>Recovery</h2><ul className="support-list"><li>Keep native database backups and separate copies of uploaded files and invoice PDFs for full recovery.</li><li>For an operator-reviewed import, keep the original ZIP and manifest intact.</li></ul></section></div>
       </>}
     </div>
   );

@@ -8,6 +8,7 @@ export class PlanFeatures {
   @Prop({ default: false }) 'stock-replenishment'?: boolean;
   @Prop({ default: false }) 'collections-forecast'?: boolean;
   @Prop({ required: true, default: false }) barcodes: boolean;
+  @Prop({ required: true, default: true }) dashboard: boolean;
   @Prop({ required: true, default: true }) pos: boolean;
   @Prop({ required: true, default: true }) inventory: boolean;
   @Prop({ required: true, default: true }) reports: boolean;

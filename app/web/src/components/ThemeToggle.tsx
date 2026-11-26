@@ -1,7 +1,11 @@
 import { useTheme } from '../store/theme';
+import { useAppearanceMode } from '../store/appearance';
 
-export default function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
+export default function ThemeToggle({ preference }: {
+  preference?: { theme: 'light' | 'dark'; onChange: (theme: 'light' | 'dark') => void };
+} = {}) {
+  const { theme: globalTheme, setTheme } = useTheme();
+  const theme = preference?.theme ?? globalTheme;
 
   const next = theme === 'dark' ? 'light' : 'dark';
 
@@ -10,7 +14,11 @@ export default function ThemeToggle() {
       type="button"
       aria-label={`Switch to ${next} theme`}
       title={`Switch to ${next} theme`}
-      onClick={() => setTheme(next)}
+      onClick={() => {
+        if (preference) preference.onChange(next);
+        else if (document.documentElement.dataset.appearance) useAppearanceMode.setState({ mode: next });
+        else setTheme(next);
+      }}
       className="header-icon-btn"
     >
       {theme === 'dark' ? (

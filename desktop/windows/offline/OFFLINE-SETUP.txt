@@ -1,0 +1,63 @@
+KazmiOn POS Offline - Windows setup and recovery
+
+Before disconnecting
+- Stage your organization's approved Docker Desktop installer and Microsoft WSL
+  x64 MSI on separate media. They are prerequisites supplied by the operator.
+  Install and accept vendor terms independently. This POS installer does not
+  download anything, install Docker Desktop, accept its terms, or change WSL.
+- Enable hardware virtualization and Windows Virtual Machine Platform. WSL 2
+  requires version 2.1.5 or later for the reviewed Docker Desktop requirements.
+  Use Docker Compose 2.30.0 or newer.
+  Keep matching Windows servicing media available if optional-feature files
+  are missing. Reboot as requested, then start Docker Desktop in Linux mode
+  under the Windows account that will use POS.
+- Use Windows 11 x64 23H2 or later within the vendor support lifecycle.
+  Windows 10 x64 22H2 (build 19045) is allowed by setup only. Confirm that
+  your Windows edition and release are still serviced and that your exact
+  Docker Desktop version supports them before installing. Use 8 GB RAM or
+  more and allow disk space for Docker, the installer and an upgrade copy
+  of the business volumes. A VM needs nested virtualization and a supported
+  Docker Desktop deployment/licence.
+
+Vendor sources
+https://docs.docker.com/desktop/setup/install/windows-install/
+https://www.docker.com/legal/docker-subscription-service-agreement/
+https://learn.microsoft.com/windows/wsl/install#offline-install
+https://jrsoftware.org/inno-setup/purchase
+Review the third-party image and dependency notices before distributing this
+package. Docker Desktop's separate licence and paid-use thresholds apply.
+Use an approved Inno Setup build environment for commercial distribution.
+
+Install and launch
+1. Copy the setup EXE and every companion BIN file to the same directory.
+   Verify them against SHA256SUMS.txt using a trusted copy of that file.
+2. Run the EXE. Open KazmiOn POS from Start under the same Windows account
+   that runs Docker Desktop. Start Docker Desktop first if it is stopped.
+3. Open http://127.0.0.1:8080. The first launch imports the packaged image
+   locally and creates dedicated named volumes. The installation is loopback
+   only. The installer adds a program-scoped firewall block if the standard
+   Docker backend is installed. Existing installations using port 8080 must
+   be stopped before this installation starts.
+4. The local operator can read the initial developer setup token in the
+   protected .env under %LOCALAPPDATA%\KazmiOn\OfflinePOS. Keep that file
+   private. It also holds the JWT secrets needed by the installation.
+
+Upgrade and recovery
+- Keep the previous Docker image, the protected .env and a verified encrypted
+  backup before upgrading. Install the new version under the same account.
+  The launcher supports a clean shutdown and cold copy for compatible
+  PostgreSQL major versions. It starts the new release on copied volumes
+  and preserves the original volumes and their state mapping in
+  state.previous.json. On a handled health failure it
+  attempts to restart the previous release with its original volumes.
+- Save the installation's state.json with the backup. It maps the image
+  and volumes. If power loss interrupts an upgrade and the active volumes
+  differ from the saved state, the launcher refuses to proceed. Inspect
+  both volume sets before resuming.
+- Uninstall removes installer binaries and shortcuts. It preserves the POS
+  container, all Docker volumes and the per-user secrets and state. Never
+  use Docker Desktop factory reset or docker compose down -v as cleanup.
+- Configuration from a source checkout or another installer is not adopted
+  automatically. Use an operator-led migration and verified backup for that
+  transition. For the encrypted cold-backup and key recovery procedure see
+  the LAN access and recovery section of the KazmiOn POS repository README.

@@ -12,6 +12,7 @@ import { ProductService } from '../product/product.service';
 import { TenantDocument } from '../tenant/schemas/tenant.schema';
 import { TenantService } from '../tenant/tenant.service';
 import { CalcLineInput, calculateTotals } from './calc/calculate-totals';
+import { computeDashboardInsights } from './calc/dashboard-insights';
 import { CreateOrderDto, OrderItemDto, PreviewOrderDto } from './dto/order.dto';
 import { InvoiceCounter } from './schemas/invoice-counter.schema';
 import { Order, OrderDocument } from './schemas/order.schema';
@@ -171,13 +172,21 @@ export class OrderService {
     const since = new Date();
     since.setHours(0, 0, 0, 0);
     since.setDate(since.getDate() - (days - 1));
+    const prevSince = new Date(since);
+    prevSince.setDate(prevSince.getDate() - days);
+
     const match = { tenantId: oid(tenantId), status: OrderStatus.Completed, createdAt: { $gte: since } };
+    const prevMatch = { tenantId: oid(tenantId), status: OrderStatus.Completed, createdAt: { $gte: prevSince, $lt: since } };
     const timezone = this.config.get<string>('REPORT_TZ', 'UTC');
 
-    const [totals, daily, top] = await Promise.all([
+    const [totals, prevTotals, daily, top, modes, productVolume, lowStock] = await Promise.all([
       this.orders.aggregate([
         { $match: match },
         { $group: { _id: null, revenue: { $sum: '$grandTotal' }, orders: { $sum: 1 }, tax: { $sum: '$taxTotal' }, discounts: { $sum: '$discountTotal' } } },
+      ]),
+      this.orders.aggregate([
+        { $match: prevMatch },
+        { $group: { _id: null, revenue: { $sum: '$grandTotal' } } },
       ]),
       this.orders.aggregate([
         { $match: match },
@@ -191,15 +200,57 @@ export class OrderService {
         { $sort: { revenue: -1 } },
         { $limit: 5 },
       ]),
+      this.orders.aggregate([
+        { $match: match },
+        { $group: { _id: '$paymentMode', count: { $sum: 1 }, revenue: { $sum: '$grandTotal' } } },
+        { $sort: { revenue: -1 } },
+      ]),
+      this.orders.aggregate([
+        { $match: match },
+        { $unwind: '$items' },
+        { $group: { _id: '$items.productId', qty: { $sum: '$items.qty' } } },
+      ]),
+      this.products.findAll(tenantId, { lowStock: true, page: 1, limit: 12 }),
     ]);
 
     const round = (n: number) => Math.round(n * 100) / 100;
     const t = totals[0] ?? { revenue: 0, orders: 0, tax: 0, discounts: 0 };
+    const previousRevenue = round(prevTotals[0]?.revenue ?? 0);
+    const revenue = round(t.revenue);
+    const discounts = round(t.discounts);
+    const topProducts = top.map((p) => ({ productId: String(p._id), name: p.name as string, qty: p.qty as number, revenue: round(p.revenue) }));
+    const paymentModes = modes.map((m) => ({ mode: String(m._id ?? 'cash'), count: m.count as number, revenue: round(m.revenue) }));
+    const soldByProductId = Object.fromEntries(productVolume.map((row) => [String(row._id), row.qty as number]));
+    const insights = computeDashboardInsights({
+      days,
+      revenue,
+      orders: t.orders as number,
+      discounts,
+      previousRevenue,
+      daily: daily.map((d) => ({ date: d._id as string, revenue: round(d.revenue), orders: d.orders as number })),
+      topProducts,
+      paymentModes,
+      lowStockProducts: lowStock.data.map((p) => ({
+        productId: p.id,
+        name: p.name,
+        sku: p.sku,
+        stockQty: p.stockQty ?? 0,
+        lowStockThreshold: p.lowStockThreshold ?? 5,
+        unit: p.unit,
+      })),
+      soldByProductId,
+    });
+
     return {
       days,
-      revenue: round(t.revenue), orders: t.orders, tax: round(t.tax), discounts: round(t.discounts),
-      daily: daily.map((d) => ({ date: d._id as string, revenue: round(d.revenue), orders: d.orders as number })),
-      topProducts: top.map((p) => ({ productId: String(p._id), name: p.name as string, qty: p.qty as number, revenue: round(p.revenue) })),
+      revenue, orders: t.orders, tax: round(t.tax), discounts,
+      previousRevenue,
+      lowStockCount: lowStock.total,
+      paymentModes,
+      daily: insights.daily,
+      topProducts,
+      predictions: insights.predictions,
+      recommendations: insights.recommendations,
     };
   }
 

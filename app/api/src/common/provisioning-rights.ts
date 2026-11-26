@@ -1,11 +1,15 @@
 import { DOMAIN_ROLE_PACKAGES, ProvisionableRole } from './domain-packages';
 const featureForRight: Record<string, string | null> = {
-  dashboard: 'reports', pos: 'pos', products: 'inventory', customers: 'customers', installments: 'installments',
+  dashboard: 'dashboard', pos: 'pos', products: 'inventory', customers: 'customers', installments: 'installments',
   orders: 'pos', settings: null, 'barcode-generator': 'barcodes', 'barcode-scanner': 'barcodes',
 };
 export function enabledModuleRight(key: string, flags: object): boolean {
   const feature = featureForRight[key];
-  return feature === null || (feature !== undefined && (flags as Record<string, boolean>)[feature] === true);
+  if (feature === null) return true;
+  if (feature === undefined) return false;
+  const record = flags as Record<string, boolean | undefined>;
+  if (feature === 'dashboard' && record.dashboard === undefined) return record.reports === true;
+  return record[feature] === true;
 }
 
 export function provisioningRights(domain: string, role: ProvisionableRole, flags: object, requested?: string[]): string[] {
