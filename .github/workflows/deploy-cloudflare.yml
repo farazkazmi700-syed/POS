@@ -20,8 +20,12 @@ jobs:
       run:
         working-directory: app/web
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with: { persist-credentials: false }
+      - name: Check out the exact workflow revision
+        working-directory: .
+        run: |
+          git init --quiet
+          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          git checkout --quiet --detach FETCH_HEAD
       - name: Set up Node.js
         working-directory: .
         run: bash .github/scripts/setup-node.sh

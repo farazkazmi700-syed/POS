@@ -17,8 +17,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with: { fetch-depth: 2, persist-credentials: false }
+      - name: Check out the exact workflow revision
+        working-directory: .
+        run: |
+          git init --quiet
+          git fetch --no-tags --depth=2 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          git checkout --quiet --detach FETCH_HEAD
       - name: Check patch whitespace and shell syntax
         run: |
           git diff --check HEAD^ HEAD
@@ -47,8 +51,12 @@ jobs:
         options: --health-cmd "pg_isready -U postgres -d pos_appearance_test" --health-interval 5s --health-timeout 3s --health-retries 6
     defaults: { run: { working-directory: app/api } }
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with: { persist-credentials: false }
+      - name: Check out the exact workflow revision
+        working-directory: .
+        run: |
+          git init --quiet
+          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          git checkout --quiet --detach FETCH_HEAD
       - name: Set up Node.js
         working-directory: .
         run: bash .github/scripts/setup-node.sh
@@ -83,8 +91,12 @@ jobs:
     defaults: { run: { working-directory: app/pdf-worker } }
     env: { PUPPETEER_SKIP_DOWNLOAD: "true" }
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with: { persist-credentials: false }
+      - name: Check out the exact workflow revision
+        working-directory: .
+        run: |
+          git init --quiet
+          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          git checkout --quiet --detach FETCH_HEAD
       - name: Set up Node.js
         working-directory: .
         run: bash .github/scripts/setup-node.sh
@@ -108,8 +120,12 @@ jobs:
     env:
       POS_E2E_START_API: '1'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with: { persist-credentials: false }
+      - name: Check out the exact workflow revision
+        working-directory: .
+        run: |
+          git init --quiet
+          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          git checkout --quiet --detach FETCH_HEAD
       - name: Set up Node.js
         working-directory: .
         run: bash .github/scripts/setup-node.sh
@@ -132,8 +148,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with: { persist-credentials: false }
+      - name: Check out the exact workflow revision
+        working-directory: .
+        run: |
+          git init --quiet
+          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          git checkout --quiet --detach FETCH_HEAD
       - run: bash .github/scripts/setup-node.sh
       - run: npm ci
       - run: npx --no-install playwright install --with-deps chromium
