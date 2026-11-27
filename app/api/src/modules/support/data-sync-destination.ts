@@ -11,11 +11,11 @@ export function configuredDataSyncBusiness(config: SyncConfig): string | null {
 export function dataSyncDestination(config: SyncConfig, businessId: string) {
   const endpoint = config.get('DATA_SYNC_URL');
   const token = config.get('DATA_SYNC_TOKEN');
-  if (!endpoint || !token || !/^[a-f0-9]{64}$/i.test(token)
+  if (!/^[a-f0-9]{24}$/.test(businessId) || !endpoint || !token || !/^[a-f0-9]{64}$/i.test(token)
       || config.get('DATA_SYNC_TENANT_ID') !== businessId) return null;
   try {
     const url = new URL(endpoint);
-    if (url.protocol === 'https:' && !url.username && !url.password && !url.search && !url.hash) {
+    if (url.protocol === 'https:' && url.pathname === '/v1/business-snapshot' && !url.username && !url.password && !url.search && !url.hash) {
       return { url, token };
     }
   } catch {

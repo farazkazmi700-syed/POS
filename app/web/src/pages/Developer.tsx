@@ -2228,7 +2228,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
             <section className="space-y-4">
               <div className="dev-card p-5">
                 <h3 className="text-sm font-semibold">Local installation</h3>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Cloud synchronization is disabled in V1. Businesses can download local backups.</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Cloud snapshots require an active entitlement and a destination configured by your operator.</p>
                 {dataSyncStatus.isPending && <p className="mt-3 text-xs" role="status">Checking sync configuration…</p>}
                 {dataSyncStatus.isSuccess && (
                   <p className="mt-3 text-xs" role="status">
@@ -2262,7 +2262,7 @@ function DeveloperWorkspace({ developerId }: { developerId: string }) {
                         else if (dataSyncStatus.isError) syncStatus = 'Configuration unavailable';
                         else if (dataSyncStatus.isSuccess) {
                           if (!dataSyncStatus.data.moduleEnabled) syncStatus = 'Module disabled';
-                          else syncStatus = 'Cloud sync disabled in V1';
+                          else syncStatus = dataSyncStatus.data.configuredBusinessId === business.businessId ? 'Ready for snapshots' : 'Destination not configured';
                         }
                         return (
                           <tr key={business.businessId}>

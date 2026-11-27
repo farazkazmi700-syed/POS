@@ -48,6 +48,12 @@ export class NavigationVisibility {
   @Prop({ default: true }) installments: boolean;
   @Prop({ default: true }) barcodeGenerator: boolean;
   @Prop({ default: true }) barcodeScanner: boolean;
+  @Prop({ type: Boolean }) 'barcode-generator'?: boolean;
+  @Prop({ type: Boolean }) 'barcode-scanner'?: boolean;
+  @Prop({ type: Boolean }) 'stock-replenishment'?: boolean;
+  @Prop({ type: Boolean }) 'collections-forecast'?: boolean;
+  @Prop({ type: Boolean }) backup?: boolean;
+  @Prop({ type: Boolean }) help?: boolean;
   @Prop({ default: true }) orders: boolean;
   @Prop({ default: true }) settings: boolean;
 }

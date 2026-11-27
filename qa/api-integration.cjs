@@ -114,6 +114,20 @@ async function main() {
       assert.equal((await request('/tenant/me', session.accessToken, { licenseExpiresAt: '2099-01-01' }, 'PATCH')).status, 400);
     });
     if (process.argv.includes('--license')) return;
+    await check('stock replenishment visibility is validated, authorized and persisted', async () => {
+      const owner = await login(owners[0].email);
+      const tenant = { _id: tenants[0]._id };
+      const update = (value) => request('/tenant/me', owner, { navigationVisibility: { 'stock-replenishment': value } }, 'PATCH');
+      assert.equal((await update(false)).status, 403);
+      await database.collection('tenants').updateOne(tenant, { $set: { 'featureFlags.stock-replenishment': true } });
+      try {
+        assert.equal((await update('false')).status, 400);
+        assert.equal((await update(false)).status, 200);
+        assert.equal((await request('/tenant/me', owner)).data.navigationVisibility['stock-replenishment'], false);
+      } finally {
+        await database.collection('tenants').updateOne(tenant, { $unset: { 'featureFlags.stock-replenishment': '', 'navigationVisibility.stock-replenishment': '' } });
+      }
+    });
     await check('collection forecasts include only the entitled tenant’s remaining scheduled balances', async () => {
       const forecast = '/installments/collections-forecast';
       const first = await login(owners[0].email);
@@ -199,15 +213,16 @@ async function main() {
       }
       assert.equal((await request('/support/backup?format=csv', owner)).status, 400);
     });
-    await check('V1 refuses cloud synchronization even with a destination configured', async () => {
+    await check('cloud sync requires an entitled owner and a tenant-bound verified destination', async () => {
       await database.collection('tenants').updateOne({ _id: tenantId }, {
         $set: { 'featureFlags.data-sync': true, deploymentMode: 'hybrid' },
       });
       const policy = await request('/support', owner);
-      assert.deepEqual(policy.data.backup.sync, { entitled: true, configured: false, lastSyncedAt: null });
+      assert.deepEqual(policy.data.backup.sync, { entitled: true, configured: true, lastSyncedAt: null });
       const result = await request('/support/backup/sync', owner, {});
-      assert.equal(result.status, 503);
-      assert.match(result.data.message, /disabled in V1/);
+      assert.equal(result.status, 502);
+      assert.match(result.data.message, /did not confirm/);
+      assert.equal((await request('/support', owner)).data.backup.sync.lastSyncedAt, null);
     });
     return;
   }

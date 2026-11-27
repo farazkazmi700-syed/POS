@@ -1,4 +1,5 @@
-import { Res, BadRequestException, Controller, ForbiddenException, Get, Header, Module, NotFoundException, PayloadTooLargeException, Post, Query, ServiceUnavailableException, StreamableFile } from '@nestjs/common';
+import { Res, BadGatewayException, BadRequestException, ConflictException, Controller, ForbiddenException, Get, Header, Module, NotFoundException, PayloadTooLargeException, Post, Query, ServiceUnavailableException, StreamableFile } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { RequiresFeature } from '../../common/decorators/feature.decorator';
 import { SuperAdminModule } from '../super-admin/super-admin.module';
@@ -12,6 +13,7 @@ import { AuthUser } from '../../common/auth-user';
 import { permittedActions } from '../../common/action-permissions';
 import { AuditService } from '../audit/audit.module';
 import { backupWorkbook } from './backup-workbook';
+import { dataSyncDestination } from './data-sync-destination';
 
 /** All tenant-scoped collections included in a business backup ZIP. */
 export const BUSINESS_BACKUP_COLLECTIONS = [
@@ -35,10 +37,13 @@ const USER_EXPORT_FIELDS = {
 
 @Controller('support')
 export class SupportController {
+  private syncInProgress = false;
+
   constructor(
     @InjectConnection() private readonly connection: Connection,
     private readonly audit: AuditService,
     private readonly registry: ModuleRegistryService,
+    private readonly config: ConfigService,
   ) {}
 
   private async syncEntitled(user: AuthUser) {
@@ -57,13 +62,46 @@ export class SupportController {
   @Header('Cache-Control', 'no-store')
   async sync(@CurrentUser() user: AuthUser) {
     if (!(await this.syncEntitled(user))) throw new ForbiddenException('Cloud sync is unavailable for this business.');
-    throw new ServiceUnavailableException('Cloud synchronization is disabled in V1. Download a local backup instead.');
+    const destination = dataSyncDestination(this.config, user.tenantId);
+    if (!destination) throw new ServiceUnavailableException('Ask your operator to configure the cloud destination.');
+    if (this.syncInProgress) throw new ConflictException('A business sync is already in progress.');
+    this.syncInProgress = true;
+    try {
+      const { bytes } = await this.createArchive(user, 'json');
+      const sha256 = createHash('sha256').update(bytes).digest('hex');
+      try {
+        const response = await fetch(destination.url, {
+          method: 'POST', redirect: 'error', signal: AbortSignal.timeout(90_000),
+          headers: {
+            Authorization: `Bearer ${destination.token}`,
+            'Content-Type': 'application/zip',
+            'X-Business-Id': user.tenantId,
+            'X-Snapshot-SHA256': sha256,
+          },
+          body: new Uint8Array(bytes),
+        });
+        await response.body?.cancel();
+        if (response.status !== 201 || response.headers.get('X-Snapshot-SHA256') !== sha256) throw new Error('Upload integrity not confirmed');
+      } catch {
+        throw new BadGatewayException('The cloud destination did not confirm the upload. Try again.');
+      }
+      const syncedAt = new Date().toISOString();
+      await this.audit.record(user, 'backup.synced', 'support/backup/sync', { syncedAt, zipBytes: bytes.length, sha256 });
+      return { syncedAt };
+    } finally {
+      this.syncInProgress = false;
+    }
   }
 
   @Get()
   @Header('Cache-Control', 'no-store')
   async information(@CurrentUser() user: AuthUser) {
     const entitled = await this.syncEntitled(user);
+    const configured = entitled && !!dataSyncDestination(this.config, user.tenantId);
+    const lastSync = configured ? await this.connection.db!.collection('auditevents').findOne(
+      { tenantId: new Types.ObjectId(user.tenantId), action: 'backup.synced' },
+      { sort: { createdAt: -1 }, projection: { 'details.syncedAt': 1 } },
+    ) : null;
 
     return { help: { email: 'info.kazmion@gmail.com', recoveryUrl: '/recover',
       channels: { email: true, whatsapp: false },
@@ -71,7 +109,7 @@ export class SupportController {
       entitlements: { help: true, backup: true },
       backup: { canExport: permittedActions(user).includes('backup.export'), format: 'JSON, Excel, or both in a ZIP',
         consistentSnapshot: false, includesCredentials: false, includesFiles: false,
-        sync: { entitled, configured: false, lastSyncedAt: null },
+        sync: { entitled, configured, lastSyncedAt: lastSync?.details?.syncedAt ?? null },
         delivery: { mode: 'offline', emailLimitBytes: 15 * 1024 * 1024, driveLimitBytes: 5 * 1024 * 1024 },
         included: ['tenants', ...BUSINESS_BACKUP_COLLECTIONS],
         excluded: ['credentials', 'authentication challenges', 'sessions', 'redis jobs', 'external files'] },

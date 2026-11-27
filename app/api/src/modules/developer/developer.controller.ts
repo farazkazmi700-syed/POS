@@ -1,6 +1,8 @@
 import { BackupDeliveryDto, BackupDeliveryService } from './backup-delivery.service';
 import { Body, Controller, Delete, Get, Header, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { IsBoolean, IsString, MaxLength } from 'class-validator';
+import { ConfigService } from '@nestjs/config';
+import { configuredDataSyncBusiness } from '../support/data-sync-destination';
 import { TenantTrashService } from './tenant-trash.service';
 import { ModuleRegistryService } from '../super-admin/module-registry.service';
 import { Throttle } from '@nestjs/throttler';
@@ -37,13 +39,14 @@ export class DeveloperController {
     private readonly recovery: PasswordRecoveryService,
     private readonly registry: ModuleRegistryService,
     private readonly tenantTrash: TenantTrashService,
+    private readonly config: ConfigService,
   ) {}
 
   @Get('data-sync')
   @Header('Cache-Control', 'no-store')
   async dataSync() {
     const [key] = await this.registry.executableKeys(['data-sync']);
-    return { moduleEnabled: key === 'data-sync', configuredBusinessId: null };
+    return { moduleEnabled: key === 'data-sync', configuredBusinessId: configuredDataSyncBusiness(this.config) };
   }
   /** Public roadmap endpoint: any signed-in business account may read module labels & release states. */
   @Get('public-modules')

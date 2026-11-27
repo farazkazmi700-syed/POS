@@ -25,3 +25,5 @@
 - PostgreSQL business roles can no longer delete invoice rows. The provisioner performs deletion after the tenant-trash sweep has validated retention, claimed the tenant, and requested invoice cleanup. The sweep waits for PostgreSQL confirmation before removing tenant records.
 - Expired licenses allow sign-in, reads, and authorized export. Business mutations require renewal. Suspended and trashed businesses retain their existing access restrictions.
 - Local validation passed all application builds and type checks, the API integration and security suites, and seven print formats in Edge and Chromium. The Docker rehearsal verified concurrent checkout, restart, encrypted backup, byte-identical PDF restore, runtime delete denial, and the privileged purge request. GitHub Actions and cloud deployment have yet to run on these changes.
+
+- The V2 navigation settings now accept and persist the operational module switches while enforcing entitlement and account rights. V2 also supports owner-triggered cloud snapshots through the dedicated Worker, with a tenant-bound destination and verified upload checksum. Live replication remains disabled.

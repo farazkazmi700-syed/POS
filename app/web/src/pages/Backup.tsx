@@ -105,7 +105,7 @@ export default function Backup() {
       {canExport && backup?.sync?.entitled && (
         <section className="support-card" aria-labelledby="data-sync-title">
           <h2 id="data-sync-title">Data Sync</h2>
-          <p>Cloud synchronization is disabled in V1.</p>
+          <p>Upload a business backup to your configured cloud destination.</p>
           <Link className="support-button" to="/data-sync">Open Data Sync</Link>
         </section>
       )}

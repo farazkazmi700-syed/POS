@@ -39,6 +39,12 @@ export class NavigationVisibilityDto {
   @IsOptional() @IsBoolean() settings?: boolean;
   @IsOptional() @IsBoolean() barcodeGenerator?: boolean;
   @IsOptional() @IsBoolean() barcodeScanner?: boolean;
+  @IsOptional() @IsBoolean() 'barcode-generator'?: boolean;
+  @IsOptional() @IsBoolean() 'barcode-scanner'?: boolean;
+  @IsOptional() @IsBoolean() 'stock-replenishment'?: boolean;
+  @IsOptional() @IsBoolean() 'collections-forecast'?: boolean;
+  @IsOptional() @IsBoolean() backup?: boolean;
+  @IsOptional() @IsBoolean() help?: boolean;
 }
 
 export class UpdateTenantDto {
