@@ -22,6 +22,9 @@ if ($LASTEXITCODE -ne 0 -or (git -C $RepoRoot ls-files --others --exclude-standa
 Set-Location $WebDir
 
 try {
+    if ([string]::IsNullOrWhiteSpace($env:VITE_API_BASE_URL)) {
+        throw "VITE_API_BASE_URL is not set. Set it to the HTTPS API origin ending in /api (see deploy/DEPLOY.md). A production Pages deploy cannot run without a real API origin."
+    }
     node -e 'const url = new URL(process.env.VITE_API_BASE_URL); if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || !url.pathname.endsWith("/api")) throw new Error("Set VITE_API_BASE_URL to the HTTPS API origin ending in /api")'
     if ($LASTEXITCODE -ne 0) { throw "Invalid Pages API base URL." }
 

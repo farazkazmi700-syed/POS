@@ -100,6 +100,8 @@ native relational cutover remains a separate migration and approval gate.
 
 ### Cloudflare Pages
 
+Full procedure, prerequisites and known blockers: [deploy/DEPLOY.md](deploy/DEPLOY.md).
+
 For a separate Pages frontend, configure `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID` as `production` environment secrets. Verify the
 compatible API deployment over HTTPS before dispatching the Pages release.
