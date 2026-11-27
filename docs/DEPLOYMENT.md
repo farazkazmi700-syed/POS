@@ -1,0 +1,9 @@
+# V2 deployment
+
+Run `npm ci` in the repository root and each of `app/web`, `app/api`, and `app/pdf-worker`. Set `PUPPETEER_SKIP_DOWNLOAD=true` if a managed Chromium installation supplies the PDF worker's browser. Run `npm run build`, `npm test`, and `npm run cloudflare:validate`. The Cloudflare command builds a separate React bundle and performs credential-free Wrangler dry runs. It uses Workers' native SPA routing and leaves the legacy Pages build available. Build with `VITE_API_BASE_URL` unset so the browser uses `/api` on the Worker host.
+
+API integration tests use disposable MongoDB and Redis services at `127.0.0.1:27017` and `127.0.0.1:6379`. With those fixtures running, set `PASSWORD_RESET_BASE_URL` to `http://localhost:5173/reset-password` and run `npm run test:integration` after the API build. Run `npm run test:e2e` with `SMOKE_BASE_URL` pointing to the isolated stack to verify browser sign-in and recovery.
+
+Staging requires a Cloudflare account and zone, an HTTPS Node.js origin and isolated data services. Configure `API_ORIGIN` for the staging Worker using a dedicated HTTPS hostname with no URL path, query, or credentials. Restrict access to the origin before exposure and verify that it forwards client identity only from trusted infrastructure. Configure the exact HTTPS origin allowlist, password reset URL, and existing NestJS authentication and service secrets separately. Never pass origin secrets to Vite.
+
+Once infrastructure and access are authorized, configure the Worker custom domain and verify HTTPS, SPA deep links, `/api/health`, sign-in, financial and document cache headers, and origin-bypass protection. Production requires separate credentials, a protected deployment environment, verified backups, a staged migration rehearsal and explicit approval. Keep the previous Worker and origin artifacts available for application rollback. A schema rollback additionally requires its own reviewed recovery procedure.

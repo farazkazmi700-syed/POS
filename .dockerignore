@@ -1,6 +1,7 @@
 # Build context is the repository root (see docker/compose/compose.yaml -> build.context: ..)
 **/node_modules
 **/dist
+app/web/dist-cloudflare
 **/.env
 **/.env.*
 !**/.env.example

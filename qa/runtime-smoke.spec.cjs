@@ -7,6 +7,7 @@ test('deployed sign-in and API proxy work together', async ({ page, request }) =
   page.on('pageerror', (error) => errors.push(error.message));
   const health = await request.get('/api/health');
   expect(health.ok()).toBeTruthy();
+  expect(health.headers()['cache-control']).toMatch(/\bno-store\b/);
   expect((await health.json()).database).toBe('connected');
   await page.goto('/login');
   await expect(page.getByRole('heading', { name: 'Log in to your account' })).toBeVisible();
@@ -29,10 +30,18 @@ test('deployed recovery exposes only configured delivery channels', async ({ pag
   expect(response.ok()).toBeTruthy();
   const options = await response.json();
   expect(typeof options.email).toBe('boolean'); expect(typeof options.whatsapp).toBe('boolean');
-  await page.goto('/recover');
-  await expect(page.getByRole('heading', { name: 'Recover account access' })).toBeVisible();
-  if (options.whatsapp) await expect(page.locator('option[value="whatsapp"]')).toBeEnabled();
-  else await expect(page.locator('option[value="whatsapp"]')).toBeDisabled();
-  if (options.email) await expect(page.getByRole('button', { name: 'Send verification code', exact: true })).toBeEnabled();
-  else await expect(page.getByRole('status')).toContainText('Email delivery is not configured');
+  for (const [channel, route, heading, label] of [
+    ['email', '/recover', 'Recover account access', 'Email'],
+    ['whatsapp', '/recover/whatsapp', 'Recover with WhatsApp', 'WhatsApp'],
+  ]) {
+    await page.goto(route);
+    await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    const send = page.getByRole('button', { name: 'Send verification code', exact: true });
+    if (options[channel]) {
+      await expect(send).toBeEnabled();
+    } else {
+      await expect(page.getByRole('status')).toContainText(`${label} delivery is not configured`);
+      await expect(send).toBeDisabled();
+    }
+  }
 });

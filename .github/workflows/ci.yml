@@ -1,6 +1,6 @@
 name: CI
 on:
-  push: { branches: [main, dev, 'release/**'] }
+  push: { branches: [main, dev, 'release/**', 'feature/kazmion-v2-cloud'] }
   pull_request:
   workflow_dispatch:
   workflow_call:
@@ -28,6 +28,20 @@ jobs:
           git diff --check HEAD^ HEAD
           bash -n .github/scripts/setup-node.sh
           for file in docker/*.sh docker/postgres/*.sh; do sh -n "$file"; done
+
+  cloud-edge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the exact workflow revision
+        run: |
+          git init --quiet
+          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          git checkout --quiet --detach FETCH_HEAD
+      - run: bash .github/scripts/setup-node.sh
+      - run: npm ci --prefix app/web
+      - run: node --test deploy/cloudflare/web/worker.test.mjs
+      - run: npm run cloudflare:validate
 
   api:
     runs-on: ubuntu-latest

@@ -35,6 +35,10 @@ async function bootstrap() {
   validateRequiredEnv(config);
 
   app.setGlobalPrefix('api');
+  app.use((_request: Request, response: Response, next: NextFunction) => {
+    response.setHeader('Cache-Control', 'private, no-store');
+    next();
+  });
   // CSP is relaxed only so the Swagger UI at /api/docs can load its inline assets.
   const standardHeaders = helmet();
   const docsHeaders = helmet({ contentSecurityPolicy: false });

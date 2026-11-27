@@ -10,6 +10,7 @@ dist/
 .dev.vars
 .dev.vars.*
 .wrangler/
+/app/web/dist-cloudflare/
 
 # Python environments and caches
 venv/

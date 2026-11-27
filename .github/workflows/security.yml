@@ -1,0 +1,45 @@
+name: Security checks
+
+on:
+  pull_request:
+  push:
+    branches: [feature/kazmion-v2-cloud]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the exact workflow revision
+        run: |
+          git init --quiet
+          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          git checkout --quiet --detach FETCH_HEAD
+      - run: bash .github/scripts/setup-node.sh
+      - run: npm ci --prefix app/api
+      - run: npm run test:security
+
+  dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: [., app/api, app/web, app/pdf-worker, deploy/scripts/migration]
+    steps:
+      - name: Check out the exact workflow revision
+        run: |
+          git init --quiet
+          git fetch --no-tags --depth=1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          git checkout --quiet --detach FETCH_HEAD
+      - run: bash .github/scripts/setup-node.sh
+      - run: npm audit --audit-level=high
+        working-directory: ${{ matrix.directory }}

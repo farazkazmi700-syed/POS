@@ -54,6 +54,7 @@ async function prepareAppearance(tenants) {
 async function check(name, task) { await task(); checks++; console.log(`PASS ${name}`); }
 async function request(url, token, body, method = body === undefined ? 'GET' : 'POST', branch) {
   const response = await fetch(`http://127.0.0.1:${port}/api${url}`, { method, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(branch ? { 'X-Branch-Id': branch } : {}) }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(45000) }).catch((error) => { throw new Error(`${method} ${url}: ${error.message}`); });
+  assert.match(response.headers.get('Cache-Control') ?? '', /\bno-store\b/);
   return { status: response.status, data: await response.json() };
 }
 async function loginSession(email, password = 'test-password-123', pin = '1234', newPin) {

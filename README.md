@@ -2,6 +2,8 @@
 
 KazmiOn POS manages sales, inventory, customer accounts, installments and tax invoices. The default deployment runs the React app, NestJS API and invoice worker in a single container with nginx, PostgreSQL, FerretDB and Redis.
 
+The V2 cloud branch also contains a Cloudflare Worker entry point. See [architecture](docs/ARCHITECTURE.md), [deployment](docs/DEPLOYMENT.md), and [implementation progress](docs/PROGRESS.md) for the cloud runtime and its open requirements.
+
 ## Repository layout
 
 | Path | Responsibility |

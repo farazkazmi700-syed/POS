@@ -14,12 +14,12 @@
 
 'use strict';
 
-const { MongoClient } = require('mongodb');
-const { Client: PgClient } = require('pg');
+const { createRequire } = require('node:module');
+const path = require('node:path');
 const { mongoIdToUuid } = require('./legacy-id.cjs');
 
-const MONGO_URI    = process.env.MONGO_URI    || 'mongodb://localhost:27017/pos';
-const POSTGRES_URL = process.env.POSTGRES_URL || 'postgresql://kazmion:kazmion@localhost:5432/kazmion';
+const MONGO_URI = process.env.MONGO_URI;
+const POSTGRES_URL = process.env.POSTGRES_URL;
 
 const TABLE_MAP = [
   { mongo: 'tenants',             pg: 'tenants' },
@@ -33,6 +33,14 @@ const TABLE_MAP = [
 ];
 
 async function main() {
+  if (!MONGO_URI || !POSTGRES_URL) {
+    console.error('Set MONGO_URI and POSTGRES_URL to explicit migration rehearsal databases.');
+    process.exitCode = 1;
+    return;
+  }
+  const requireMigration = createRequire(path.join(__dirname, '../migration/package.json'));
+  const { MongoClient } = requireMigration('mongodb');
+  const { Client: PgClient } = requireMigration('pg');
   console.log('='.repeat(60));
   console.log('KazmiOn Migration Validation Report');
   console.log(new Date().toISOString());
@@ -139,10 +147,10 @@ async function main() {
   console.log(`VALIDATION SUMMARY: ${passed} passed, ${failed} failed, ${warnings} warnings`);
   console.log('='.repeat(60));
 
-  if (failed > 0) process.exit(1);
+  if (failed > 0 || warnings > 0) process.exitCode = 1;
 }
 
-main().catch(err => {
-  console.error('FATAL:', err);
-  process.exit(1);
+main().catch(() => {
+  console.error('Migration validation failed. Check database connectivity, schema and permissions.');
+  process.exitCode = 1;
 });

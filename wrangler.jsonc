@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "kazmion-pos-v2",
+  "main": "deploy/cloudflare/web/worker.mjs",
+  "compatibility_date": "2026-11-27",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./app/web/dist-cloudflare",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api", "/api/*"]
+  },
+  "env": {
+    "staging": { "name": "kazmion-pos-v2-staging", "observability": { "enabled": true, "logs": { "invocation_logs": false } } },
+    "production": { "name": "kazmion-pos-v2-production", "observability": { "enabled": true, "logs": { "invocation_logs": false } } }
+  }
+}
