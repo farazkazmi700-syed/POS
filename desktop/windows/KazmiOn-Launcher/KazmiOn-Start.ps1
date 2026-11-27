@@ -3,7 +3,7 @@ param(
     [switch]$NoBrowser
 )
 $ErrorActionPreference = 'Stop'
-$root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$root = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $log = Join-Path $root 'KazmiOn-startup.log'
 $base = Join-Path $root 'docker/compose/compose.yaml'
 $prod = Join-Path $root 'docker/compose/docker-compose.prod.yml'

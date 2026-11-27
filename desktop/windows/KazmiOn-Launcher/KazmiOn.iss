@@ -7,20 +7,28 @@ AppVersion={#MyAppVersion}
 DefaultDirName={autopf}\KazmiOn
 DefaultGroupName=KazmiOn
 OutputDir=output
-OutputBaseFilename=desktop/windows/KazmiOn-Launcher-Setup
+OutputBaseFilename=KazmiOn-Launcher-Setup
 Compression=lzma2
 SolidCompression=yes
 PrivilegesRequired=admin
 
 [Files]
-Source: "desktop/windows/KazmiOn-Start.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "desktop/windows/KazmiOn-Launch.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "KazmiOn-Start.ps1"; DestDir: "{app}\desktop\windows\KazmiOn-Launcher"; Flags: ignoreversion onlyifdoesntexist uninsneveruninstall
+Source: "KazmiOn-Launch.bat"; DestDir: "{app}\desktop\windows\KazmiOn-Launcher"; Flags: ignoreversion onlyifdoesntexist uninsneveruninstall
 ; Full offline POS installer requires the application sources/images and Docker runtime provisioner.
-; This script installs ONLY the launcher; copy it to the existing POS repository root.
+; Select the root of an existing POS checkout when installing.
 
 [Icons]
-Name: "{group}\KazmiOn POS Launcher"; Filename: "{app}\desktop/windows/KazmiOn-Launch.bat"
-Name: "{autodesktop}\KazmiOn POS Launcher"; Filename: "{app}\desktop/windows/KazmiOn-Launch.bat"; Tasks: desktopicon
+Name: "{group}\KazmiOn POS Launcher"; Filename: "{app}\desktop\windows\KazmiOn-Launcher\KazmiOn-Launch.bat"
+Name: "{autodesktop}\KazmiOn POS Launcher"; Filename: "{app}\desktop\windows\KazmiOn-Launcher\KazmiOn-Launch.bat"; Tasks: desktopicon
 
 [Tasks]
 Name: desktopicon; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"
+
+[Code]
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  if not FileExists(ExpandConstant('{app}\docker\compose\compose.yaml')) then
+    Result := 'Select the root directory of an existing KazmiOn POS checkout.';
+end;
