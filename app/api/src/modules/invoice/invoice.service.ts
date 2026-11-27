@@ -1,10 +1,12 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Queue } from 'bullmq';
-import { createReadStream, existsSync } from 'fs';
-import { rm } from 'node:fs/promises';
+import { existsSync } from 'fs';
+import { open, rm } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import * as path from 'path';
 import { Model } from 'mongoose';
 import { InvoiceStatus } from '../../common/enums';
@@ -58,7 +60,7 @@ export class InvoiceService {
     this.r2Bucket = bucket;
   }
 
-  async purgeTenantInvoices(tenantId: string): Promise<void> {
+  async purgeTenantInvoices(tenantId: string, requestPostgresPurge: () => Promise<void>): Promise<void> {
     if (!/^[a-f0-9]{24}$/.test(tenantId)) throw new Error('Invalid tenant identity');
     if (this.config.get<string>('STORAGE_MODE', 'local') !== 'local') {
       throw new Error('Remote invoice cleanup is unavailable');
@@ -93,7 +95,16 @@ export class InvoiceService {
       await rm(directory, { recursive: true, force: true });
     }
 
-    await this.state.postgres?.purge(tenantId);
+    // PostgreSQL deletion is performed by the provisioner only after the trash sweep claims the business.
+    const postgres = this.state.postgres;
+    if (postgres) {
+      await requestPostgresPurge();
+      for (let attempt = 0; attempt < 10; attempt++) {
+        if (await postgres.invoicesPurged(tenantId)) return;
+        await delay(500);
+      }
+      throw new Error('Waiting for privileged invoice cleanup');
+    }
   }
 
   /** Queue PDF generation. Never throws: a queue outage must not fail a completed sale. */
@@ -161,9 +172,8 @@ export class InvoiceService {
           })),
         },
       };
-      // A timestamp in the job id lets "regenerate" re-run an order that already has a finished job.
       await this.queue.add('generate', data, {
-        jobId: `${order.id}-${Date.now()}`,
+        jobId: `${order.id}-${generation ?? randomUUID()}`,
         attempts: 3,
         backoff: { type: 'exponential', delay: 2000 },
         removeOnComplete: 100,
@@ -200,9 +210,10 @@ export class InvoiceService {
 
   /** Get PDF stream - works with both local and R2 storage */
   async getPdfStream(order: OrderDocument): Promise<Readable | null> {
-    if (order.invoiceStatus !== InvoiceStatus.Ready || !order.invoicePdfPath) {
-      throw new NotFoundException('Invoice PDF is not ready yet');
+    if (order.invoiceStatus !== InvoiceStatus.Ready) {
+      throw new ConflictException(order.invoiceStatus === InvoiceStatus.Failed ? 'Invoice generation failed. Request regeneration.' : 'Invoice PDF is being generated. Retry when it is ready.');
     }
+    if (!order.invoicePdfPath) throw new ServiceUnavailableException('The generated invoice is unavailable. Request regeneration.');
 
     const storageMode = this.config.get<string>('STORAGE_MODE', 'local');
     
@@ -210,7 +221,7 @@ export class InvoiceService {
       // R2 storage
       const object = await this.r2Bucket.get(order.invoicePdfPath);
       if (!object) {
-        throw new NotFoundException('Invoice PDF not found in R2');
+        throw new ServiceUnavailableException('The generated invoice is unavailable. Request regeneration.');
       }
       return Readable.fromWeb(object.body);
     }
@@ -233,11 +244,12 @@ export class InvoiceService {
       seen.add(key);
       const file = path.resolve(root, rel);
       if (file !== root && !file.startsWith(root + path.sep)) continue;
-      if (existsSync(file)) {
-        return createReadStream(file);
+      try { return (await open(file, 'r')).createReadStream(); }
+      catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       }
     }
-    throw new NotFoundException('Invoice PDF not found on disk');
+    throw new ServiceUnavailableException('The generated invoice is unavailable. Request regeneration.');
   }
 
   /** Get PDF as ArrayBuffer - works with both local and R2 storage */

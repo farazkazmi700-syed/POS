@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
-const { randomBytes, randomUUID } = require('node:crypto');
+const { createHash, randomBytes, randomUUID } = require('node:crypto');
 const fs = require('node:fs');
 const https = require('node:https');
 const os = require('node:os');
@@ -18,7 +18,7 @@ function docker(...args) {
 }
 
 function archive(...args) {
-  return execFileSync(process.execPath, [script, ...args], { encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  return execFileSync(process.execPath, [script, ...args], { encoding: 'utf8', timeout: 240_000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 }
 
 function listen(server) {
@@ -41,7 +41,7 @@ async function ready(container) {
   throw new Error('Isolated POS container did not become ready.');
 }
 
-test('authorized TLS access, concurrent sales, restart, and encrypted restore', { skip: !image, timeout: 600_000 }, async () => {
+test('authorized TLS access, concurrent sales, restart, and encrypted restore', { skip: !image, timeout: 900_000 }, async (t) => {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'pos-lan-rehearsal-'));
   const storage = fs.mkdtempSync(path.join(os.tmpdir(), 'pos-lan-archive-'));
   const identifier = randomBytes(5).toString('hex');
@@ -129,7 +129,7 @@ test('authorized TLS access, concurrent sales, restart, and encrypted restore', 
     assert.match((await api('/health')).headers['content-security-policy'], /script-src 'self'/);
     assert.equal((await api('/products')).status, 401);
 
-    docker('exec', '--user', 'node', '--workdir', '/app/api', source, 'node', '-e', `
+    const tenantId = docker('exec', '--user', 'node', '--workdir', '/app/api', source, 'node', '-e', `
       const fs = require('node:fs');
       const mongoose = require('mongoose');
       const bcrypt = require('bcryptjs');
@@ -145,8 +145,10 @@ test('authorized TLS access, concurrent sales, restart, and encrypted restore', 
           isActive: true, superAdmin: false, pinVersion: 0, sessionVersion: 0, pinRequiresChange: false, branchIds: [],
         });
         await db.close();
+        console.log(tenantId.toHexString());
       })().catch(() => process.exit(1));
     `);
+    assert.match(tenantId, /^[a-f0-9]{24}$/);
     // The local database provisioner discovers new businesses on a short interval.
     await pause(4000);
     const owner = await login(api, 'owner');
@@ -168,13 +170,19 @@ test('authorized TLS access, concurrent sales, restart, and encrypted restore', 
     assert.equal((await api('/orders', cashier, { ...checkout, idempotencyKey: randomUUID() })).status, 409);
     assert.equal((await api('/orders/' + orderId + '/refund', cashier, { reason: 'Denied' })).status, 403);
 
-    for (let i = 0; i < 30; i++) {
-      if ((await api('/orders/' + orderId + '/invoice', owner)).json?.status === 'ready') break;
+    let invoiceState;
+    for (let i = 0; i < 120; i++) {
+      const status = await api('/orders/' + orderId + '/invoice', owner);
+      assert.equal(status.status, 200);
+      invoiceState = status.json?.status;
+      if (invoiceState !== 'pending') break;
       await pause(1000);
     }
+    assert.equal(invoiceState, 'ready', 'The PDF worker must finish the committed sale invoice before backup');
     const pdf = await api('/orders/' + orderId + '/invoice/pdf', owner);
     assert.equal(pdf.status, 200);
     assert.equal(pdf.bytes.subarray(0, 5).toString(), '%PDF-');
+    t.diagnostic('The committed sale has a downloadable PDF.');
     assert.equal((await api('/auth/logout', cashier, {})).status, 201);
     assert.equal((await api('/auth/me', cashier)).status, 401);
 
@@ -196,6 +204,11 @@ test('authorized TLS access, concurrent sales, restart, and encrypted restore', 
     assert.throws(() => archive('backup', source, target, keyPath), /Stop the POS container/);
     docker('stop', '-t', '90', source);
     archive('backup', source, target, keyPath);
+    const archiveDigest = () => createHash('sha256').update(fs.readFileSync(target)).digest('hex');
+    const originalDigest = archiveDigest();
+    assert.throws(() => archive('backup', source, target, keyPath), /already exists/);
+    assert.equal(archiveDigest(), originalDigest);
+    t.diagnostic('The cold backup was published and a repeat attempt left it intact.');
     const wrongKey = path.join(scratch, 'wrong.key');
     archive('keygen', wrongKey);
     assert.throws(() => archive('restore', target, wrongKey, prefix), /authentication failed/);
@@ -213,7 +226,39 @@ test('authorized TLS access, concurrent sales, restart, and encrypted restore', 
     assert.equal(restoredOrder.json.grandTotal, replay.json.grandTotal);
     assert.equal((await restoredApi('/products/' + product.json._id, restoredOwner)).json.stockQty, 0);
     const restoredPdf = await restoredApi('/orders/' + orderId + '/invoice/pdf', restoredOwner);
+    assert.equal(restoredPdf.status, 200);
     assert.deepEqual(restoredPdf.bytes, pdf.bytes);
+    t.diagnostic('Restored order, stock, and PDF bytes match the source.');
+
+    docker('exec', '--user', 'node', '--workdir', '/app/api', restored, 'node', '-e', `
+      const assert = require('node:assert/strict');
+      const fs = require('node:fs');
+      const { setTimeout: delay } = require('node:timers/promises');
+      const { Client } = require(require.resolve('pg', { paths: [require.resolve('@pos/invoice-store')] }));
+      const { MongoClient, ObjectId } = require('mongodb');
+      (async () => {
+        const id = ${JSON.stringify(tenantId)};
+        const sql = new Client({ connectionString: fs.readFileSync('/run/pos/businesses/' + id, 'utf8') });
+        const mongo = new MongoClient(fs.readFileSync('/run/pos/app-uri', 'utf8'));
+        try {
+          await sql.connect(); await mongo.connect();
+          await assert.rejects(sql.query('DELETE FROM invoice_store.invoices WHERE false'), error => error.code === '42501');
+          const tenants = mongo.db().collection('tenants');
+          const past = new Date(Date.now() - 1000);
+          const claim = { status: 'suspended', trashedAt: past, purgeAt: past, purgeStartedAt: past, purgeLeaseUntil: new Date(Date.now() + 60_000) };
+          await tenants.updateOne({ _id: new ObjectId(id) }, { $set: claim });
+          await delay(2000);
+          assert.equal((await sql.query('SELECT invoices_purged_at FROM invoice_store.business')).rows[0].invoices_purged_at, null);
+          await tenants.updateOne({ _id: new ObjectId(id) }, { $set: { invoicePurgeRequestedAt: new Date() } });
+          for (let attempt = 0; attempt < 20; attempt++) {
+            if ((await sql.query('SELECT invoices_purged_at FROM invoice_store.business')).rows[0].invoices_purged_at) break;
+            await delay(500);
+          }
+          assert.ok((await sql.query('SELECT invoices_purged_at FROM invoice_store.business')).rows[0].invoices_purged_at);
+          assert.equal((await sql.query('SELECT order_id FROM invoice_store.invoices')).rowCount, 0);
+        } finally { await sql.end(); await mongo.close(); }
+      })().catch(error => { console.error(error.message); process.exitCode = 1; });
+    `);
   } finally {
     for (const server of servers) server.close();
     for (const container of born.reverse()) try { docker('rm', '-f', '-v', container); } catch {}

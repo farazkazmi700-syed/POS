@@ -102,7 +102,7 @@ export class TenantTrashService implements OnApplicationBootstrap, OnModuleDestr
         }, { $set: { purgeStartedAt: now, purgeLeaseUntil } }, { sort: { purgeAt: 1 }, returnDocument: 'after' });
         if (!tenant) break;
         try {
-          await this.purge(tenant._id);
+          await this.purge(tenant._id, purgeLeaseUntil);
           await this.tenants.deleteOne({ _id: tenant._id, purgeLeaseUntil });
         } catch {
           await this.tenants.updateOne({ _id: tenant._id, purgeLeaseUntil }, {
@@ -118,8 +118,13 @@ export class TenantTrashService implements OnApplicationBootstrap, OnModuleDestr
     }
   }
 
-  private async purge(tenantId: Types.ObjectId) {
-    await this.invoices.purgeTenantInvoices(tenantId.toHexString());
+  private async purge(tenantId: Types.ObjectId, purgeLeaseUntil: Date) {
+    await this.invoices.purgeTenantInvoices(tenantId.toHexString(), async () => {
+      const result = await this.tenants.updateOne({ _id: tenantId, purgeLeaseUntil }, {
+        $set: { invoicePurgeRequestedAt: new Date() },
+      });
+      if (!result.matchedCount) throw new Error('Tenant cleanup lease lost');
+    });
     for (const collection of TENANT_COLLECTIONS) await this.db.collection(collection).deleteMany({ tenantId });
 
     const users = this.db.collection('users');

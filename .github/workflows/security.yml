@@ -25,6 +25,7 @@ jobs:
           git checkout --quiet --detach FETCH_HEAD
       - run: bash .github/scripts/setup-node.sh
       - run: npm ci --prefix app/api
+      - run: npm run build --prefix app/api
       - run: npm run test:security
 
   dependencies:

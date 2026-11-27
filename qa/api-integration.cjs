@@ -88,16 +88,24 @@ async function main() {
   assert.ok(ready, `API did not become ready: ${output}`);
   await check('health and unauthenticated access', async () => { assert.equal((await request('/health')).status, 200); assert.equal((await request('/products')).status, 401); });
   if (!process.argv.includes('--appearance') && !process.argv.includes('--backup') && !process.argv.includes('--branches')) {
-    await check('license expiry blocks sign-in, existing business sessions, and refresh for only the expired tenant', async () => {
+    await check('expired businesses can sign in, read and export while business writes are blocked', async () => {
       const session = await loginSession(owners[0].email);
       const otherSession = await login(owners[1].email);
       await database.collection('tenants').updateOne({ _id: tenants[0]._id }, {
         $set: { licenseExpiresAt: new Date(Date.now() - 60_000) },
       });
       try {
-        assert.equal((await request('/auth/login', null, { email: owners[0].email, password: 'test-password-123' })).status, 401);
-        assert.equal((await request('/products', session.accessToken)).status, 401);
-        assert.equal((await request('/auth/refresh', null, { refreshToken: session.refreshToken })).status, 401);
+        const readOnly = await loginSession(owners[0].email);
+        assert.equal((await request('/products', session.accessToken)).status, 200);
+        assert.equal((await request('/auth/refresh', null, { refreshToken: session.refreshToken })).status, 201);
+        assert.equal((await request('/products', readOnly.accessToken, { name: 'Denied on expiry', price: 1 })).status, 403);
+        assert.equal((await request('/tenant/me', readOnly.accessToken, { name: 'Denied on expiry' }, 'PATCH')).status, 403);
+        const exported = await fetch(`http://127.0.0.1:${port}/api/support/backup?format=json`, {
+          headers: { Authorization: `Bearer ${readOnly.accessToken}` }, signal: AbortSignal.timeout(45000),
+        });
+        assert.equal(exported.status, 200);
+        assert.match(exported.headers.get('content-type'), /application\/zip/);
+        await exported.arrayBuffer();
         assert.equal((await request('/products', otherSession)).status, 200);
       } finally {
         await database.collection('tenants').updateOne({ _id: tenants[0]._id }, { $unset: { licenseExpiresAt: '' } });
@@ -498,7 +506,15 @@ async function main() {
   });
   await check('branch IDOR blocked and legacy stock belongs to default branch only', async () => { assert.equal((await request(`/products/${product._id}`, owner, undefined, 'GET', secondBranch.data._id)).status, 404); const newProduct = await request('/products', owner, { name: 'Branch item', price: 50, stockQty: 3 }, 'POST', secondBranch.data._id); assert.equal(newProduct.status, 201, JSON.stringify(newProduct.data)); assert.equal((await request(`/products/${newProduct.data._id}`, owner, undefined, 'GET', defaultBranch.data._id)).status, 404); assert.equal((await request('/products', otherOwner, undefined, 'GET', secondBranch.data._id)).status, 403); });
   await check('staff branch grants reject cross-tenant branches', async () => { const result = await request(`/auth/staff/${staffId}/rights`, owner, { moduleRights: ['pos', 'orders'], branchIds: [defaultBranch.data._id] }, 'PATCH'); assert.equal(result.status, 200, JSON.stringify(result.data)); const freshCashier = await login('cashier@spec.test'); assert.equal((await request('/products', freshCashier, undefined, 'GET', secondBranch.data._id)).status, 403); assert.equal((await request('/products', freshCashier, undefined, 'GET', defaultBranch.data._id)).status, 200); });
-  await check('license expiry blocks tenant operations and cannot be changed by owner', async () => { assert.equal((await request('/tenant/me', owner, { licenseExpiresAt: '2099-01-01' }, 'PATCH')).status, 400); assert.equal((await request(`/developer/businesses/${tenants[0]._id}`, developer, { licenseExpiresAt: '2020-01-01T00:00:00Z' }, 'PATCH')).status, 200); assert.equal((await request('/products', owner)).status, 401); await request(`/developer/businesses/${tenants[0]._id}`, developer, { licenseExpiresAt: '2099-01-01T00:00:00Z' }, 'PATCH'); });
+  await check('only the developer can change expiry, and renewal restores business writes', async () => {
+    assert.equal((await request('/tenant/me', owner, { licenseExpiresAt: '2099-01-01' }, 'PATCH')).status, 400);
+    const path = `/developer/businesses/${tenants[0]._id}`;
+    assert.equal((await request(path, developer, { licenseExpiresAt: '2020-01-01T00:00:00Z' }, 'PATCH')).status, 200);
+    assert.equal((await request('/products', owner)).status, 200);
+    assert.equal((await request('/tenant/me', owner, { name: 'Renewal fixture' }, 'PATCH')).status, 403);
+    assert.equal((await request(path, developer, { licenseExpiresAt: '2099-01-01T00:00:00Z' }, 'PATCH')).status, 200);
+    assert.equal((await request('/tenant/me', owner, { name: tenants[0].name }, 'PATCH')).status, 200);
+  });
   await check('audit trail records actions without credentials', async () => { const audit = await request('/audit', owner); assert.equal(audit.status, 200); assert.ok(audit.data.total >= 10); assert.ok(!JSON.stringify(audit.data).includes('test-password')); });
   const recoveryRequest = async (email, purpose = 'password', channel = 'email') => {
     await database.collection('users').updateOne({ email }, { $unset: { securityCodeRequestedAt: 1 } });

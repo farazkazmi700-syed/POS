@@ -1,5 +1,6 @@
 import type { R2Bucket } from '@cloudflare/workers-types';
 import fs from 'fs/promises';
+import { randomUUID } from 'node:crypto';
 import path from 'path';
 import { R2StorageService, createR2StorageService } from './r2-storage.service';
 
@@ -35,9 +36,17 @@ export async function savePdf(tenantId: string, invoiceNo: string, pdf: Buffer):
   const rel = path.join(tenantId, `${safeNo}.pdf`);
   const abs = path.join(ROOT, rel);
   await fs.mkdir(path.dirname(abs), { recursive: true });
-  const tmp = `${abs}.${process.pid}.tmp`;
-  await fs.writeFile(tmp, pdf);
-  await fs.rename(tmp, abs); // atomic: the API never serves a half-written file
+  const tmp = `${abs}.${randomUUID()}.tmp`;
+  try {
+    await fs.writeFile(tmp, pdf, { flag: 'wx', flush: true });
+    await fs.rename(tmp, abs);
+    if (process.platform === 'linux') {
+      const directory = await fs.open(path.dirname(abs), 'r');
+      try { await directory.sync(); } finally { await directory.close(); }
+    }
+  } finally {
+    await fs.rm(tmp, { force: true });
+  }
   return rel.split(path.sep).join('/');
 }
 

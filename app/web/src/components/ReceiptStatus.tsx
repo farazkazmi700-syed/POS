@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 import { invoiceApi } from '../api';
 import { errorMessage } from '../utils/errors';
 
@@ -14,9 +15,14 @@ export default function ReceiptStatus({ orderId, invoiceNo, canRetry }: { orderI
   });
   const open = useMutation({ mutationFn: () => invoiceApi.openPdf(orderId, invoiceNo) });
   const download = useMutation({ mutationFn: () => invoiceApi.downloadPdf(orderId, invoiceNo) });
-  const retry = useMutation({ mutationFn: () => invoiceApi.regenerate(orderId), onSuccess: () => status.refetch() });
+  const retry = useMutation({ mutationFn: () => invoiceApi.regenerate(orderId), onSuccess: () => {
+    open.reset();
+    download.reset();
+    return status.refetch();
+  } });
 
   const s = status.data?.status ?? 'pending';
+  const unavailable = [open.error, download.error].some(error => isAxiosError(error) && error.response?.status === 503);
   return (
     <div className="flex flex-wrap items-center gap-2">
       {s === 'pending' && <span className="text-sm text-amber-600">Generating receipt…</span>}
@@ -33,11 +39,12 @@ export default function ReceiptStatus({ orderId, invoiceNo, canRetry }: { orderI
       {s === 'failed' && (
         <>
           <span className="text-sm text-red-600">Receipt generation failed.</span>
-          {canRetry && (
-            <button className="btn-secondary" disabled={retry.isPending} onClick={() => retry.mutate()}>Retry</button>
-          )}
         </>
       )}
+      {canRetry && (s === 'failed' || unavailable) && (
+        <button className="btn-secondary" disabled={retry.isPending} onClick={() => retry.mutate()}>Regenerate receipt</button>
+      )}
+      {retry.isError && <span className="text-sm text-red-600">{errorMessage(retry.error)}</span>}
       {open.isError && <span className="text-sm text-red-600">{errorMessage(open.error)}</span>}
       {download.isError && <span className="text-sm text-red-600">{errorMessage(download.error)}</span>}
     </div>

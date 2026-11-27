@@ -2,6 +2,7 @@
 // Runs as the postgres OS account. API and worker only receive ordinary business logins.
 const fs = require('node:fs');
 const { createHmac } = require('node:crypto');
+const { BSON } = require('mongodb');
 const { setTimeout: delay } = require('node:timers/promises');
 const { Client } = require(require.resolve('pg', { paths: [require.resolve('@pos/invoice-store')] }));
 const schema = fs.readFileSync(require.resolve('@pos/invoice-store/schema.sql'), 'utf8');
@@ -46,7 +47,8 @@ async function provision(admin, id) {
     if (identity.rowCount !== 1 || identity.rows[0].tenant_id !== id) throw new Error('Business database identity mismatch');
     await target.query(`GRANT USAGE ON SCHEMA invoice_store TO "${role}"`);
     await target.query(`GRANT SELECT ON invoice_store.business TO "${role}"`);
-    await target.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON invoice_store.invoices TO "${role}"`);
+    await target.query(`REVOKE DELETE ON invoice_store.invoices FROM "${role}"`);
+    await target.query(`GRANT SELECT,INSERT,UPDATE ON invoice_store.invoices TO "${role}"`);
     await target.query(`GRANT SELECT,INSERT,UPDATE ON invoice_store.business_appearance TO "${role}"`);
     await target.query('COMMIT');
   } finally { await target.end(); }
@@ -55,9 +57,22 @@ async function provision(admin, id) {
   fs.renameSync(directory + '/' + id + '.tmp', directory + '/' + id);
 }
 
+async function purgeInvoices(id) {
+  const target = connect('kazmion_business_' + id);
+  try {
+    await target.connect();
+    // The identity update and invoice deletion succeed or roll back together.
+    await target.query(`WITH authorized AS (
+      UPDATE invoice_store.business SET invoices_purged_at=now()
+      WHERE tenant_id=$1 AND invoices_purged_at IS NULL RETURNING tenant_id
+    ) DELETE FROM invoice_store.invoices WHERE tenant_id IN (SELECT tenant_id FROM authorized)`, [id]);
+  } finally { await target.end(); }
+}
+
 async function serve() {
   const admin = connect('postgres');
   const ready = new Set();
+  const purged = new Set();
   try {
     await admin.connect();
     await admin.query("SELECT pg_advisory_lock(71139286)");
@@ -65,10 +80,20 @@ async function serve() {
       REVOKE ALL ON SCHEMA kazmion_control FROM PUBLIC;
       CREATE TABLE IF NOT EXISTS kazmion_control.business_databases(tenant_id text PRIMARY KEY CHECK(tenant_id ~ '^[a-f0-9]{24}$'))`);
     while (true) {
-      const tenants = await admin.query(`SELECT documentdb_core.bson_to_json_string(document)::text::jsonb->'_id'->>'$oid' AS id
+      const tenants = await admin.query(`SELECT documentdb_core.bson_to_json_string(document)::text AS tenant
         FROM documentdb_api.collection('pos','tenants')`);
-      for (const { id } of tenants.rows) {
+      for (const row of tenants.rows) {
+        const { _id, status, trashedAt, purgeAt, purgeStartedAt, purgeLeaseUntil, invoicePurgeRequestedAt } = BSON.EJSON.parse(row.tenant);
+        const id = _id?.toHexString();
         if (!ready.has(id)) { await provision(admin, id); ready.add(id); }
+        const now = Date.now();
+        if (!purged.has(id) && status === 'suspended' && trashedAt instanceof Date && trashedAt.getTime() <= now
+          && purgeAt instanceof Date && purgeAt.getTime() <= now && purgeStartedAt instanceof Date && purgeStartedAt.getTime() <= now
+          && purgeLeaseUntil instanceof Date && purgeLeaseUntil.getTime() > now
+          && invoicePurgeRequestedAt instanceof Date && invoicePurgeRequestedAt >= purgeStartedAt && invoicePurgeRequestedAt.getTime() <= now) {
+          await purgeInvoices(id);
+          purged.add(id);
+        }
       }
       fs.closeSync(fs.openSync(directory + '/ready', 'a', 0o640));
       await delay(1500);

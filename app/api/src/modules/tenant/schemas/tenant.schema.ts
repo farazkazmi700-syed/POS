@@ -100,6 +100,7 @@ export class Tenant {
   @Prop({ type: Date, default: null, index: true }) purgeAt?: Date | null;
   @Prop({ type: Date, default: null }) purgeStartedAt?: Date | null;
   @Prop({ type: Date, default: null }) purgeLeaseUntil?: Date | null;
+  @Prop({ type: Date, default: null }) invoicePurgeRequestedAt?: Date | null;
   @Prop() purgeError?: string;
   @Prop({ type: String, enum: ['active', 'suspended'] }) statusBeforeTrash?: 'active' | 'suspended';
   @Prop({ type: TenantFeatureFlagsSchema, default: () => ({}) }) featureFlags: TenantFeatureFlags;

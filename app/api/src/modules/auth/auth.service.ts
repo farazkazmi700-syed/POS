@@ -526,7 +526,6 @@ export class AuthService {
     if (!tenant || tenant.trashedAt || !hasTenantAccess(tenant.status, hasGlobalAccess)) {
       throw new UnauthorizedException('Business is suspended or unavailable');
     }
-    if (!hasGlobalAccess && tenant.licenseExpiresAt && tenant.licenseExpiresAt.getTime() <= Date.now()) throw new UnauthorizedException('Business license has expired');
   }
 
   private newEmailCode(): string {

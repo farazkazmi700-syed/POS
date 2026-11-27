@@ -1,8 +1,6 @@
-import { Controller, Get, Param, Post, Res } from '@nestjs/common';
+import { Controller, Get, Param, Post, ServiceUnavailableException, StreamableFile } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
-import { Response } from 'express';
-import { NotFoundException } from '@nestjs/common';
 import { AuthUser } from '../../common/auth-user';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -27,23 +25,15 @@ export class InvoiceController {
   }
 
   @Get('pdf')
-  async pdf(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string, @Res() res: Response) {
+  async pdf(@CurrentUser() user: AuthUser, @Param('id', ParseObjectIdPipe) id: string) {
     const order = await this.invoices.getOrder(user.tenantId, id, user.role === Role.Cashier ? user.userId : undefined);
     
-    try {
-      const stream = await this.invoices.getPdfStream(order);
-      if (!stream) {
-        throw new NotFoundException('Invoice PDF not found');
-      }
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename="${(order.invoiceNo || 'invoice').replace(/[^A-Za-z0-9._-]+/g, '_')}.pdf"`);
-      
-      stream.pipe(res);
-    } catch (error) {
-      if (error instanceof NotFoundException) throw error;
-      throw new NotFoundException('Invoice PDF not found');
-    }
+    const stream = await this.invoices.getPdfStream(order);
+    if (!stream) throw new ServiceUnavailableException('The generated invoice is unavailable. Request regeneration.');
+    return new StreamableFile(stream, {
+      type: 'application/pdf',
+      disposition: `inline; filename="${(order.invoiceNo || 'invoice').replace(/[^A-Za-z0-9._-]+/g, '_')}.pdf"`,
+    });
   }
 
   @Post('regenerate')

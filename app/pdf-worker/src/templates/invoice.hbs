@@ -206,10 +206,12 @@
   .tax-rate-chip { font-size: 7px; padding: 0 6px; }
   .inst-panel { padding: 5px; }
   .inst-summary td { padding: 3px; font-size: 8px; }
-  .sched-table th, .sched-table td { padding: 2px 3px; font-size: 7px; }
-  .pay-hist th, .pay-hist td { padding: 2px 3px; font-size: 7px; }
+  .sched-table, .pay-hist { table-layout: fixed; }
+  .sched-table th, .sched-table td, .pay-hist th, .pay-hist td { padding: 2px 3px; font-size: 7px; overflow-wrap: anywhere; }
   .sig-section { margin-top: 10px; padding-top: 8px; }
   .sig-label { margin-bottom: 16px; }
+  .sig-grid { table-layout: fixed; }
+  .sig-col { box-sizing: border-box; padding-right: 4px; overflow-wrap: anywhere; }
   .footer-section { margin-top: 8px; padding-top: 5px; }
   .qr { width: 48px; height: 48px; }
   .footer-text { font-size: 7.5px; }

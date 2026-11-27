@@ -15,9 +15,9 @@ const pgdata = locations.pgdata + '/cluster';
 
 function docker(args) {
   try {
-    return execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-  } catch {
-    throw new Error('Docker operation failed: ' + args.slice(0, 2).join(' '));
+    return execFileSync('docker', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 45_000 }).trim();
+  } catch (error) {
+    throw new Error('Docker operation ' + (error.code === 'ETIMEDOUT' ? 'timed out: ' : 'failed: ') + args.slice(0, 2).join(' '));
   }
 }
 
@@ -54,6 +54,8 @@ function assertShutdown(image, mountArgs) {
 async function backup(container, archivePath, keyPath) {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(container)) throw new Error('Invalid container name.');
   const key = await keyFor(archivePath, keyPath);
+  const existing = await fs.lstat(archivePath).catch(error => { if (error.code !== 'ENOENT') throw error; });
+  if (existing) throw new Error('A backup archive already exists at the destination.');
   const source = JSON.parse(docker(['inspect', '--type', 'container', '--format', '{{json .}}', container]));
   if (source.State.Status !== 'exited') throw new Error('Stop the POS container cleanly before taking a backup.');
   const image = source.Image;
@@ -71,30 +73,43 @@ async function backup(container, archivePath, keyPath) {
   const mountArgs = mounts.flatMap(mount => ['--mount', mount]);
   assertShutdown(image, mountArgs);
 
-  const output = await fs.open(archivePath, 'wx', 0o600);
+  const staging = await fs.mkdtemp(path.join(path.dirname(archivePath), '.kazmion-backup-'));
+  const temporary = path.join(staging, 'archive');
   try {
-    const nonce = randomBytes(12);
-    const header = Buffer.concat([magic, Buffer.from(image.slice(7)), nonce]);
-    const cipher = createCipheriv('aes-256-gcm', key, nonce);
-    cipher.setAAD(header);
-    await output.writeFile(header);
-    const { child, completion } = dockerStream(['run', '--rm', '--network', 'none', ...mountArgs,
-      '--entrypoint', 'tar', image, '-czf', '-', '-C', '/', ...archivePaths], true);
+    const output = await fs.open(temporary, 'wx', 0o600);
     try {
-      await pipeline(child.stdout, cipher, createWriteStream(null, { fd: output.fd, autoClose: false }));
-      if (!await completion) throw new Error('Docker could not archive the stopped POS volumes.');
-      await output.writeFile(cipher.getAuthTag());
-      await output.sync();
-    } catch (error) {
-      child.kill();
+      const nonce = randomBytes(12);
+      const header = Buffer.concat([magic, Buffer.from(image.slice(7)), nonce]);
+      const cipher = createCipheriv('aes-256-gcm', key, nonce);
+      cipher.setAAD(header);
+      await output.writeFile(header);
+      const { child, completion } = dockerStream(['run', '--rm', '--network', 'none', ...mountArgs,
+        '--entrypoint', 'tar', image, '-I', 'gzip -1', '-cf', '-', '-C', '/', ...archivePaths], true);
+      const idle = setTimeout(() => {
+        child.stdout.destroy(new Error('Docker archive stopped producing data.'));
+        child.kill();
+      }, 90_000);
+      cipher.on('data', () => idle.refresh());
+      try {
+        await pipeline(child.stdout, cipher, createWriteStream(null, { fd: output.fd, autoClose: false }));
+        if (!await completion) throw new Error('Docker could not archive the stopped POS volumes.');
+        await output.writeFile(cipher.getAuthTag());
+        await output.sync();
+      } catch (error) {
+        child.kill();
+        await completion;
+        throw error;
+      } finally { clearTimeout(idle); }
+    } finally { await output.close(); }
+    // Publish a complete archive without replacing an existing backup.
+    try { await fs.link(temporary, archivePath); }
+    catch (error) {
+      if (error.code === 'EEXIST') throw new Error('A backup archive already exists at the destination.');
       throw error;
     }
-  } catch (error) {
-    await output.close();
-    await fs.unlink(archivePath);
-    throw error;
   } finally {
-    await output.close();
+    await fs.unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error; });
+    await fs.rmdir(staging);
   }
   console.log('Encrypted backup complete.');
 }

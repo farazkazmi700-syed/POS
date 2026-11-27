@@ -81,9 +81,10 @@ class PostgresInvoiceStore {
       WHERE tenant_id=$1 AND order_id=$2 AND generation=$3 AND status='pending'`, [tenant, orderId, generation, status, pdfPath]);
     return result.rowCount === 1;
   }
-  async purge(tenant) {
+  async invoicesPurged(tenant) {
     identifier(tenant);
-    await this.query(tenant, 'DELETE FROM invoice_store.invoices WHERE tenant_id=$1', [tenant]);
+    const result = await this.query(tenant, 'SELECT invoices_purged_at IS NOT NULL AS purged FROM invoice_store.business WHERE tenant_id=$1', [tenant]);
+    return result.rows[0]?.purged === true;
   }
   async readAppearance(tenant) {
     const result = await this.query(tenant, 'SELECT preferences FROM invoice_store.business_appearance WHERE tenant_id = $1', [tenant]);

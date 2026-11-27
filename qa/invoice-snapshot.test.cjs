@@ -1,6 +1,14 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { InvoiceService } = require('../app/api/dist/modules/invoice/invoice.service');
+
+test('invoice downloads distinguish generation from unavailable storage', async () => {
+    const service = Object.create(InvoiceService.prototype);
+    for (const invoiceStatus of ['pending', 'failed']) {
+        await assert.rejects(service.getPdfStream({ invoiceStatus }), error => error.getStatus() === 409);
+    }
+    await assert.rejects(service.getPdfStream({ invoiceStatus: 'ready' }), error => error.getStatus() === 503);
+});
 test('includes saved customer, guarantor, serials and payment history without reading mutable customer/product records', async () => {
     const service = Object.create(InvoiceService.prototype);
     const plan = {

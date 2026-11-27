@@ -17,3 +17,11 @@
 - Build managed PostgreSQL tenant provisioning and credential lifecycle, private R2 storage, platform authentication and MFA, subscriptions and entitlement enforcement, and remaining business modules.
 - Reconcile imports and concurrent payments, verify tenant isolation and encrypted restore with disposable databases, and finish the dedicated security and deployment workflows.
 - Verify cloud integration after the account, zone, origin, and isolated services are available. Production deployment and paid resources require approval. No environment URL has been verified.
+
+## Corrections from release QA
+
+- Security CI builds the API before tests that import its compiled modules. The 58 mm template constrains payment and schedule tables and signature columns to the printable width.
+- Invoice bytes are flushed before an invoice becomes ready. The download endpoint distinguishes generation in progress from an unavailable stored PDF. The LAN rehearsal checks a ready PDF and verifies it byte for byte after encrypted restore.
+- PostgreSQL business roles can no longer delete invoice rows. The provisioner performs deletion after the tenant-trash sweep has validated retention, claimed the tenant, and requested invoice cleanup. The sweep waits for PostgreSQL confirmation before removing tenant records.
+- Expired licenses allow sign-in, reads, and authorized export. Business mutations require renewal. Suspended and trashed businesses retain their existing access restrictions.
+- Local validation passed all application builds and type checks, the API integration and security suites, and seven print formats in Edge and Chromium. The Docker rehearsal verified concurrent checkout, restart, encrypted backup, byte-identical PDF restore, runtime delete denial, and the privileged purge request. GitHub Actions and cloud deployment have yet to run on these changes.

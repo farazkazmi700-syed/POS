@@ -24,7 +24,7 @@ async function main() {
 
   const authorize = async (data: InvoiceJobData) => {
     const tenant = await mongo.db().collection('tenants').findOne({ _id: new ObjectId(data.tenant.id) });
-    if (!tenant || tenant.status === 'suspended' || (tenant.licenseExpiresAt && new Date(tenant.licenseExpiresAt).getTime() <= Date.now())) throw new Error('Business is unavailable');
+    if (!tenant || tenant.trashedAt || tenant.status === 'suspended') throw new Error('Business is unavailable');
     const keys = data.installment ? ['pos', 'installments'] : ['pos'];
     const active = await mongo.db().collection('platformmodules').countDocuments({ key: { $in: keys }, installed: true, isActive: true, releaseState: 'active' });
     if (active !== keys.length || keys.some((key) => tenant.featureFlags?.[key] === false)) throw new Error('Invoice module is unavailable');

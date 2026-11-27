@@ -82,7 +82,7 @@ export async function runWorker(env: Env): Promise<void> {
   
   const authorize = async (data: InvoiceJobData) => {
     const tenant = await mongo.db().collection('tenants').findOne({ _id: new ObjectId(data.tenant.id) });
-    if (!tenant || tenant.status === 'suspended' || (tenant.licenseExpiresAt && new Date(tenant.licenseExpiresAt).getTime() <= Date.now())) {
+    if (!tenant || tenant.trashedAt || tenant.status === 'suspended') {
       throw new Error('Business is unavailable');
     }
     const keys = data.installment ? ['pos', 'installments'] : ['pos'];

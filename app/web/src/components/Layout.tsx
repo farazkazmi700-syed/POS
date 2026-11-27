@@ -34,6 +34,7 @@ import {
 export default function Layout() {
   const { user, logout } = useAuth();
   const { tenant } = useTenant();
+  const licenseExpired = tenant?.licenseExpiresAt && Date.parse(tenant.licenseExpiresAt) <= Date.now();
   const { appearance, tenantId, query: appearanceQuery } = useBusinessAppearance();
   const draft = useAppearancePreview((state) => state.draft);
   const appearanceMode = useAppearanceMode((state) => state.mode);
@@ -495,6 +496,7 @@ export default function Layout() {
         {/* Page Content with safe padding for mobile bottom bar */}
         <a className="skip-link" href="#workspace-content">Skip to main content</a>
         <main id="workspace-content" tabIndex={-1} className="app-content mx-auto w-full max-w-7xl flex-1 px-3 py-4 sm:px-5 sm:py-6 pb-24 lg:pb-6">
+          {licenseExpired && <p role="status" className="card mb-4 text-sm">Your business license has expired. Records are read-only until renewal. Authorized exports are still available.</p>}
           <BranchSwitcher />
           <Outlet />
         </main>
